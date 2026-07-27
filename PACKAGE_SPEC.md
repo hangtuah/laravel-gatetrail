@@ -1,0 +1,1195 @@
+# GateTrail Package Specification
+
+## 1. Document status
+
+| Item | Value |
+|---|---|
+| Package | `hangtuah/laravel-gatetrail` |
+| Namespace | `HangTuah\GateTrail` |
+| Specification status | Draft |
+| Product status | Pre-alpha |
+| Target release | `0.1.0` foundation, `1.0.0` after an internal pilot |
+
+This specification defines the expected behavior of GateTrail before
+implementation begins. Where this document conflicts with implementation code,
+the conflict must be resolved explicitly rather than silently changing package
+behavior.
+
+## 2. Product definition
+
+GateTrail is a Laravel-native package for managing roles, permissions, and
+application authorization.
+
+It provides:
+
+- reusable role and permission models;
+- assignments between subjects, roles, and permissions;
+- effective-permission resolution;
+- Laravel Gate integration;
+- assignment and revocation history;
+- audit records for authorization mutations;
+- middleware and developer-facing APIs.
+
+GateTrail does not provide authentication or application-specific business
+policies.
+
+### 2.1 Database table overview
+
+GateTrail uses six package-owned tables by default:
+
+| Table | Purpose | Lifecycle |
+|---|---|---|
+| `acl_roles` | Stores role definitions | Active, soft-deleted, or restored |
+| `acl_permissions` | Stores permission definitions | Active, soft-deleted, or restored |
+| `acl_role_assignments` | Assigns roles to subjects and preserves assignment history | Scheduled, active, expired, or revoked |
+| `acl_permission_assignments` | Assigns permissions directly to subjects and preserves assignment history | Scheduled, active, expired, or revoked |
+| `acl_role_permissions` | Assigns permissions to roles and preserves assignment history | Scheduled, active, expired, or revoked |
+| `acl_access_audits` | Stores append-only records of RBAC mutations | Append-only |
+
+Relationship overview:
+
+```text
+Subject
+├── acl_role_assignments
+│   └── acl_roles
+│       └── acl_role_permissions
+│           └── acl_permissions
+└── acl_permission_assignments
+    └── acl_permissions
+
+All managed mutations
+└── acl_access_audits
+```
+
+The names above are the default table names. Consumers may configure table
+names before publishing and running the package migrations.
+
+## 3. Compatibility
+
+### 3.1 Initial support matrix
+
+| Dependency | Supported versions |
+|---|---|
+| PHP | `^8.3` |
+| Laravel | `^12.0 \| ^13.0` |
+| Orchestra Testbench | `^10.0 \| ^11.0` |
+| Oracle Database | 12c Release 2 or later |
+| Laravel Oracle driver | `yajra/laravel-oci8:^12.0 \| ^13.0` matching the Laravel major |
+| MySQL | 8.0 or later |
+| PostgreSQL | 14 or later |
+| SQL Server | 2017 or later |
+| SQLite | Current supported version for automated tests |
+
+Oracle, MySQL, PostgreSQL, and SQL Server are Tier 1 production databases.
+SQLite is a Tier 1 test database but is not the reference production database.
+
+### 3.2 Compatibility policy
+
+- GateTrail follows semantic versioning.
+- A Laravel major version is supported only when it is included in CI.
+- A database is supported only when migrations and behavioral tests run against
+  that database.
+- Package code should depend on individual `illuminate/*` components rather
+  than the complete `laravel/framework` package where practical.
+- Oracle support is tested through the matching major version of
+  `yajra/laravel-oci8`.
+- The Oracle driver is an integration dependency and must not force OCI8
+  installation on consumers that use another database.
+- SQL Server support requires the `sqlsrv` and `pdo_sqlsrv` PHP extensions and
+  the Microsoft SQL Server ODBC driver in the consuming environment.
+- The supported-version matrix may be narrowed before `1.0.0` if maintaining a
+  combination compromises correctness or security.
+
+### 3.3 Database portability rules
+
+Core behavior must not depend on a single database dialect.
+
+- Use Eloquent or Laravel Query Builder for normal package queries.
+- Keep vendor-specific SQL inside an explicit database adapter.
+- Do not use database functions such as `NOW()`, `SYSDATE`, or `GETDATE()` to
+  make authorization decisions.
+- Use the package clock and pass time values as bound parameters.
+- Do not rely on a database's default case sensitivity for role or permission
+  names.
+- Do not require native JSON query operators for core behavior.
+- Give every table, index, constraint, sequence, and trigger an explicit name of
+  30 characters or fewer.
+- Do not use quoted mixed-case database identifiers.
+- Run the same behavioral authorization suite against every Tier 1 database.
+
+### 3.4 Oracle integration
+
+Oracle support is a first-class requirement.
+
+GateTrail supports two Oracle provisioning modes:
+
+1. **Package-managed** — published GateTrail migrations create the required
+   tables and use Laravel-OCI8 schema support for Oracle-specific objects.
+2. **DBA-managed** — a DBA creates tables, indexes, constraints, sequences, and
+   triggers from the GateTrail schema contract before the application is
+   deployed.
+
+In DBA-managed mode:
+
+- GateTrail migrations for the existing objects are not executed;
+- the package does not require runtime permission to create or alter schema
+  objects;
+- DBA-owned triggers may populate primary keys from DBA-owned sequences;
+- configured sequence and trigger names must be supported;
+- `gatetrail:doctor` must validate the expected tables, columns, indexes, and
+  identifier configuration without modifying the schema;
+- GateTrail must provide a versioned schema manifest or reference DDL describing
+  the objects required by each package release.
+
+Oracle integration tests must cover:
+
+- inserts where a trigger populates the primary key;
+- Eloquent receiving the generated primary key after insert;
+- package-managed sequence/trigger behavior;
+- DBA-managed pre-existing sequence/trigger behavior;
+- transactions and rollback;
+- soft deletion;
+- CLOB audit payload casts;
+- date and timestamp comparisons;
+- unique active-assignment concurrency;
+- schema-qualified table names;
+- identifier length and Oracle name normalization.
+
+### 3.5 SQL Server integration
+
+SQL Server support is a first-class requirement and must use Laravel's native
+SQL Server connection through the `sqlsrv` driver.
+
+SQL Server integration tests must cover:
+
+- identity-generated primary keys and Eloquent receiving the generated ID;
+- transactions and rollback;
+- soft deletion;
+- portable text audit payload casts;
+- date and timestamp comparisons;
+- the SQL Server strategy for enforcing unique active assignments;
+- duplicate active-assignment concurrency;
+- schema-qualified table names;
+- case-insensitive collation behavior;
+- explicitly named identifiers of 30 characters or fewer.
+
+## 4. Terminology
+
+### Subject
+
+An Eloquent model that can receive roles or direct permissions. A typical
+subject is an application's user model, but GateTrail must not require the model
+to be named `User`.
+
+### Actor
+
+The person or process responsible for a mutation. An actor may be an Eloquent
+model or an explicit system actor.
+
+### Role
+
+A named collection of permissions that may be assigned to a subject.
+
+### Permission
+
+A named ability checked by an application, such as `documents.approve`.
+
+### Direct permission
+
+A permission assigned directly to a subject without being inherited from a
+role.
+
+### Role assignment
+
+A history-preserving relationship that grants a role to a subject.
+
+### Permission assignment
+
+A history-preserving relationship that grants a permission directly to a
+subject.
+
+### Role-permission assignment
+
+A history-preserving relationship that includes a permission in a role.
+
+### Active assignment
+
+An assignment that:
+
+- has not been revoked;
+- has started, or has no start time;
+- has not expired, or has no expiry time;
+- points to active role and permission records where applicable.
+
+### Effective permission
+
+A permission currently available to a subject through at least one active
+direct or role-based source.
+
+### Mutation
+
+An operation that creates, changes, assigns, grants, revokes, deactivates, or
+restores RBAC data.
+
+## 5. Core authorization rules
+
+### 5.1 Effective-permission formula
+
+```text
+Effective permissions
+= active direct permission assignments
++ permissions from active role assignments
+```
+
+A permission is allowed when at least one valid source grants it.
+
+### 5.2 Default deny
+
+GateTrail denies a managed permission unless an active source grants it.
+
+### 5.3 No explicit deny in the initial release
+
+The initial release does not support deny assignments or deny precedence.
+
+### 5.4 No implicit super administrator
+
+No role bypasses permission checks automatically. A super-administrator bypass
+is outside the initial scope and must not be inferred from a role name.
+
+### 5.5 Multiple sources
+
+The same permission may be available through multiple roles and a direct
+assignment. Revoking one source must not deny access while another active source
+still grants it.
+
+### 5.6 Subject-specific evaluation
+
+Authorization evaluates the subject passed to the resolver. It must never
+silently replace that subject with the globally authenticated user.
+
+The following must evaluate `$user`, even when another user is authenticated:
+
+```php
+$user->hasPermissionTo('documents.approve');
+Gate::forUser($user)->allows('documents.approve');
+```
+
+### 5.7 Permission names
+
+Permission names:
+
+- are non-empty strings;
+- are unique within a guard;
+- are compared exactly;
+- are normalized by trimming surrounding whitespace during creation;
+- are not automatically converted to upper or lower case;
+- should use dot-separated application conventions such as
+  `documents.approve`.
+
+Wildcard matching is not supported initially.
+
+### 5.8 Role names
+
+Role names:
+
+- are non-empty strings;
+- are unique within a guard;
+- are compared exactly;
+- are normalized by trimming surrounding whitespace during creation;
+- are not authorization bypasses by themselves.
+
+## 6. Guard behavior
+
+Roles and permissions are scoped by `guard_name`.
+
+- A role may only receive permissions from the same guard.
+- A subject may only receive roles and permissions compatible with its resolved
+  guard.
+- Cross-guard assignment throws a domain exception.
+- Role and permission uniqueness is enforced by `(name, guard_name)`.
+- The default guard is resolved from package configuration when the subject
+  does not provide one.
+
+Initial guard resolution order:
+
+1. a GateTrail-specific method on the subject;
+2. a GateTrail-specific property on the subject;
+3. package configuration;
+4. Laravel's default authentication guard.
+
+The exact method and property names will be finalized with the public API.
+
+## 7. Identifier strategy
+
+### 7.1 Package-owned records
+
+The initial schema uses 64-bit integer-compatible numeric primary keys for:
+
+- roles;
+- permissions;
+- assignments;
+- audit records.
+
+The physical column type is selected by the database adapter. For example,
+MySQL may use an unsigned big integer while Oracle may use a compatible
+`NUMBER` definition.
+
+### 7.2 Subject and actor identifiers
+
+The initial default migrations support numeric morph identifiers compatible
+with the selected database.
+
+Applications using UUID or ULID identifiers may publish and adjust migrations
+before running them. First-class UUID/ULID migration variants are outside
+`0.1.0` and should be considered before `1.0.0` based on pilot requirements.
+
+### 7.3 Morph types
+
+GateTrail uses Laravel polymorphic relationships for subjects and actors.
+Applications are encouraged to use Laravel morph maps so database values do not
+depend permanently on full PHP class names.
+
+### 7.4 Database identifier length
+
+All package-owned database identifiers must be 30 characters or fewer,
+including:
+
+- tables;
+- indexes;
+- unique constraints;
+- foreign-key constraints;
+- sequences;
+- triggers.
+
+Migrations must provide explicit, concise names for indexes and constraints
+instead of relying on framework-generated names.
+
+Default identifier examples:
+
+```text
+acl_role_name_guard_uq
+acl_perm_name_guard_uq
+acl_ra_subject_ix
+acl_ra_role_fk
+acl_pa_subject_ix
+acl_pa_perm_fk
+acl_rp_role_fk
+acl_rp_perm_fk
+acl_audit_actor_ix
+acl_audit_subject_ix
+```
+
+Default Oracle sequence and trigger names:
+
+| Table | Sequence | Trigger |
+|---|---|---|
+| `acl_roles` | `acl_roles_seq` | `acl_roles_trg` |
+| `acl_permissions` | `acl_perms_seq` | `acl_perms_trg` |
+| `acl_role_assignments` | `acl_role_asgn_seq` | `acl_role_asgn_trg` |
+| `acl_permission_assignments` | `acl_perm_asgn_seq` | `acl_perm_asgn_trg` |
+| `acl_role_permissions` | `acl_role_perm_seq` | `acl_role_perm_trg` |
+| `acl_access_audits` | `acl_audit_seq` | `acl_audit_trg` |
+
+Oracle object names must be configurable so a DBA can supply organization-owned
+sequence and trigger names.
+
+Package tooling should report configured identifiers that exceed the limit
+before migrations are run where practical. Consumers that override table or
+column names are responsible for preserving this compatibility rule.
+
+## 8. Data model
+
+### 8.1 Default tables
+
+```text
+acl_roles
+acl_permissions
+acl_role_assignments
+acl_permission_assignments
+acl_role_permissions
+acl_access_audits
+```
+
+Table names are configurable before migrations are run.
+
+### 8.2 Roles
+
+Minimum columns:
+
+```text
+id
+name
+guard_name
+description
+created_at
+updated_at
+deleted_at
+```
+
+Required constraints:
+
+```text
+acl_role_name_guard_uq: UNIQUE (name, guard_name)
+```
+
+### 8.3 Permissions
+
+Minimum columns:
+
+```text
+id
+name
+guard_name
+description
+created_at
+updated_at
+deleted_at
+```
+
+Required constraints:
+
+```text
+acl_perm_name_guard_uq: UNIQUE (name, guard_name)
+```
+
+### 8.4 Role assignments
+
+Minimum columns:
+
+```text
+id
+subject_type
+subject_id
+role_id
+assigned_at
+assigned_by_type
+assigned_by_id
+assignment_reason
+starts_at
+expires_at
+revoked_at
+revoked_by_type
+revoked_by_id
+revocation_reason
+created_at
+updated_at
+```
+
+### 8.5 Direct permission assignments
+
+Minimum columns:
+
+```text
+id
+subject_type
+subject_id
+permission_id
+assigned_at
+assigned_by_type
+assigned_by_id
+assignment_reason
+starts_at
+expires_at
+revoked_at
+revoked_by_type
+revoked_by_id
+revocation_reason
+created_at
+updated_at
+```
+
+### 8.6 Role-permission assignments
+
+Minimum columns:
+
+```text
+id
+role_id
+permission_id
+assigned_at
+assigned_by_type
+assigned_by_id
+assignment_reason
+starts_at
+expires_at
+revoked_at
+revoked_by_type
+revoked_by_id
+revocation_reason
+created_at
+updated_at
+```
+
+### 8.7 Audit records
+
+Minimum columns:
+
+```text
+id
+event
+actor_type
+actor_id
+subject_type
+subject_id
+target_type
+target_id
+before
+after
+reason
+context
+ip_address
+user_agent
+request_id
+created_at
+```
+
+The `before`, `after`, and `context` columns use portable text/CLOB storage with
+Laravel array or JSON casts. Core behavior must not require native JSON column
+types or database-specific JSON query operators.
+
+## 9. Lifecycle rules
+
+### 9.1 Role and permission lifecycle
+
+```text
+Active → Deactivated → Restored
+```
+
+Roles and permissions use Laravel soft deletion.
+
+- Deactivated roles do not grant permissions.
+- Deactivated permissions cannot be granted or allowed.
+- Restoring a role or permission does not silently restore previously revoked
+  assignments.
+- Deactivation and restoration are mutations and must be audited.
+
+### 9.2 Assignment lifecycle
+
+```text
+Scheduled → Active → Expired
+                   └→ Revoked
+```
+
+Assignments are not soft-deleted during normal package operation.
+
+### 9.3 Active-time calculation
+
+At time `T`, an assignment is active when:
+
+```text
+revoked_at IS NULL
+AND (starts_at IS NULL OR starts_at <= T)
+AND (expires_at IS NULL OR expires_at > T)
+```
+
+Expiry is exclusive. An assignment with `expires_at = T` is not active at `T`.
+
+### 9.4 Assignment periods
+
+- `expires_at` must be later than `starts_at` when both are provided.
+- An assignment may start immediately when `starts_at` is omitted.
+- An assignment may have no expiry.
+- A revoked assignment remains revoked even when its original expiry is in the
+  future.
+
+### 9.5 Revocation
+
+Revocation:
+
+- sets `revoked_at`;
+- records the revoking actor;
+- requires a reason by default;
+- does not delete the assignment;
+- invalidates affected authorization caches;
+- records an audit event.
+
+### 9.6 Reassignment
+
+When an equivalent revoked or expired assignment already exists, a new
+assignment record is created. Old history is not overwritten or reactivated.
+
+### 9.7 Duplicate active assignments
+
+GateTrail must prevent multiple equivalent active assignments.
+
+Prevention must use both:
+
+- application-level transactional validation; and
+- a database-supported uniqueness strategy appropriate to each supported
+  database.
+
+The exact database strategy will be documented in an architecture decision
+record before migrations are finalized.
+
+## 10. Mutation rules
+
+### 10.1 Managed operations
+
+GateTrail must provide managed operations for:
+
+- creating, updating, deactivating, and restoring roles;
+- creating, updating, deactivating, and restoring permissions;
+- assigning and revoking roles;
+- granting and revoking direct permissions;
+- granting and revoking permissions on roles.
+
+### 10.2 Actor and reason
+
+- Human-initiated mutations require an actor.
+- Assignment and revocation require a non-empty reason by default.
+- Automated processes use an explicit system actor/context.
+- Actor identity must not be inferred only from `Auth::user()`.
+- Configuration may relax reason requirements, but secure defaults remain
+  enabled.
+
+### 10.3 Transaction boundary
+
+Each mutation executes in one database transaction:
+
+```text
+Validate
+→ Persist mutation
+→ Persist audit
+→ Commit
+→ Invalidate cache
+→ Dispatch after-commit event
+```
+
+When strict audit mode is enabled, failure to persist the audit record rolls
+back the mutation.
+
+### 10.4 Direct relationship mutation
+
+GateTrail does not guarantee auditing or cache invalidation when a consumer
+directly calls low-level Eloquent methods such as `attach()`, `detach()`, or
+manual table updates.
+
+Documentation must direct consumers to managed package services. The package
+should make unsafe mutation paths difficult where practical.
+
+### 10.5 Idempotency
+
+- Repeating an active assignment request does not create a duplicate.
+- Revoking a non-active assignment throws a domain exception by default.
+- Repeating role or permission creation with an existing name throws a
+  duplicate exception.
+- Mutation results must be deterministic and tested under concurrency.
+
+## 11. Permission resolver
+
+### 11.1 Responsibility
+
+One resolver is the source of truth for:
+
+- direct permission checks;
+- permissions inherited through roles;
+- effective permission collections;
+- Gate integration;
+- middleware integration.
+
+### 11.2 Resolution algorithm
+
+For a subject and permission:
+
+1. Normalize the permission reference.
+2. Resolve the subject guard.
+3. Find an active permission in that guard.
+4. Check for an active direct assignment.
+5. Check active subject-role assignments.
+6. Exclude deactivated roles.
+7. Check active role-permission assignments.
+8. Allow when any active source is found.
+9. Deny otherwise.
+
+### 11.3 Initial resolver contract
+
+```php
+interface PermissionResolver
+{
+    public function allows(
+        mixed $subject,
+        Permission|string|int $permission,
+    ): bool;
+
+    public function effectivePermissions(mixed $subject): Collection;
+}
+```
+
+The implementation may use more specific contracts than the illustrative
+signature above. Public input types must be finalized before `0.1.0`.
+
+### 11.4 Time source
+
+Time-based authorization uses an injectable clock abstraction. Tests must not
+depend on the machine's current time.
+
+Point-in-time historical permission queries are not part of the initial public
+API.
+
+## 12. Laravel integration
+
+### 12.1 Subject concern
+
+An application subject uses a package concern:
+
+```php
+class User extends Authenticatable
+{
+    use HasGateTrail;
+}
+```
+
+The concern is a thin adapter. It delegates authorization to package services
+and does not contain an independent permission algorithm.
+
+### 12.2 Subject API
+
+Proposed methods:
+
+```php
+$user->hasRole('administrator');
+$user->hasAnyRole(['administrator', 'editor']);
+$user->hasAllRoles(['editor', 'reviewer']);
+$user->hasPermissionTo('documents.approve');
+$user->effectivePermissions();
+$user->roles();
+$user->directPermissions();
+$user->roleAssignments();
+$user->permissionAssignments();
+```
+
+Assignment mutations are performed through managed services rather than
+relationship methods.
+
+### 12.3 Gate integration
+
+GateTrail integrates through a centralized Laravel Gate hook.
+
+Rules:
+
+- when an ability matches an active GateTrail permission, return the resolver's
+  boolean decision;
+- when no GateTrail permission matches the ability, return `null`;
+- returning `null` allows normal Laravel gates and policies to continue;
+- GateTrail must not register every database permission during service-provider
+  boot;
+- GateTrail must not hide database or configuration failures.
+
+Expected usage:
+
+```php
+$user->can('documents.approve');
+Gate::forUser($user)->allows('documents.approve');
+Gate::authorize('documents.approve');
+```
+
+### 12.4 Policies
+
+GateTrail handles named permissions. Consumer applications remain responsible
+for resource and state rules:
+
+```php
+public function approve(User $user, Document $document): bool
+{
+    return $user->can('documents.approve')
+        && $document->isPending();
+}
+```
+
+### 12.5 Middleware
+
+Initial middleware:
+
+```text
+gatetrail.permission
+gatetrail.role
+```
+
+Expected route usage:
+
+```php
+Route::post('/documents/{document}/approve', ...)
+    ->middleware('gatetrail.permission:documents.approve');
+```
+
+Permission middleware accepts one or more permission names with explicitly
+documented any/all semantics.
+
+Unauthorized behavior:
+
+- unauthenticated subjects are handled by Laravel authentication middleware;
+- authenticated subjects without access receive an authorization exception;
+- the default HTTP response is 403;
+- redirect behavior is an application concern, not the package default.
+
+### 12.6 Blade
+
+Consumers should use Laravel's native directives:
+
+```blade
+@can('documents.approve')
+    <!-- Authorized content -->
+@endcan
+```
+
+Role-specific Blade directives may be provided for convenience, but Blade
+visibility is never considered the server-side security boundary.
+
+## 13. Audit requirements
+
+### 13.1 Required events
+
+Initial audit events:
+
+```text
+role.created
+role.updated
+role.deactivated
+role.restored
+permission.created
+permission.updated
+permission.deactivated
+permission.restored
+role.assigned
+role.revoked
+permission.granted_to_subject
+permission.revoked_from_subject
+permission.granted_to_role
+permission.revoked_from_role
+```
+
+### 13.2 Append-only behavior
+
+- Audit records are append-only through the public package API.
+- The audit model does not expose update or delete operations as normal package
+  behavior.
+- Audit pruning is not enabled by default.
+- Consumer retention policies must be explicit.
+
+### 13.3 Sensitive data
+
+Audit snapshots and context must exclude:
+
+- passwords;
+- access tokens;
+- private keys;
+- session identifiers;
+- raw request bodies;
+- fields configured as sensitive.
+
+### 13.4 Request metadata
+
+IP address, user agent, and request ID are captured when available. Their
+absence in CLI or queue execution does not invalidate the audit event.
+
+### 13.5 Strict mode
+
+Strict audit mode is enabled by default:
+
+```php
+'audit' => [
+    'enabled' => true,
+    'strict' => true,
+],
+```
+
+## 14. Cache behavior
+
+### 14.1 Correctness first
+
+The resolver must be correct without cross-request caching.
+
+### 14.2 Initial strategy
+
+GateTrail initially provides:
+
+1. request-level memoization;
+2. optional Laravel cache for effective permissions;
+3. automatic invalidation through managed mutations.
+
+### 14.3 Cache keys
+
+Cache keys include:
+
+```text
+guard
+subject type
+subject identifier
+```
+
+### 14.4 Invalidation
+
+Affected subject caches are invalidated after:
+
+- role assignment or revocation;
+- direct permission grant or revocation;
+- role-permission grant or revocation;
+- role deactivation or restoration;
+- permission deactivation or restoration.
+
+### 14.5 Expiry safety
+
+A cache entry must not remain valid beyond the nearest relevant assignment
+expiry unless another mechanism guarantees timely invalidation.
+
+## 15. Exceptions
+
+GateTrail uses specific domain exceptions. Initial exception categories:
+
+```text
+RoleNotFound
+PermissionNotFound
+DuplicateRole
+DuplicatePermission
+DuplicateActiveAssignment
+AssignmentNotActive
+InvalidAssignmentPeriod
+GuardMismatch
+InvalidSubject
+InvalidActor
+ReasonRequired
+AuditWriteFailed
+UnauthorizedMutation
+```
+
+Exceptions must provide safe diagnostic context without exposing sensitive
+data.
+
+## 16. Events
+
+Package domain events mirror successful mutations.
+
+Rules:
+
+- events are dispatched after the transaction commits;
+- an event is not dispatched for a rolled-back mutation;
+- event payloads include identifiers and safe context;
+- events do not replace persistent audit records;
+- consumers may use events for notifications or integrations.
+
+## 17. Configuration
+
+Proposed configuration sections:
+
+```php
+return [
+    'database' => [],
+    'models' => [],
+    'tables' => [],
+    'columns' => [],
+    'oracle' => [],
+    'guards' => [],
+    'assignments' => [],
+    'audit' => [],
+    'cache' => [],
+    'middleware' => [],
+    'sensitive_fields' => [],
+];
+```
+
+Configuration is publishable as:
+
+```text
+config/gatetrail.php
+```
+
+Database configuration must support:
+
+- a named Laravel connection;
+- an optional schema or table prefix;
+- package-managed or DBA-managed provisioning mode;
+- configurable Oracle sequence names;
+- configurable Oracle trigger names;
+- identifier-length validation.
+
+Environment variables should be reserved for operational settings, not used as
+a substitute for documented configuration.
+
+## 18. Console commands
+
+Commands planned across pre-`1.0.0` releases:
+
+```text
+gatetrail:install
+gatetrail:create-role
+gatetrail:create-permission
+gatetrail:matrix
+gatetrail:doctor
+gatetrail:cache-clear
+```
+
+Mutation commands require an explicit actor or system context and a reason when
+the equivalent service operation requires one.
+
+## 19. Security requirements
+
+GateTrail must:
+
+- apply default-deny authorization;
+- use bound query parameters or Eloquent;
+- avoid SQL string concatenation;
+- prevent cross-guard assignment;
+- prevent duplicate active assignments under concurrency;
+- prevent revoked, expired, future, or deactivated sources from granting access;
+- avoid global authenticated-user substitution;
+- keep authorization mutation and strict audit writes transactional;
+- prevent consumer input from selecting an arbitrary audit actor;
+- avoid silent super-administrator behavior;
+- document all bypass or extension points;
+- provide a security reporting process before public release.
+
+## 20. Testing requirements
+
+### 20.1 Unit tests
+
+- input normalization;
+- assignment time rules;
+- direct permission resolution;
+- role permission resolution;
+- multiple-source resolution;
+- guard matching;
+- exception behavior;
+- cache-key generation;
+- time abstraction.
+
+### 20.2 Integration tests
+
+- migrations;
+- Eloquent relationships;
+- mutation transactions;
+- audit persistence;
+- Laravel Gate;
+- `Gate::forUser`;
+- middleware;
+- Blade through Gate;
+- cache invalidation;
+- domain events after commit.
+
+### 20.3 Security regression tests
+
+- default deny;
+- revoked assignments;
+- expired assignments;
+- future assignments;
+- deactivated roles;
+- deactivated permissions;
+- cross-subject evaluation;
+- cross-guard isolation;
+- duplicate concurrent assignment;
+- strict audit rollback;
+- unsafe input handling.
+
+### 20.4 CI matrix
+
+CI must cover every advertised PHP and Laravel combination that Composer can
+validly install.
+
+Database-specific behavior must be tested against each advertised production
+database before `1.0.0`.
+
+Oracle and SQL Server are required in the pre-`1.0.0` CI or release-validation
+matrix. Neither database may be marked supported based only on SQLite, MySQL,
+or PostgreSQL test results.
+
+Oracle validation must use the supported Laravel-OCI8 major for each Laravel
+major:
+
+```text
+Laravel 12 → yajra/laravel-oci8 12.x
+Laravel 13 → yajra/laravel-oci8 13.x
+```
+
+## 21. Performance requirements
+
+- Permission checks must avoid an N+1 query per role.
+- Repeated checks within one request should use memoized results.
+- Cache invalidation must be deterministic.
+- Performance optimizations must preserve authorization parity with the
+  uncached resolver.
+- Benchmarks should record subject role count, permission count, query count,
+  cold-cache time, and warm-cache time.
+
+No performance claim may be published without a reproducible benchmark.
+
+## 22. Public API stability
+
+- APIs are experimental before `1.0.0`.
+- Public contracts, config keys, migration columns, events, and exception types
+  are part of the compatibility surface.
+- Internal classes should be marked and documented as internal where possible.
+- Consumers should depend on contracts rather than concrete services when an
+  extension point is intended.
+- Breaking changes require changelog entries and an upgrade guide.
+
+## 23. Explicit non-goals
+
+The initial release does not include:
+
+- authentication or session management;
+- an administration UI;
+- application-specific authorization policies;
+- explicit deny rules;
+- wildcard permissions;
+- role hierarchy;
+- team or tenant-scoped roles;
+- approval workflows;
+- separation-of-duties rules;
+- a super-administrator bypass;
+- point-in-time historical authorization queries;
+- guaranteed UUID/ULID migration variants;
+- automatic audit pruning;
+- support for every database engine.
+
+## 24. Open architecture decisions
+
+The following decisions must be recorded before their implementation is
+finalized:
+
+1. database strategy for unique active assignments;
+2. exact public mutation service names and signatures;
+3. subject guard method/property names;
+4. permission middleware any/all syntax;
+5. cache store, TTL, and role-change fan-out strategy;
+6. actor representation for automated processes;
+7. whether UUID/ULID migration variants are required before `1.0.0`;
+8. minimum audit snapshot content;
+9. package behavior when direct database mutation is detected;
+10. whether role convenience directives belong in the core package.
+
+Architecture decisions will be stored under:
+
+```text
+docs/decisions/
+```
+
+## 25. Acceptance criteria for implementation start
+
+Implementation may begin when:
+
+- the owner approves this specification;
+- compatibility targets are accepted;
+- effective-permission rules are unambiguous;
+- lifecycle and revocation behavior are accepted;
+- initial public API direction is accepted;
+- non-goals are accepted;
+- open architecture decisions required by the first vertical slice are
+  identified.
+
+## 26. First vertical slice
+
+The first implementation milestone must prove this flow:
+
+```text
+Create role
+→ Create permission
+→ Grant permission to role with actor and reason
+→ Assign role to subject with actor and reason
+→ Laravel Gate allows the permission
+→ Revoke the role assignment
+→ Laravel Gate denies the permission
+→ Assignment history remains
+→ Audit records contain actor and reason
+```
+
+The vertical slice is complete only when it is covered by automated integration
+tests.
