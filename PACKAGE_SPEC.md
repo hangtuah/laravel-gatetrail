@@ -35,7 +35,7 @@ policies.
 
 ### 2.1 Database table overview
 
-GateTrail uses six package-owned tables by default:
+GateTrail uses seven package-owned tables by default:
 
 | Table | Purpose | Lifecycle |
 |---|---|---|
@@ -44,6 +44,7 @@ GateTrail uses six package-owned tables by default:
 | `acl_role_assignments` | Assigns roles to subjects and preserves assignment history | Scheduled, active, expired, or revoked |
 | `acl_permission_assignments` | Assigns permissions directly to subjects and preserves assignment history | Scheduled, active, expired, or revoked |
 | `acl_role_permissions` | Assigns permissions to roles and preserves assignment history | Scheduled, active, expired, or revoked |
+| `acl_assignment_locks` | Serializes mutations for equivalent assignment scopes | Persistent coordination data |
 | `acl_access_audits` | Stores append-only records of RBAC mutations | Append-only |
 
 Relationship overview:
@@ -56,6 +57,9 @@ Subject
 │           └── acl_permissions
 └── acl_permission_assignments
     └── acl_permissions
+
+Managed assignment mutations
+└── acl_assignment_locks
 
 All managed mutations
 └── acl_access_audits
@@ -147,6 +151,8 @@ Oracle integration tests must cover:
 - Eloquent receiving the generated primary key after insert;
 - package-managed sequence/trigger behavior;
 - DBA-managed pre-existing sequence/trigger behavior;
+- coordination-row creation and locking in package-managed and DBA-managed
+  schemas;
 - transactions and rollback;
 - soft deletion;
 - CLOB audit payload casts;
@@ -167,7 +173,7 @@ SQL Server integration tests must cover:
 - soft deletion;
 - portable text audit payload casts;
 - date and timestamp comparisons;
-- the SQL Server strategy for enforcing unique active assignments;
+- assignment coordination-row creation and locking;
 - duplicate active-assignment concurrency;
 - schema-qualified table names;
 - case-insensitive collation behavior;
@@ -390,6 +396,9 @@ Default Oracle sequence and trigger names:
 | `acl_role_permissions` | `acl_role_perm_seq` | `acl_role_perm_trg` |
 | `acl_access_audits` | `acl_audit_seq` | `acl_audit_trg` |
 
+`acl_assignment_locks` uses a composite primary key and does not require an
+Oracle sequence or trigger.
+
 Oracle object names must be configurable so a DBA can supply organization-owned
 sequence and trigger names.
 
@@ -407,6 +416,7 @@ acl_permissions
 acl_role_assignments
 acl_permission_assignments
 acl_role_permissions
+acl_assignment_locks
 acl_access_audits
 ```
 
@@ -547,6 +557,34 @@ The `before`, `after`, and `context` columns use portable text/CLOB storage with
 Laravel array or JSON casts. Core behavior must not require native JSON column
 types or database-specific JSON query operators.
 
+### 8.8 Assignment coordination locks
+
+Minimum columns:
+
+```text
+assignment_kind
+scope_hash
+scope_key
+created_at
+updated_at
+```
+
+Required constraints:
+
+```text
+acl_asgn_locks_pk: PRIMARY KEY (assignment_kind, scope_hash)
+```
+
+The coordination row serializes managed mutations for one equivalent assignment
+scope. `scope_hash` is a lowercase hexadecimal SHA-256 digest of the canonical
+scope key. `scope_key` uses portable text/CLOB storage and permits collision
+detection after lookup.
+
+Coordination rows are persistent package state and are not deleted during
+normal operation. Their construction, locking, retry, and period-overlap rules
+are defined by
+[ADR 0001](docs/decisions/0001-unique-active-assignments.md).
+
 ## 9. Lifecycle rules
 
 ### 9.1 Role and permission lifecycle
@@ -615,11 +653,11 @@ GateTrail must prevent multiple equivalent active assignments.
 Prevention must use both:
 
 - application-level transactional validation; and
-- a database-supported uniqueness strategy appropriate to each supported
-  database.
+- a database-enforced unique coordination key and pessimistic mutation lock.
 
-The exact database strategy will be documented in an architecture decision
-record before migrations are finalized.
+Equivalent scopes, assignment-period overlap, database adapters, and retry
+behavior are defined by
+[ADR 0001](docs/decisions/0001-unique-active-assignments.md).
 
 ## 10. Mutation rules
 
@@ -1021,6 +1059,10 @@ gatetrail:cache-clear
 Mutation commands require an explicit actor or system context and a reason when
 the equivalent service operation requires one.
 
+`gatetrail:doctor` must validate the assignment coordination table and report
+missing or malformed coordination rows and overlapping equivalent assignments
+without modifying them.
+
 ## 19. Security requirements
 
 GateTrail must:
@@ -1051,12 +1093,16 @@ GateTrail must:
 - exception behavior;
 - cache-key generation;
 - time abstraction.
+- canonical assignment scope keys and hashes;
+- half-open assignment-period overlap rules.
 
 ### 20.2 Integration tests
 
 - migrations;
 - Eloquent relationships;
 - mutation transactions;
+- assignment coordination-row locking;
+- assignment scheduling with overlapping and adjacent periods;
 - audit persistence;
 - Laravel Gate;
 - `Gate::forUser`;
@@ -1076,6 +1122,8 @@ GateTrail must:
 - cross-subject evaluation;
 - cross-guard isolation;
 - duplicate concurrent assignment;
+- coordination hash mismatch;
+- bounded concurrency retry exhaustion;
 - strict audit rollback;
 - unsafe input handling.
 
@@ -1145,16 +1193,15 @@ The initial release does not include:
 The following decisions must be recorded before their implementation is
 finalized:
 
-1. database strategy for unique active assignments;
-2. exact public mutation service names and signatures;
-3. subject guard method/property names;
-4. permission middleware any/all syntax;
-5. cache store, TTL, and role-change fan-out strategy;
-6. actor representation for automated processes;
-7. whether UUID/ULID migration variants are required before `1.0.0`;
-8. minimum audit snapshot content;
-9. package behavior when direct database mutation is detected;
-10. whether role convenience directives belong in the core package.
+1. exact public mutation service names and signatures;
+2. subject guard method/property names;
+3. permission middleware any/all syntax;
+4. cache store, TTL, and role-change fan-out strategy;
+5. actor representation for automated processes;
+6. whether UUID/ULID migration variants are required before `1.0.0`;
+7. minimum audit snapshot content;
+8. package behavior when direct database mutation is detected;
+9. whether role convenience directives belong in the core package.
 
 Architecture decisions will be stored under:
 
