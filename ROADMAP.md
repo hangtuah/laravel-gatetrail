@@ -261,8 +261,10 @@ Cache strategy should wait until the uncached resolver exists and is measured.
 - [x] An independent specification review brief and structured response
   template are available at
   `docs/reviews/0001-specification-review-brief.md`.
-- [ ] One independent developer reviews the charter and package specification.
-- [ ] Review feedback is resolved or recorded.
+- [x] One independent developer reviews the charter and package specification.
+- [x] Review feedback is recorded in
+  `docs/reviews/0001-specification-review-disposition.md`.
+- [ ] Accepted review findings are resolved or explicitly deferred.
 - [ ] Specification status is changed from Draft when freeze criteria are met.
 
 ### Exit criteria
