@@ -79,7 +79,7 @@ names before publishing and running the package migrations.
 | Orchestra Testbench | `^10.0 \| ^11.0` |
 | Oracle Database | 12c Release 2 or later |
 | Laravel Oracle driver | `yajra/laravel-oci8:^12.0 \| ^13.0` matching the Laravel major |
-| MySQL | 8.0 or later |
+| MySQL | 8.0.16 or later |
 | PostgreSQL | 14 or later |
 | SQL Server | 2017 or later |
 | SQLite | Current supported version for automated tests |
@@ -101,6 +101,8 @@ SQLite is a Tier 1 test database but is not the reference production database.
   installation on consumers that use another database.
 - SQL Server support requires the `sqlsrv` and `pdo_sqlsrv` PHP extensions and
   the Microsoft SQL Server ODBC driver in the consuming environment.
+- MySQL 8.0.16 is the minimum because earlier MySQL 8.0 releases do not enforce
+  the `CHECK` constraints required by the canonical schema manifest.
 - The supported-version matrix may be narrowed before `1.0.0` if maintaining a
   combination compromises correctness or security.
 

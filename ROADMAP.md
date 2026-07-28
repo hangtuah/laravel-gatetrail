@@ -57,7 +57,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 |---|---:|---|
 | Overall roadmap by primary phases | Approximately 23% | Phase-weighted progress across Phases 0–13 |
 | Deliverable tracker | 9 of 32, approximately 28% | Completed concrete package deliverables |
-| Planning and specification | Approximately 85% | Charter, specification, and five accepted ADRs |
+| Planning and specification | Approximately 90% | Charter, specification, five accepted ADRs, and the provisioning contract |
 | First sprint | 9 of 10, 90% | Repository-and-specification sprint tasks |
 
 These percentages measure different things and must not be combined.
@@ -72,7 +72,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 0 | Ownership and product decisions | 100% | Complete |
 | 1 | Package specification | 80% | In progress |
 | 2 | Repository and development tooling | 100% | Complete |
-| 3 | Database and assignment lifecycle | 40% | In progress |
+| 3 | Database and assignment lifecycle | 45% | In progress |
 | 4 | Mutation services | 0% | Not started |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
@@ -135,8 +135,8 @@ Intentional variations so far:
 These variations do not skip implementation evidence or move production
 integration ahead of package foundations.
 
-The project should now return to Phase 2 rather than continue designing distant
-features such as cache optimization.
+The project is now implementing Phase 3 rather than designing distant features
+such as cache optimization.
 
 ## 6. Immediate action queue
 
@@ -153,12 +153,15 @@ Completed in the current tooling increment:
 - [x] Implement the first versioned package migrations.
 - [x] Verify migration and rollback behavior in the SQLite package suite.
 - [x] Add the database-neutral schema manifest.
+- [x] Implement the first vendor DBA DDL compiler from the canonical manifest.
+- [x] Define the read-only schema-inspector contract.
 
 Next:
 
 1. Obtain one independent developer review of the charter and specification.
-2. Implement the first vendor DBA DDL compiler from the canonical manifest.
-3. Define the read-only schema-inspector contract.
+2. Publish versioned MySQL install and rollback artifacts from the compiler.
+3. Implement the MySQL catalog inspector and exercise it against a real server.
+4. Add the next Tier 1 compiler without changing the canonical manifest.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
 
@@ -432,10 +435,16 @@ acl_access_audits
 - The full suite passes on Laravel 12/Testbench 10 and Laravel 13/Testbench 11.
 - Manifest conformance tests compare migrated columns, nullability, indexes,
   dependency order, and rollback order with the canonical schema contract.
+- The MySQL compiler generates dependency-ordered install and reverse-order
+  rollback DDL directly from the canonical manifest.
+- The read-only inspection contract reports schema differences without mutating
+  DBA-managed objects.
 
 Production database adapters are not marked verified until their integration
-suites pass. Vendor DBA DDL, read-only schema inspection, and Oracle
-sequence/trigger behavior remain open.
+suites pass. The MySQL compiler is unit-tested but still requires versioned
+artifacts, a catalog inspector, and live integration evidence. The remaining
+Tier 1 compilers and inspectors, including Oracle sequence/trigger behavior,
+remain open.
 
 ### Exit criteria
 
