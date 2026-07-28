@@ -227,6 +227,35 @@ Vendor operational notes must state version requirements, execution order,
 runtime privilege expectations, transaction limitations, backup responsibility,
 and rollback risk. Generated SQL must not be edited manually.
 
+### 3.8 Read-only schema inspection
+
+DBA-managed environments must be inspectable without granting GateTrail schema
+mutation privileges. A vendor inspector reads catalog metadata and compares it
+with the canonical manifest.
+
+The MySQL inspector queries `information_schema` using the connection's current
+database, or the explicitly configured GateTrail schema when present. It
+validates:
+
+- required tables and canonical columns;
+- column types, lengths, nullability, auto-increment behavior, and exact-name
+  collation;
+- required indexes and their ordered columns;
+- primary, unique, foreign-key, and check constraints;
+- referenced tables and columns;
+- restrictive foreign-key update and delete rules;
+- canonical check expressions.
+
+Missing or mismatched required objects fail inspection. Unexpected columns also
+fail strict conformance because a non-canonical column can change insert
+behavior. Additional indexes are permitted because an organization may add
+performance indexes without changing GateTrail's data contract.
+
+Inspection must use read queries only. It must never create, alter, drop,
+rename, disable, or repair an object. Catalog inspection passing is unit-level
+evidence; a database adapter is not marked verified until the same inspection
+runs successfully against its real supported database versions.
+
 ## 4. Terminology
 
 ### Subject
