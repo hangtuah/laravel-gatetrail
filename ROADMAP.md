@@ -57,7 +57,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 |---|---:|---|
 | Overall roadmap by primary phases | Approximately 24% | Phase-weighted progress across Phases 0–13 |
 | Deliverable tracker | 9 of 32, approximately 28% | Completed concrete package deliverables |
-| Planning and specification | Approximately 90% | Charter, specification, five accepted ADRs, and the provisioning contract |
+| Planning and specification | Approximately 90% | Charter, specification, six accepted ADRs, and the provisioning contract |
 | First sprint | 9 of 10, 90% | Repository-and-specification sprint tasks |
 
 These percentages measure different things and must not be combined.
@@ -108,6 +108,7 @@ Completed documents:
 - `docs/decisions/0003-subject-guard-resolution.md`
 - `docs/decisions/0004-middleware-any-all-syntax.md`
 - `docs/decisions/0005-actor-identity-representation.md`
+- `docs/decisions/0006-oracle-generated-key-strategy.md`
 
 Accepted architecture decisions:
 
@@ -118,6 +119,7 @@ Accepted architecture decisions:
 | 0003 | Resolve one stable guard for each subject | Accepted |
 | 0004 | Use explicit middleware aliases for singular, any, and all checks | Accepted |
 | 0005 | Store human and system actor identities as portable strings | Accepted |
+| 0006 | Support explicit Oracle identity and sequence-trigger generated-key strategies | Accepted |
 
 ## 5. Roadmap adherence
 
@@ -165,11 +167,13 @@ Completed in the current tooling increment:
   Laravel 13.
 - [x] Add a four-lane MySQL 8.0.16/8.0.45 integration matrix to CI.
 - [x] Confirm remote CI run `#15` passes all MySQL and Laravel matrix lanes.
+- [x] Accept the Oracle generated-key strategy and ownership contract.
 
 Next:
 
 1. Obtain one independent developer review of the charter and specification.
-2. Add the next Tier 1 compiler without changing the canonical manifest.
+2. Implement the Oracle compiler for the accepted identity and
+   sequence-trigger strategies without changing the canonical manifest.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
 
@@ -428,6 +432,7 @@ acl_access_audits
 - duplicate active-assignment concurrency;
 - portable identifiers and explicit constraint names;
 - Oracle sequence/trigger behavior;
+- Oracle identity behavior;
 - SQL Server identity behavior;
 - schema-qualified tables;
 - audit text/CLOB casts.
@@ -464,7 +469,13 @@ acl_access_audits
 Production database adapters are not marked verified until their integration
 suites pass. The MySQL minimum and current 8.0 endpoints are verified locally
 and in the remote CI matrix. The remaining Tier 1 compilers and inspectors,
-including Oracle sequence/trigger behavior, remain open.
+including both Oracle generated-key strategies, remain open.
+
+ADR 0006 fixes the Oracle generated-key contract before adapter implementation:
+one selected strategy per schema, `sequence_trigger` as the initial default,
+distinct versioned artifacts for both supported strategies, and fail-closed
+read-only inspection. No Oracle strategy is verified until its live integration
+evidence exists.
 
 ### Exit criteria
 

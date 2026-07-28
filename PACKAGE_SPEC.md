@@ -170,12 +170,34 @@ Configured sequence and trigger names must be supported. A future
 `gatetrail:doctor` command validates expected objects and identifier
 configuration without modifying the schema.
 
+The Oracle adapter supports two explicit, schema-wide generated-key
+strategies:
+
+```text
+identity
+sequence_trigger
+```
+
+`sequence_trigger` is the initial default. The selected strategy affects only
+Oracle physical DDL and inspection; it does not change the database-neutral
+manifest or the public PHP API. A schema must not mix strategies across
+generated-ID tables.
+
+Distinct versioned DBA artifacts are published for each strategy. The
+`identity` inspector validates identity-column metadata without depending on
+Oracle-generated internal sequence names. The `sequence_trigger` inspector
+validates the configured sequence and trigger objects. Full strategy,
+ownership, inspection, and rollback rules are defined by
+[ADR 0006](docs/decisions/0006-oracle-generated-key-strategy.md).
+
 Oracle integration tests must cover:
 
-- inserts where a trigger populates the primary key;
+- inserts where the selected strategy populates the primary key;
 - Eloquent receiving the generated primary key after insert;
-- package-managed sequence/trigger behavior;
-- DBA-managed pre-existing sequence/trigger behavior;
+- package-managed identity and sequence/trigger behavior;
+- DBA-managed pre-existing identity and sequence/trigger behavior;
+- explicit-ID preservation in sequence/trigger mode;
+- generated-key strategy mismatch detection;
 - coordination-row creation and locking in package-managed and DBA-managed
   schemas;
 - transactions and rollback;
@@ -526,7 +548,10 @@ Default Oracle sequence and trigger names:
 Oracle sequence or trigger.
 
 Oracle object names must be configurable so a DBA can supply organization-owned
-sequence and trigger names.
+sequence and trigger names. These names apply only when the
+`sequence_trigger` generated-key strategy is selected. The `identity` strategy
+uses Oracle-owned internal identity objects and GateTrail does not configure or
+manage those internal names.
 
 Package tooling should report configured identifiers that exceed the limit
 before migrations are run where practical. Consumers that override table or
@@ -1288,7 +1313,11 @@ return [
     'models' => [],
     'tables' => [],
     'columns' => [],
-    'oracle' => [],
+    'oracle' => [
+        'generated_keys' => 'sequence_trigger',
+        'sequences' => [],
+        'triggers' => [],
+    ],
     'guards' => [
         'default' => null,
         'subjects' => [
@@ -1314,6 +1343,7 @@ Database configuration must support:
 - a named Laravel connection;
 - an optional schema or table prefix;
 - package-managed or DBA-managed provisioning mode;
+- a validated Oracle generated-key strategy;
 - configurable Oracle sequence names;
 - configurable Oracle trigger names;
 - identifier-length validation.
