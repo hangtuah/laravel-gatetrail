@@ -13,6 +13,15 @@ docker compose -f compose.mysql.yml up -d --wait
 composer test:mysql
 ```
 
+Override the image to exercise the minimum supported version:
+
+```bash
+GATETRAIL_MYSQL_VERSION=8.0.16 \
+docker compose -f compose.mysql.yml up -d --force-recreate --wait
+
+composer test:mysql
+```
+
 Stop and remove the service:
 
 ```bash

@@ -2,7 +2,7 @@ name: gatetrail
 
 services:
   mysql:
-    image: mysql:8.0.45
+    image: mysql:${GATETRAIL_MYSQL_VERSION:-8.0.45}
     container_name: gatetrail-mysql
     environment:
       MYSQL_ROOT_PASSWORD: ${GATETRAIL_MYSQL_ROOT_PASSWORD:-gatetrail_root_test}

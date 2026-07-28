@@ -101,3 +101,78 @@ jobs:
 
       - name: Run tests
         run: composer test
+
+  mysql-integration:
+    name: Laravel ${{ matrix.laravel-major }} / MySQL ${{ matrix.mysql }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - laravel-major: '12'
+            laravel: '^12.0'
+            testbench: '^10.0'
+            mysql: '8.0.16'
+          - laravel-major: '12'
+            laravel: '^12.0'
+            testbench: '^10.0'
+            mysql: '8.0.45'
+          - laravel-major: '13'
+            laravel: '^13.0'
+            testbench: '^11.0'
+            mysql: '8.0.16'
+          - laravel-major: '13'
+            laravel: '^13.0'
+            testbench: '^11.0'
+            mysql: '8.0.45'
+
+    services:
+      mysql:
+        image: mysql:${{ matrix.mysql }}
+        env:
+          MYSQL_ROOT_PASSWORD: gatetrail_root_test
+          MYSQL_DATABASE: gatetrail_test
+          MYSQL_USER: gatetrail
+          MYSQL_PASSWORD: gatetrail_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping
+          --host=127.0.0.1
+          --user=gatetrail
+          --password=gatetrail_test
+          --silent"
+          --health-interval=2s
+          --health-timeout=3s
+          --health-retries=30
+          --health-start-period=20s
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql
+          coverage: none
+
+      - name: Install matrix dependencies
+        run: >
+          composer require --dev
+          "laravel/framework:${{ matrix.laravel }}"
+          "orchestra/testbench:${{ matrix.testbench }}"
+          --with-all-dependencies
+          --no-interaction
+          --no-progress
+
+      - name: Run live MySQL integration tests
+        env:
+          GATETRAIL_MYSQL_HOST: 127.0.0.1
+          GATETRAIL_MYSQL_PORT: 3306
+          GATETRAIL_MYSQL_DATABASE: gatetrail_test
+          GATETRAIL_MYSQL_USERNAME: gatetrail
+          GATETRAIL_MYSQL_PASSWORD: gatetrail_test
+        run: composer test:mysql
