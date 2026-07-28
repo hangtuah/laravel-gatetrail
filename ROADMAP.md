@@ -72,7 +72,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 0 | Ownership and product decisions | 100% | Complete |
 | 1 | Package specification | 80% | In progress |
 | 2 | Repository and development tooling | 100% | Complete |
-| 3 | Database and assignment lifecycle | 45% | In progress |
+| 3 | Database and assignment lifecycle | 50% | In progress |
 | 4 | Mutation services | 0% | Not started |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
@@ -155,12 +155,13 @@ Completed in the current tooling increment:
 - [x] Add the database-neutral schema manifest.
 - [x] Implement the first vendor DBA DDL compiler from the canonical manifest.
 - [x] Define the read-only schema-inspector contract.
+- [x] Publish reproducible MySQL release `0001` install and rollback artifacts.
 
 Next:
 
 1. Obtain one independent developer review of the charter and specification.
-2. Publish versioned MySQL install and rollback artifacts from the compiler.
-3. Implement the MySQL catalog inspector and exercise it against a real server.
+2. Implement the MySQL catalog inspector.
+3. Exercise MySQL package-managed and DBA-managed paths against a real server.
 4. Add the next Tier 1 compiler without changing the canonical manifest.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
@@ -437,14 +438,16 @@ acl_access_audits
   dependency order, and rollback order with the canonical schema contract.
 - The MySQL compiler generates dependency-ordered install and reverse-order
   rollback DDL directly from the canonical manifest.
+- MySQL release `0001` provides committed install and rollback artifacts with
+  byte-for-byte compiler conformance tests and DBA operational guidance.
 - The read-only inspection contract reports schema differences without mutating
   DBA-managed objects.
 
 Production database adapters are not marked verified until their integration
-suites pass. The MySQL compiler is unit-tested but still requires versioned
-artifacts, a catalog inspector, and live integration evidence. The remaining
-Tier 1 compilers and inspectors, including Oracle sequence/trigger behavior,
-remain open.
+suites pass. The MySQL compiler and artifacts are unit-tested but still require
+a catalog inspector and live integration evidence. The remaining Tier 1
+compilers and inspectors, including Oracle sequence/trigger behavior, remain
+open.
 
 ### Exit criteria
 

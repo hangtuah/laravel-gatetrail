@@ -204,6 +204,29 @@ SQL Server integration tests must cover:
 - case-insensitive collation behavior;
 - explicitly named identifiers of 30 characters or fewer.
 
+### 3.7 Versioned DBA artifacts
+
+Each Tier 1 database receives install and rollback artifacts grouped by schema
+release. Release `0001` begins with MySQL:
+
+```text
+database/ddl/mysql/0001/install.sql
+database/ddl/mysql/0001/rollback.sql
+```
+
+Committed artifacts use canonical table names without a schema qualifier or
+custom prefix. They are generated from the same manifest as package migrations
+and must remain byte-for-byte reproducible by the package's artifact generator.
+
+Install artifacts create parents before children. Rollback artifacts remove
+children before parents. They intentionally omit silent guards such as
+`IF NOT EXISTS` and `IF EXISTS`, because an unexpected pre-existing or missing
+object requires DBA investigation.
+
+Vendor operational notes must state version requirements, execution order,
+runtime privilege expectations, transaction limitations, backup responsibility,
+and rollback risk. Generated SQL must not be edited manually.
+
 ## 4. Terminology
 
 ### Subject
