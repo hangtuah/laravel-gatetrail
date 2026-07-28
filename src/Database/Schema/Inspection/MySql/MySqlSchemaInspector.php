@@ -434,6 +434,11 @@ final readonly class MySqlSchemaInspector implements SchemaInspector
     {
         $normalized = strtolower(str_replace('`', '', (string) $expression));
         $normalized = preg_replace('/\s+/', '', $normalized) ?? $normalized;
+        $normalized = preg_replace(
+            '/isnull\(([a-z0-9_]+)\)/',
+            '($1isnull)',
+            $normalized,
+        ) ?? $normalized;
 
         while ($this->hasRedundantOuterParentheses($normalized)) {
             $normalized = substr($normalized, 1, -1);

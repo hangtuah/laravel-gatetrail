@@ -187,6 +187,36 @@ final class MySqlSchemaInspectorTest extends TestCase
         $this->assertContains('check_expression_mismatch', $codes);
     }
 
+    public function test_mysql_8_0_16_isnull_catalog_syntax_is_equivalent(): void
+    {
+        $snapshot = $this->matchingSnapshot();
+        $constraints = array_map(
+            static fn (
+                MySqlConstraintMetadata $constraint,
+            ): MySqlConstraintMetadata => (
+                $constraint->name === 'acl_ra_period_ck'
+            ) ? new MySqlConstraintMetadata(
+                table: $constraint->table,
+                name: $constraint->name,
+                type: $constraint->type,
+                columns: $constraint->columns,
+                checkClause: 'isnull(`expires_at`) '
+                    .'or (`expires_at` > '
+                    .'coalesce(`starts_at`, `assigned_at`))',
+            ) : $constraint,
+            $snapshot->constraints,
+        );
+
+        $inspection = $this->inspect(new MySqlCatalogSnapshot(
+            $snapshot->tables,
+            $snapshot->columns,
+            $snapshot->indexes,
+            $constraints,
+        ));
+
+        $this->assertTrue($inspection->passes());
+    }
+
     private function inspect(
         MySqlCatalogSnapshot $snapshot,
     ): SchemaInspection {
