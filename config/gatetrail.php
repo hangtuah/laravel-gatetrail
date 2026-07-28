@@ -71,6 +71,11 @@ return [
     'audit' => [
         'enabled' => true,
         'strict' => true,
+
+        'metadata' => [
+            'max_bytes' => 16384,
+            'max_depth' => 8,
+        ],
     ],
 
     'sensitive_fields' => [

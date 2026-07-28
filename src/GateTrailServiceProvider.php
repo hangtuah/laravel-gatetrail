@@ -7,6 +7,8 @@ namespace HangTuah\GateTrail;
 use HangTuah\GateTrail\Assignments\AssignmentConflictQuery;
 use HangTuah\GateTrail\Assignments\AssignmentDecisionMaker;
 use HangTuah\GateTrail\Assignments\AssignmentLockStore;
+use HangTuah\GateTrail\Audit\MetadataNormalizer;
+use HangTuah\GateTrail\Audit\SensitiveMetadataRedactor;
 use HangTuah\GateTrail\Database\Schema\Ddl\DdlCompilerFactory;
 use HangTuah\GateTrail\Database\Schema\IdentifierValidator;
 use HangTuah\GateTrail\Database\Schema\Inspection\SchemaInspectorFactory;
@@ -33,6 +35,8 @@ final class GateTrailServiceProvider extends ServiceProvider
         );
 
         $this->app->singleton(IdentifierValidator::class);
+        $this->app->singleton(MetadataNormalizer::class);
+        $this->app->singleton(SensitiveMetadataRedactor::class);
         $this->app->singleton(AssignmentConflictQuery::class);
         $this->app->singleton(AssignmentDecisionMaker::class);
         $this->app->singleton(AssignmentLockStore::class);

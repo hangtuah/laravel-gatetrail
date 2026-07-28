@@ -73,7 +73,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 27% | In progress |
+| 4 | Mutation services | 32% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -643,6 +643,11 @@ audit write.
   without global authentication state. Transaction-bound role input resolution
   distinguishes names from IDs, enforces exact guards, rejects missing and
   deactivated definitions, and returns typed safe-context failures.
+- Consumer metadata is normalized before mutation transactions as a bounded
+  JSON object with nested-list support, finite depth and size, UTF-8 and
+  recursion checks, reserved-marker protection, and deterministic JSON.
+  Sensitive bare keys and exact dotted paths redact values only after the
+  original normalized size passes validation.
 
 ### Exit criteria
 
