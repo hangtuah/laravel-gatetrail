@@ -962,29 +962,68 @@ public function approve(User $user, Document $document): bool
 
 ### 12.5 Middleware
 
-Initial middleware:
+Initial permission middleware aliases:
 
 ```text
 gatetrail.permission
-gatetrail.role
+gatetrail.permission.any
+gatetrail.permission.all
 ```
 
-Expected route usage:
+Initial role middleware aliases:
+
+```text
+gatetrail.role
+gatetrail.role.any
+gatetrail.role.all
+```
+
+Expected usage:
 
 ```php
 Route::post('/documents/{document}/approve', ...)
-    ->middleware('gatetrail.permission:documents.approve');
+    ->middleware([
+        'auth',
+        'gatetrail.permission:documents.approve',
+    ]);
+
+Route::get('/documents', ...)
+    ->middleware([
+        'auth',
+        'gatetrail.permission.any:documents.view,documents.review',
+    ]);
+
+Route::post('/documents/{document}/publish', ...)
+    ->middleware([
+        'auth',
+        'gatetrail.permission.all:documents.review,documents.publish',
+    ]);
 ```
 
-Permission middleware accepts one or more permission names with explicitly
-documented any/all semantics.
+Singular aliases require exactly one parameter. Any and all aliases require one
+or more comma-separated parameters. Values are trimmed, preserve case, reject
+empties, and are deduplicated before evaluation.
+
+Permission middleware uses GateTrail's resolver directly rather than allowing
+an unrelated Laravel Gate with the same name to satisfy the check. Missing role
+or permission definitions deny access without throwing a not-found exception.
+
+Multiple middleware entries compose as AND between groups. Boolean expression
+parsing, negation, parentheses, and wildcards are not supported initially.
 
 Unauthorized behavior:
 
-- unauthenticated subjects are handled by Laravel authentication middleware;
-- authenticated subjects without access receive an authorization exception;
-- the default HTTP response is 403;
-- redirect behavior is an application concern, not the package default.
+- unauthenticated subjects receive Laravel's `AuthenticationException`;
+- authenticated subjects without access receive Laravel's
+  `AuthorizationException`;
+- the default authorization-denial response is 403;
+- authentication redirects or 401 responses follow Laravel and application
+  configuration.
+
+Invalid alias cardinality or empty parameters throw
+`InvalidMiddlewareParameter` as a developer configuration error. Full syntax,
+composition, alias stability, and disclosure rules are defined by
+[ADR 0004](docs/decisions/0004-middleware-any-all-syntax.md).
 
 ### 12.6 Blade
 
@@ -1113,6 +1152,7 @@ DuplicateActiveAssignment
 AssignmentNotActive
 InvalidAssignmentPeriod
 InvalidGuard
+InvalidMiddlewareParameter
 GuardMismatch
 InvalidSubject
 InvalidActor
@@ -1203,6 +1243,9 @@ It must also report assignments whose referenced definition guard no longer
 matches the subject's currently resolved guard. It must not migrate, revoke, or
 rewrite those assignments.
 
+It should report when a default GateTrail middleware alias is already bound to
+an unrelated middleware class. GateTrail must not silently replace that alias.
+
 ## 19. Security requirements
 
 GateTrail must:
@@ -1218,6 +1261,8 @@ GateTrail must:
 - keep authorization mutation and strict audit writes transactional;
 - prevent consumer input from selecting an arbitrary audit actor;
 - avoid silent super-administrator behavior;
+- keep GateTrail middleware evaluation independent from unrelated Laravel Gates;
+- reject invalid middleware parameter lists instead of guessing their intent;
 - document all bypass or extension points;
 - provide a security reporting process before public release.
 
@@ -1257,7 +1302,9 @@ GateTrail must:
 - subject method, property, class-config, package-default, and Laravel-default
   guard resolution;
 - guard resolution in HTTP, queue, CLI, and test contexts;
-- middleware;
+- all six middleware aliases;
+- singular, any, all, missing-definition, and grouped middleware behavior;
+- middleware parameter normalization and route-cache compatibility;
 - Blade through Gate;
 - cache invalidation;
 - domain events after commit.
@@ -1274,6 +1321,9 @@ GateTrail must:
 - cross-guard isolation;
 - invalid authoritative guard without silent fallback;
 - global authentication state not affecting subject guard resolution;
+- middleware authentication and authorization exception behavior;
+- unrelated Laravel Gates not satisfying GateTrail middleware;
+- middleware denial responses not disclosing missing definitions;
 - duplicate concurrent assignment;
 - coordination hash mismatch;
 - bounded concurrency retry exhaustion;
@@ -1350,13 +1400,12 @@ The initial release does not include:
 The following decisions must be recorded before their implementation is
 finalized:
 
-1. permission middleware any/all syntax;
-2. cache store, TTL, and role-change fan-out strategy;
-3. persisted actor representation and identifiers for automated processes;
-4. whether UUID/ULID migration variants are required before `1.0.0`;
-5. minimum audit snapshot content;
-6. package behavior when direct database mutation is detected;
-7. whether role convenience directives belong in the core package.
+1. cache store, TTL, and role-change fan-out strategy;
+2. persisted actor representation and identifiers for automated processes;
+3. whether UUID/ULID migration variants are required before `1.0.0`;
+4. minimum audit snapshot content;
+5. package behavior when direct database mutation is detected;
+6. whether role convenience directives belong in the core package.
 
 Architecture decisions will be stored under:
 
