@@ -1,8 +1,8 @@
 # GateTrail Initial Entity-Relationship Diagram
 
-- Status: Draft for review
+- Status: Accepted baseline
 - Date: 2026-07-28
-- Scope: Initial numeric-identifier schema
+- Scope: Initial numeric-subject and string-actor schema
 
 ## 1. Purpose
 
@@ -48,13 +48,13 @@ erDiagram
         bigint role_id FK
         datetime assigned_at
         string assigned_by_type
-        bigint assigned_by_id
+        string assigned_by_id
         text assignment_reason
         datetime starts_at
         datetime expires_at
         datetime revoked_at
         string revoked_by_type
-        bigint revoked_by_id
+        string revoked_by_id
         text revocation_reason
         datetime created_at
         datetime updated_at
@@ -67,13 +67,13 @@ erDiagram
         bigint permission_id FK
         datetime assigned_at
         string assigned_by_type
-        bigint assigned_by_id
+        string assigned_by_id
         text assignment_reason
         datetime starts_at
         datetime expires_at
         datetime revoked_at
         string revoked_by_type
-        bigint revoked_by_id
+        string revoked_by_id
         text revocation_reason
         datetime created_at
         datetime updated_at
@@ -85,13 +85,13 @@ erDiagram
         bigint permission_id FK
         datetime assigned_at
         string assigned_by_type
-        bigint assigned_by_id
+        string assigned_by_id
         text assignment_reason
         datetime starts_at
         datetime expires_at
         datetime revoked_at
         string revoked_by_type
-        bigint revoked_by_id
+        string revoked_by_id
         text revocation_reason
         datetime created_at
         datetime updated_at
@@ -109,7 +109,7 @@ erDiagram
         bigint id PK
         string event
         string actor_type
-        bigint actor_id
+        string actor_id
         string subject_type
         bigint subject_id
         string target_type
@@ -147,8 +147,8 @@ they must not introduce cascading deletion of assignment history.
 
 ## 4. Logical polymorphic references
 
-These pairs refer to models owned by the consuming application and therefore
-do not have physical database foreign keys:
+These pairs refer to application-owned models or named system identities and
+therefore do not have physical database foreign keys:
 
 | Table | Reference |
 |---|---|

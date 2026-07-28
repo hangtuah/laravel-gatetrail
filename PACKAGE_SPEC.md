@@ -371,18 +371,35 @@ MySQL may use an unsigned big integer while Oracle may use a compatible
 
 ### 7.2 Subject and actor identifiers
 
-The initial default migrations support numeric morph identifiers compatible
-with the selected database.
+The initial default migrations support numeric subject morph identifiers
+compatible with the selected database.
 
 Applications using UUID or ULID identifiers may publish and adjust migrations
 before running them. First-class UUID/ULID migration variants are outside
 `0.1.0` and should be considered before `1.0.0` based on pilot requirements.
 
+Actor identifiers use portable strings with a maximum length of 191
+characters. Numeric human actor keys are stored using their canonical decimal
+string representation. UUIDs, ULIDs, and named system actors retain their
+canonical string representation.
+
+The type `gatetrail.system` is reserved for named automated actors:
+
+```text
+actor_type = gatetrail.system
+actor_id   = staff-sync
+```
+
+This decision applies to assigned, revoked, and audit actor columns. Full
+normalization and persistence rules are defined by
+[ADR 0005](docs/decisions/0005-actor-identity-representation.md).
+
 ### 7.3 Morph types
 
-GateTrail uses Laravel polymorphic relationships for subjects and actors.
+GateTrail uses Laravel polymorphic references for subjects and human actors.
 Applications are encouraged to use Laravel morph maps so database values do not
-depend permanently on full PHP class names.
+depend permanently on full PHP class names. Named system actors use the
+reserved `gatetrail.system` type and do not resolve to an Eloquent model.
 
 ### 7.4 Database identifier length
 
@@ -451,8 +468,10 @@ acl_access_audits
 
 Table names are configurable before migrations are run.
 
-The initial relationship model is documented in the
-[initial ERD draft](docs/architecture/initial-erd.md).
+The accepted relationship model is documented in the
+[initial ERD](docs/architecture/initial-erd.md). The proposed migration-level
+rules are documented in the
+[constraint and index plan](docs/architecture/constraints-and-indexes.md).
 
 ### 8.2 Roles
 
@@ -1404,11 +1423,13 @@ The following decisions must be recorded before their implementation is
 finalized:
 
 1. cache store, TTL, and role-change fan-out strategy;
-2. persisted actor representation and identifiers for automated processes;
-3. whether UUID/ULID migration variants are required before `1.0.0`;
-4. minimum audit snapshot content;
-5. package behavior when direct database mutation is detected;
-6. whether role convenience directives belong in the core package.
+2. whether UUID/ULID subject migration variants are required before `1.0.0`;
+3. minimum audit snapshot content;
+4. package behavior when direct database mutation is detected;
+5. whether role convenience directives belong in the core package.
+
+Persisted actor representation is accepted in
+[ADR 0005](docs/decisions/0005-actor-identity-representation.md).
 
 Architecture decisions will be stored under:
 

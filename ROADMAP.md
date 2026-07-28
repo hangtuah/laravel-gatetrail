@@ -57,7 +57,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 |---|---:|---|
 | Overall roadmap by primary phases | Approximately 21% | Phase-weighted progress across Phases 0–13 |
 | Deliverable tracker | 8 of 32, 25% | Completed concrete package deliverables |
-| Planning and specification | Approximately 80% | Charter, specification, and four accepted ADRs |
+| Planning and specification | Approximately 85% | Charter, specification, and five accepted ADRs |
 | First sprint | 9 of 10, 90% | Repository-and-specification sprint tasks |
 
 These percentages measure different things and must not be combined.
@@ -107,6 +107,7 @@ Completed documents:
 - `docs/decisions/0002-public-mutation-api.md`
 - `docs/decisions/0003-subject-guard-resolution.md`
 - `docs/decisions/0004-middleware-any-all-syntax.md`
+- `docs/decisions/0005-actor-identity-representation.md`
 
 Accepted architecture decisions:
 
@@ -116,6 +117,7 @@ Accepted architecture decisions:
 | 0002 | Provide simple public manager methods and keep commands internal | Accepted |
 | 0003 | Resolve one stable guard for each subject | Accepted |
 | 0004 | Use explicit middleware aliases for singular, any, and all checks | Accepted |
+| 0005 | Store human and system actor identities as portable strings | Accepted |
 
 ## 5. Roadmap adherence
 
@@ -151,7 +153,7 @@ Completed in the current tooling increment:
 Next:
 
 1. Obtain one independent developer review of the charter and specification.
-2. Finalize the migration-level constraint and index plan.
+2. Review and accept the migration-level constraint and index plan.
 3. Implement the first versioned package migrations.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
@@ -201,6 +203,7 @@ to match one consumer application.
 - [x] Public mutation API direction accepted.
 - [x] Subject guard behavior accepted.
 - [x] Middleware any/all syntax accepted.
+- [x] Persisted human and system actor identity accepted.
 - [x] Database compatibility targets recorded.
 - [x] Identifier and 30-character database-name rules recorded.
 - [x] Initial feature scope and non-goals recorded.
@@ -211,7 +214,6 @@ to match one consumer application.
 The following decisions remain open in `PACKAGE_SPEC.md`:
 
 - [ ] Cache store, TTL, and role-change fan-out strategy.
-- [ ] Persisted identity for automated actors.
 - [ ] Whether first-class UUID/ULID migrations are required before `1.0.0`.
 - [ ] Minimum audit snapshot content.
 - [ ] Behavior when direct database mutation is detected.
@@ -221,9 +223,8 @@ Not all decisions block repository tooling.
 
 Before the first vertical slice, prioritize:
 
-1. persisted automated-actor identity;
-2. minimum audit snapshot content;
-3. direct database mutation behavior.
+1. minimum audit snapshot content;
+2. direct database mutation behavior.
 
 Cache strategy should wait until the uncached resolver exists and is measured.
 
