@@ -55,8 +55,8 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | Approximately 21% | Phase-weighted progress across Phases 0–13 |
-| Deliverable tracker | 8 of 32, 25% | Completed concrete package deliverables |
+| Overall roadmap by primary phases | Approximately 23% | Phase-weighted progress across Phases 0–13 |
+| Deliverable tracker | 9 of 32, approximately 28% | Completed concrete package deliverables |
 | Planning and specification | Approximately 85% | Charter, specification, and five accepted ADRs |
 | First sprint | 9 of 10, 90% | Repository-and-specification sprint tasks |
 
@@ -72,7 +72,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 0 | Ownership and product decisions | 100% | Complete |
 | 1 | Package specification | 80% | In progress |
 | 2 | Repository and development tooling | 100% | Complete |
-| 3 | Database and assignment lifecycle | 10% | In progress |
+| 3 | Database and assignment lifecycle | 35% | In progress |
 | 4 | Mutation services | 0% | Not started |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
@@ -150,12 +150,14 @@ Completed in the current tooling increment:
 - [x] Confirm the initial remote CI run.
 - [x] Draw the initial ERD from the accepted schema.
 - [x] Accept the migration-level constraint and index plan.
+- [x] Implement the first versioned package migrations.
+- [x] Verify migration and rollback behavior in the SQLite package suite.
 
 Next:
 
 1. Obtain one independent developer review of the charter and specification.
-2. Implement the first versioned package migrations.
-3. Verify migration and rollback behavior in the SQLite package suite.
+2. Validate production-adapter DDL, beginning with Oracle.
+3. Implement models and relationships.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
 
@@ -383,14 +385,14 @@ Implement the portable schema and history-preserving assignment lifecycle.
 ### Deliverables
 
 - [x] ERD.
-- [ ] Versioned package migrations.
+- [x] Versioned package migrations.
 - [ ] Oracle DBA-managed schema manifest or reference DDL.
 - [ ] Models and relationships.
-- [ ] Explicit indexes, foreign keys, and constraints.
+- [x] Explicit indexes, foreign keys, and constraints in the SQLite reference schema.
 - [ ] `acl_assignment_locks` coordination model or query component.
 - [ ] Assignment period scopes.
 - [ ] Soft deletion for roles and permissions.
-- [ ] No normal hard deletion of assignments.
+- [x] No normal hard deletion or cascading deletion of assignments.
 
 ### Default tables
 
@@ -416,6 +418,20 @@ acl_access_audits
 - SQL Server identity behavior;
 - schema-qualified tables;
 - audit text/CLOB casts.
+
+### Current verification evidence
+
+- Seven migrations encode parent-before-child creation order.
+- Reverse rollback removes child tables before parent tables.
+- Missing parents fail with a GateTrail dependency error before child DDL.
+- SQLite enforces assignment-period, revocation-tuple, audit-pair, uniqueness,
+  and non-cascading foreign-key rules.
+- Configured table prefixes are exercised by the migration suite.
+- The full suite passes on Laravel 12/Testbench 10 and Laravel 13/Testbench 11.
+
+Production database adapters are not marked verified until their integration
+suites pass. Oracle sequence/trigger behavior and the DBA-managed reference
+schema remain open.
 
 ### Exit criteria
 
@@ -881,7 +897,7 @@ Progress: **8 of 8**
 
 ### Core implementation
 
-- [ ] Migrations
+- [x] Migrations
 - [ ] Models
 - [ ] Contracts
 - [ ] Assignment lifecycle
@@ -892,7 +908,7 @@ Progress: **8 of 8**
 - [ ] Audit trail
 - [ ] Cache invalidation
 
-Progress: **0 of 10**
+Progress: **1 of 10**
 
 ### Quality
 
@@ -921,9 +937,9 @@ Progress: **0 of 8**
 ### Total
 
 ```text
-Completed: 8
+Completed: 9
 Total:     32
-Progress:  25%
+Progress:  28.125%, reported as approximately 28%
 ```
 
 ## 25. Progress update rules

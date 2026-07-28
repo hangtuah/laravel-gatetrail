@@ -35,6 +35,38 @@ database must preserve the behavior described here.
 - Application validation remains required even when a matching database
   constraint exists.
 
+### Migration dependency safety
+
+Package migrations create and remove tables in this dependency-safe order:
+
+```text
+Up:
+roles
+→ permissions
+→ assignment locks
+→ role assignments
+→ permission assignments
+→ role permissions
+→ access audits
+
+Down:
+access audits
+→ role permissions
+→ permission assignments
+→ role assignments
+→ assignment locks
+→ permissions
+→ roles
+```
+
+Each child migration checks that its required parent tables exist before
+issuing child DDL. Parent rollback checks that dependent child tables are
+already absent.
+
+GateTrail does not disable foreign-key enforcement to bypass ordering errors
+and does not silently skip an expected table through `hasTable()` during normal
+creation.
+
 ## 3. `acl_roles`
 
 ### Nullability
