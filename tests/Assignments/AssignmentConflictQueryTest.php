@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace HangTuah\GateTrail\Tests\Assignments;
 
 use Carbon\CarbonImmutable;
+use HangTuah\GateTrail\Assignments\AssignmentConflict;
 use HangTuah\GateTrail\Assignments\AssignmentConflictQuery;
 use HangTuah\GateTrail\Assignments\AssignmentLockStore;
 use HangTuah\GateTrail\Assignments\AssignmentScope;
@@ -17,8 +18,7 @@ use HangTuah\GateTrail\Models\RolePermission;
 use HangTuah\GateTrail\Tests\Fixtures\TestSubject;
 use HangTuah\GateTrail\Tests\TestCase;
 use Illuminate\Database\Connection;
-use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use LogicException;
 
 final class AssignmentConflictQueryTest extends TestCase
@@ -70,7 +70,10 @@ final class AssignmentConflictQueryTest extends TestCase
 
         $conflicts = $this->find($scope, $candidate);
 
-        $this->assertSame([$existing->getKey()], $conflicts->modelKeys());
+        $this->assertSame(
+            [$existing->getKey()],
+            $this->assignmentKeys($conflicts),
+        );
     }
 
     public function test_adjacent_role_assignment_is_not_a_conflict(): void
@@ -125,7 +128,10 @@ final class AssignmentConflictQueryTest extends TestCase
             ),
         );
 
-        $this->assertSame([$existing->getKey()], $conflicts->modelKeys());
+        $this->assertSame(
+            [$existing->getKey()],
+            $this->assignmentKeys($conflicts),
+        );
     }
 
     public function test_non_equivalent_scope_is_not_a_conflict(): void
@@ -160,7 +166,10 @@ final class AssignmentConflictQueryTest extends TestCase
             $this->period($this->time->addYear(), null),
         );
 
-        $this->assertSame([$existing->getKey()], $conflicts->modelKeys());
+        $this->assertSame(
+            [$existing->getKey()],
+            $this->assignmentKeys($conflicts),
+        );
     }
 
     public function test_permission_and_role_permission_scopes_are_supported(): void
@@ -200,11 +209,11 @@ final class AssignmentConflictQueryTest extends TestCase
 
         $this->assertSame(
             [$permissionAssignment->getKey()],
-            $permissionConflicts->modelKeys(),
+            $this->assignmentKeys($permissionConflicts),
         );
         $this->assertSame(
             [$rolePermission->getKey()],
-            $rolePermissionConflicts->modelKeys(),
+            $this->assignmentKeys($rolePermissionConflicts),
         );
     }
 
@@ -220,7 +229,7 @@ final class AssignmentConflictQueryTest extends TestCase
     }
 
     /**
-     * @return Collection<int, Model>
+     * @return Collection<int, AssignmentConflict>
      */
     private function find(
         AssignmentScope $scope,
@@ -248,6 +257,21 @@ final class AssignmentConflictQueryTest extends TestCase
             $this->subject->getKey(),
             $this->role->getKey(),
         );
+    }
+
+    /**
+     * @param  Collection<int, AssignmentConflict>  $conflicts
+     * @return list<int|string>
+     */
+    private function assignmentKeys(Collection $conflicts): array
+    {
+        return $conflicts
+            ->map(
+                static fn (AssignmentConflict $conflict): int|string => $conflict
+                    ->assignment
+                    ->getKey(),
+            )
+            ->all();
     }
 
     private function period(

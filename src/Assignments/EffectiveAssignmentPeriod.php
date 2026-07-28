@@ -50,6 +50,14 @@ final readonly class EffectiveAssignmentPeriod
         return $this->expiresAt;
     }
 
+    public function contains(DateTimeInterface $timestamp): bool
+    {
+        $time = self::normalize($timestamp);
+
+        return $this->startsAt <= $time
+            && ($this->expiresAt === null || $this->expiresAt > $time);
+    }
+
     private static function fromTimestamps(
         DateTimeInterface $assignedAt,
         ?DateTimeInterface $startsAt,

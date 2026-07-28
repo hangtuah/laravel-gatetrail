@@ -9,8 +9,8 @@ use DateTimeInterface;
 use DateTimeZone;
 use HangTuah\GateTrail\Support\ModelRegistry;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use LogicException;
 
 final readonly class AssignmentConflictQuery
@@ -21,7 +21,7 @@ final readonly class AssignmentConflictQuery
     ) {}
 
     /**
-     * @return Collection<int, Model>
+     * @return Collection<int, AssignmentConflict>
      */
     public function find(
         AssignmentScope $scope,
@@ -48,10 +48,16 @@ final readonly class AssignmentConflictQuery
         /** @var Collection<int, Model> $assignments */
         $assignments = $query->lockForUpdate()->get();
 
-        return $assignments
-            ->filter(
-                fn (Model $assignment): bool => $this->overlap->overlaps(
+        return collect($assignments->all())
+            ->map(
+                fn (Model $assignment): AssignmentConflict => new AssignmentConflict(
+                    $assignment,
                     $this->effectivePeriod($assignment),
+                ),
+            )
+            ->filter(
+                fn (AssignmentConflict $conflict): bool => $this->overlap->overlaps(
+                    $conflict->period,
                     $candidate,
                 ),
             )

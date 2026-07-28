@@ -55,7 +55,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | Approximately 26% | Phase-weighted progress across Phases 0–13 |
+| Overall roadmap by primary phases | Approximately 28% | Phase-weighted progress across Phases 0–13 |
 | Deliverable tracker | 10 of 32, approximately 31% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
@@ -72,8 +72,8 @@ automated testing, security hardening, a pilot, and release validation.
 | 0 | Ownership and product decisions | 100% | Complete |
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
-| 3 | Database and assignment lifecycle | 70% | In progress |
-| 4 | Mutation services | 0% | Not started |
+| 3 | Database and assignment lifecycle | 80% | In progress |
+| 4 | Mutation services | 5% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -618,12 +618,20 @@ audit write.
 - bounded concurrency retry;
 - no public `attach()` or `detach()` mutation path.
 
+### Current verification evidence
+
+- The initial mutation decision layer distinguishes create, unchanged, and
+  conflict outcomes without writing state.
+- Immediate replay returns one currently active equivalent assignment as
+  unchanged. Scheduled overlap, future-only overlap, and ambiguous multiple
+  conflicts fail closed as conflict decisions.
+
 ### Exit criteria
 
 Every supported mutation uses one managed path and produces deterministic,
 audited, transactional behavior.
 
-Status: **Not started**
+Status: **In progress**
 
 ## 12. Phase 5 — Effective permission resolver
 

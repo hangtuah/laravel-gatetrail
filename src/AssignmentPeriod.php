@@ -58,6 +58,11 @@ final readonly class AssignmentPeriod
         return $this->expiresAt;
     }
 
+    public function isImmediate(): bool
+    {
+        return $this->startsAt === null && $this->expiresAt === null;
+    }
+
     private static function normalize(
         DateTimeInterface $timestamp,
     ): DateTimeImmutable {
