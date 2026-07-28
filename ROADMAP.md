@@ -480,6 +480,10 @@ acl_access_audits
   component requires an existing transaction, acquires pessimistic row locks,
   preserves one row per equivalent scope, honors configured table context, and
   fails closed on a stored-key mismatch.
+- The immutable public assignment-period value object normalizes timestamps to
+  UTC whole seconds. Its internal effective-period representation applies the
+  `starts_at ?? assigned_at` fallback, validates expiry ordering, and shares one
+  half-open overlap evaluator for adjacent, bounded, and open-ended periods.
 - Assignment and audit timestamps use immutable datetime casts. Audit
   `before`, `after`, and `context` documents cast from portable text/CLOB
   storage.
