@@ -16,6 +16,10 @@ database must preserve the behavior described here.
 
 - Every package-owned database identifier is explicitly named and no longer
   than 30 characters.
+- Primary-key names in this document are canonical logical names. Oracle,
+  PostgreSQL, and SQL Server use them physically. MySQL uses its reserved
+  `PRIMARY` name, while SQLite validates primary-key columns and behavior
+  without requiring a physical constraint name.
 - Primary keys and required foreign keys are `NOT NULL`.
 - Definition, assignment, and audit IDs use database-appropriate 64-bit
   compatible numeric types.
@@ -49,7 +53,7 @@ database must preserve the behavior described here.
 
 | Name | Type | Columns or behavior |
 |---|---|---|
-| `acl_roles_pk` | Primary key | `id` |
+| `acl_roles_pk` | Logical primary key | `id`; physical name is adapter-specific |
 | `acl_role_name_guard_uq` | Unique | `name`, `guard_name` using exact case-sensitive comparison |
 
 Soft-deleted rows remain inside the unique namespace so a definition can be
@@ -73,7 +77,7 @@ restored without colliding with a replacement using the same name and guard.
 
 | Name | Type | Columns or behavior |
 |---|---|---|
-| `acl_perms_pk` | Primary key | `id` |
+| `acl_perms_pk` | Logical primary key | `id`; physical name is adapter-specific |
 | `acl_perm_name_guard_uq` | Unique | `name`, `guard_name` using exact case-sensitive comparison |
 
 ## 5. Assignment-table shared rules
@@ -114,7 +118,7 @@ All other columns follow the shared assignment rules.
 
 | Name | Type | Columns or behavior |
 |---|---|---|
-| `acl_role_asgn_pk` | Primary key | `id` |
+| `acl_role_asgn_pk` | Logical primary key | `id`; physical name is adapter-specific |
 | `acl_ra_role_fk` | Foreign key | `role_id` → `acl_roles.id`, no cascade |
 | `acl_ra_period_ck` | Check | Valid half-open assignment period |
 | `acl_ra_revoke_ck` | Check | Revocation timestamp and actor pair change together |
@@ -139,7 +143,7 @@ All other columns follow the shared assignment rules.
 
 | Name | Type | Columns or behavior |
 |---|---|---|
-| `acl_perm_asgn_pk` | Primary key | `id` |
+| `acl_perm_asgn_pk` | Logical primary key | `id`; physical name is adapter-specific |
 | `acl_pa_perm_fk` | Foreign key | `permission_id` → `acl_permissions.id`, no cascade |
 | `acl_pa_period_ck` | Check | Valid half-open assignment period |
 | `acl_pa_revoke_ck` | Check | Revocation timestamp and actor pair change together |
@@ -163,7 +167,7 @@ All other columns follow the shared assignment rules.
 
 | Name | Type | Columns or behavior |
 |---|---|---|
-| `acl_role_perm_pk` | Primary key | `id` |
+| `acl_role_perm_pk` | Logical primary key | `id`; physical name is adapter-specific |
 | `acl_rp_role_fk` | Foreign key | `role_id` → `acl_roles.id`, no cascade |
 | `acl_rp_perm_fk` | Foreign key | `permission_id` → `acl_permissions.id`, no cascade |
 | `acl_rp_period_ck` | Check | Valid half-open assignment period |
@@ -189,7 +193,7 @@ Every column is `NOT NULL`.
 
 | Name | Type | Columns |
 |---|---|---|
-| `acl_asgn_locks_pk` | Composite primary key | `assignment_kind`, `scope_hash` |
+| `acl_asgn_locks_pk` | Logical composite primary key | `assignment_kind`, `scope_hash`; physical name is adapter-specific |
 
 `scope_key` is not indexed. It exists for collision detection after lookup by
 the composite primary key.
@@ -214,7 +218,7 @@ the composite primary key.
 
 | Name | Type | Columns or behavior |
 |---|---|---|
-| `acl_audit_pk` | Primary key | `id` |
+| `acl_audit_pk` | Logical primary key | `id`; physical name is adapter-specific |
 | `acl_audit_subject_ck` | Check | Subject type and ID are both null or both non-null |
 | `acl_audit_actor_ix` | Index | `actor_type`, `actor_id`, `created_at` |
 | `acl_audit_subject_ix` | Index | `subject_type`, `subject_id`, `created_at` |
@@ -281,10 +285,11 @@ differ.
 
 Each Tier 1 database must prove:
 
-1. every identifier is 30 characters or fewer;
-2. exact role and permission name uniqueness under its configured collation;
-3. named check-constraint behavior;
-4. non-cascading FK behavior;
-5. use of the intended indexes for core resolver and overlap queries;
-6. schema-qualified table support;
-7. migration and rollback with explicit object names.
+1. every package-controlled physical identifier is 30 characters or fewer;
+2. adapter-specific primary-key naming follows the accepted portability rule;
+3. exact role and permission name uniqueness under its configured collation;
+4. named check-constraint behavior;
+5. non-cascading FK behavior;
+6. use of the intended indexes for core resolver and overlap queries;
+7. schema-qualified table support;
+8. migration and rollback with explicit object names where the engine permits.

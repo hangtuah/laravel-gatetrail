@@ -414,7 +414,10 @@ including:
 - triggers.
 
 Migrations must provide explicit, concise names for indexes and constraints
-instead of relying on framework-generated names.
+instead of relying on framework-generated names. Primary-key names are logical
+canonical names: engines that support physical naming use them, MySQL uses its
+reserved `PRIMARY` name, and SQLite validates primary-key behavior without
+requiring a physical constraint name.
 
 Default identifier examples:
 

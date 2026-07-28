@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail;
 
+use HangTuah\GateTrail\Database\Schema\IdentifierValidator;
+use HangTuah\GateTrail\Database\Schema\SchemaAdapterFactory;
+use HangTuah\GateTrail\Database\Schema\SchemaContext;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 
 final class GateTrailServiceProvider extends ServiceProvider
@@ -13,6 +17,23 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(
             __DIR__.'/../config/gatetrail.php',
             'gatetrail',
+        );
+
+        $this->app->singleton(IdentifierValidator::class);
+        $this->app->singleton(SchemaAdapterFactory::class);
+        $this->app->singleton(
+            SchemaContext::class,
+            static function (Application $app): SchemaContext {
+                $config = $app->make('config')->get('gatetrail');
+
+                /** @var array<string, mixed> $config */
+                $config = is_array($config) ? $config : [];
+
+                return new SchemaContext(
+                    $config,
+                    $app->make(IdentifierValidator::class),
+                );
+            },
         );
     }
 
