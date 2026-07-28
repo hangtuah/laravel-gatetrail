@@ -39,8 +39,8 @@ GateTrail uses seven package-owned tables by default:
 
 | Table | Purpose | Lifecycle |
 |---|---|---|
-| `acl_roles` | Stores role definitions | Active, soft-deleted, or restored |
-| `acl_permissions` | Stores permission definitions | Active, soft-deleted, or restored |
+| `acl_roles` | Stores role definitions | Active, deactivated, or restored; soft deletion is the storage mechanism |
+| `acl_permissions` | Stores permission definitions | Active, deactivated, or restored; soft deletion is the storage mechanism |
 | `acl_role_assignments` | Assigns roles to subjects and preserves assignment history | Scheduled, active, expired, or revoked |
 | `acl_permission_assignments` | Assigns permissions directly to subjects and preserves assignment history | Scheduled, active, expired, or revoked |
 | `acl_role_permissions` | Assigns permissions to roles and preserves assignment history | Scheduled, active, expired, or revoked |
@@ -801,6 +801,9 @@ Roles and permissions use Laravel soft deletion.
 - Restoring a role or permission does not silently restore previously revoked
   assignments.
 - Deactivation and restoration are mutations and must be audited.
+- A deactivated definition retains its `(name, guard_name)` namespace.
+- Creating a definition over a deactivated name throws `DuplicateRole` or
+  `DuplicatePermission`; restore is the only initial path back to active.
 
 Lifecycle comparison:
 
@@ -825,19 +828,28 @@ At time `T`, an assignment is active when:
 
 ```text
 revoked_at IS NULL
-AND (starts_at IS NULL OR starts_at <= T)
+AND COALESCE(starts_at, assigned_at) <= T
 AND (expires_at IS NULL OR expires_at > T)
+```
+
+The effective half-open period is:
+
+```text
+[starts_at ?? assigned_at, expires_at ?? +infinity)
 ```
 
 Expiry is exclusive. An assignment with `expires_at = T` is not active at `T`.
 
 ### 9.4 Assignment periods
 
-- `expires_at` must be later than `starts_at` when both are provided.
-- An assignment may start immediately when `starts_at` is omitted.
+- `expires_at` must be later than `starts_at ?? assigned_at`.
+- An assignment starts at `assigned_at` when `starts_at` is omitted.
 - An assignment may have no expiry.
 - A revoked assignment remains revoked even when its original expiry is in the
   future.
+- A persisted assignment period is immutable in the initial public API.
+- Changing a period requires revoking the assignment and creating a new
+  assignment with the replacement period.
 
 ### 9.5 Revocation
 
@@ -879,6 +891,18 @@ GateTrail must provide managed operations for:
 - assigning and revoking roles;
 - granting and revoking direct permissions;
 - granting and revoking permissions on roles.
+
+Initial role and permission updates may change `description` only. The
+purpose-specific `RoleChanges` and `PermissionChanges` objects distinguish an
+omitted description from explicitly setting the nullable description to
+`null`.
+
+Definition `name` and `guard_name` are immutable through the initial update
+API. Rename and guard migration require future decisions covering assignments,
+ability names, audit snapshots, and cache invalidation.
+
+Assignment-period updates and rescheduling are not initial managed operations.
+Consumers revoke the existing assignment and create a new history row.
 
 ### 10.2 Actor and reason
 
@@ -956,8 +980,9 @@ defined by
 
 - Repeating an active assignment request does not create a duplicate.
 - Revoking a non-active assignment throws a domain exception by default.
-- Repeating role or permission creation with an existing name throws a
-  duplicate exception.
+- Repeating role or permission creation with an existing `(name, guard_name)`
+  throws `DuplicateRole` or `DuplicatePermission`, including when the existing
+  definition is deactivated.
 - Mutation results must be deterministic and tested under concurrency.
 
 ### 10.6 Public mutation managers
@@ -1034,11 +1059,11 @@ or the mutation outcome is `Unchanged`. Exact result and failure semantics are
 defined by
 [ADR 0008](docs/decisions/0008-audit-snapshot-and-failure-modes.md).
 
-## 11. Permission resolver
+## 11. Authorization resolvers
 
 ### 11.1 Responsibility
 
-One resolver is the source of truth for:
+One `PermissionResolver` is the source of truth for:
 
 - direct permission checks;
 - permissions inherited through roles;
@@ -1052,13 +1077,15 @@ For a subject and permission:
 
 1. Normalize the permission reference.
 2. Resolve the subject guard.
-3. Find an active permission in that guard.
-4. Check for an active direct assignment.
-5. Check active subject-role assignments.
-6. Exclude deactivated roles.
-7. Check active role-permission assignments.
-8. Allow when any active source is found.
-9. Deny otherwise.
+3. Return false when an explicit permission model, identifier, or reference
+   resolves to another guard.
+4. Find an active permission in the resolved guard.
+5. Check for an active direct assignment.
+6. Check active subject-role assignments.
+7. Exclude deactivated roles.
+8. Check active role-permission assignments.
+9. Allow when any active source is found.
+10. Deny otherwise.
 
 ### 11.3 Initial resolver contract
 
@@ -1067,7 +1094,7 @@ interface PermissionResolver
 {
     public function allows(
         mixed $subject,
-        Permission|string|int $permission,
+        PermissionContract|PermissionReference|string|int $permission,
     ): bool;
 
     public function effectivePermissions(mixed $subject): Collection;
@@ -1084,6 +1111,45 @@ depend on the machine's current time.
 
 Point-in-time historical permission queries are not part of the initial public
 API.
+
+### 11.5 Role resolver
+
+One `RoleResolver` is the source of truth for:
+
+- `hasRole`, `hasAnyRole`, and `hasAllRoles`;
+- effective role collections;
+- singular, any, and all role middleware;
+- future role-specific adapters.
+
+A subject has an effective role when:
+
+- the subject-role assignment is active under section 9.3;
+- the role definition is active;
+- the role belongs to the subject's resolved guard.
+
+A missing role denies without a not-found exception. An explicit role model,
+identifier, or reference resolving outside the subject's guard also returns
+false. Mutation operations remain different and throw `GuardMismatch` for
+cross-guard input.
+
+The initial illustrative contract is:
+
+```php
+interface RoleResolver
+{
+    public function has(
+        mixed $subject,
+        RoleContract|RoleReference|string|int $role,
+    ): bool;
+
+    public function effectiveRoles(mixed $subject): Collection;
+}
+```
+
+Any and all checks derive from the same effective-role set. They must not
+implement independent lifecycle or guard rules. The exact active-role behavior
+aligns with
+[ADR 0004](docs/decisions/0004-middleware-any-all-syntax.md).
 
 ## 12. Laravel integration
 
@@ -1137,6 +1203,10 @@ $user->permissionAssignments();
 
 Assignment mutations are performed through managed services rather than
 relationship methods.
+
+Role helper methods delegate to the shared `RoleResolver`. Permission helpers
+delegate to the shared `PermissionResolver`. The subject concern does not
+implement separate role, permission, lifecycle, or guard algorithms.
 
 ### 12.3 Gate integration
 
@@ -1656,10 +1726,14 @@ GateTrail must:
 
 - input normalization;
 - assignment time rules;
+- null `starts_at` using `assigned_at` as the effective lower bound;
 - direct permission resolution;
 - role permission resolution;
+- effective role resolution;
+- singular, any, and all role checks sharing one effective set;
 - multiple-source resolution;
 - guard matching;
+- cross-guard explicit role and permission references denying checks;
 - subject guard precedence and normalization;
 - exception behavior;
 - cache-key generation;
@@ -1667,6 +1741,8 @@ GateTrail must:
 - canonical assignment scope keys and hashes;
 - half-open assignment-period overlap rules;
 - public input resolution rules;
+- description-only role and permission changes;
+- immutable definition names, guards, and persisted assignment periods;
 - assignment-period value objects;
 - mutation outcomes.
 - canonical audit snapshot serialization;
@@ -1679,6 +1755,9 @@ GateTrail must:
 - manager contract container bindings;
 - direct public mutation methods;
 - public-argument to internal-command translation;
+- subject role helpers and role middleware sharing `RoleResolver`;
+- duplicate creation over deactivated definitions returning domain exceptions;
+- description update omitted, explicit-null, unchanged, and changed behavior;
 - mutation transactions;
 - assignment coordination-row locking;
 - assignment scheduling with overlapping and adjacent periods;
@@ -1708,6 +1787,10 @@ GateTrail must:
 - deactivated permissions;
 - cross-subject evaluation;
 - cross-guard isolation;
+- cross-guard model, identifier, and explicit-reference checks denying without
+  disclosing definitions;
+- cross-guard mutations continuing to throw `GuardMismatch`;
+- deactivated definition names remaining unavailable for duplicate creation;
 - invalid authoritative guard without silent fallback;
 - global authentication state not affecting subject guard resolution;
 - middleware authentication and authorization exception behavior;

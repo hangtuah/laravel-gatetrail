@@ -105,6 +105,10 @@ interface RoleManager
 `RoleChanges` is used only for update operations, where “not supplied” must
 remain different from “set this nullable field to `null`”.
 
+In the initial public API, `RoleChanges` carries `description` only. Role name
+and guard are immutable. A changes object must explicitly carry a description
+change; applying the currently persisted value returns `Unchanged`.
+
 ### Permission manager
 
 ```php
@@ -142,6 +146,16 @@ interface PermissionManager
     ): MutationResult;
 }
 ```
+
+In the initial public API, `PermissionChanges` carries `description` only and
+uses the same omitted-versus-explicit-null semantics as `RoleChanges`.
+Permission name and guard are immutable. Applying the currently persisted
+description returns `Unchanged`.
+
+Creating a role or permission uses the full `(name, guard)` namespace,
+including deactivated definitions. A collision throws the corresponding
+duplicate exception; consumers use `restore()` rather than creating over a
+deactivated definition.
 
 ### Assignment manager
 
@@ -320,6 +334,10 @@ final readonly class AssignmentPeriod
 
 An omitted period means an immediate assignment without expiry. Time values are
 normalized to GateTrail's configured precision and timezone before persistence.
+
+Once persisted, an assignment period is immutable in the initial public API.
+Changing a period requires revoking the existing assignment and creating a new
+assignment. The package exposes no reschedule or assignment-update method.
 
 ## Mutation naming
 
@@ -627,6 +645,12 @@ Before this decision is considered implemented, tests must prove:
 - string, integer, model, and explicit-reference inputs resolve consistently;
 - numeric-looking strings resolve as names, not IDs;
 - assignment period normalization and validation are deterministic;
+- persisted assignment periods expose no update or reschedule path;
+- role and permission changes accept description only and preserve
+  omitted-versus-null semantics;
+- definition names and guards cannot be changed through `update()`;
+- creation over a deactivated `(name, guard)` throws the corresponding
+  duplicate exception;
 - human and system actors are always explicit;
 - reason rules are enforced;
 - assignment replays return `Unchanged` without duplicate side effects;

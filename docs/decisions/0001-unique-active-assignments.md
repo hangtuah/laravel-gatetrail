@@ -32,7 +32,7 @@ provide equivalent behavior in automated tests.
 GateTrail will serialize mutations for each equivalent assignment scope through
 a persistent coordination row. While holding the coordination-row lock, the
 managed mutation service will check assignment-period overlap and perform the
-assignment mutation and audit write in the same database transaction.
+assignment mutation under the audit transaction mode accepted by ADR 0008.
 
 GateTrail will not use a time-dependent unique index on an assignment history
 table as its portable correctness mechanism.
@@ -130,8 +130,7 @@ stored `scope_key` that does not match the key calculated for the same
 
 ### Mutation algorithm
 
-Every managed assignment, scheduling, rescheduling, or revocation operation
-must:
+Every managed assignment creation or revocation operation must:
 
 1. Normalize the scope and calculate its canonical key and hash.
 2. Begin a database transaction.
@@ -142,8 +141,8 @@ must:
 6. Verify that the stored canonical key matches the calculated key.
 7. Lock and read equivalent assignment rows.
 8. Apply the overlap and idempotency rules.
-9. Persist the assignment mutation and its audit record.
-10. Commit before cache invalidation and after-commit event dispatch.
+9. Persist the assignment mutation and apply the configured audit mode.
+10. Commit before cache invalidation and after-commit mutation event dispatch.
 
 Retries must be bounded. Exhaustion raises a package concurrency exception; it
 must never silently allow a duplicate.
@@ -161,11 +160,13 @@ risk.
   raises a duplicate-assignment exception.
 - A non-overlapping future period may be inserted as a separate assignment.
 - Reassignment after revocation or expiry creates a new history row.
-- Changing an existing period is a managed mutation and must acquire the same
-  coordination lock before validating the replacement period.
+- Existing assignment periods are immutable in the initial public API. A
+  replacement period requires revoking the existing assignment and creating a
+  new row under the same coordination lock.
 
 The exact public result and exception types will be finalized in the public
-mutation API ADR.
+mutation API ADR. Audit transaction behavior is defined by
+[ADR 0008](0008-audit-snapshot-and-failure-modes.md).
 
 ### Database adapters
 
@@ -285,11 +286,12 @@ Before this decision is considered implemented, tests must prove:
 - adjacent scheduled periods are accepted;
 - expired and revoked assignments remain in history;
 - reassignment after expiry or revocation creates a new row;
+- replacing a persisted period requires revoke followed by a new assignment;
 - a hash mismatch fails closed;
 - retry exhaustion fails closed;
 - multi-scope locks use deterministic ordering;
-- rollback removes the assignment and audit mutation but leaves no invalid
-  coordination state;
+- strict-mode rollback removes the assignment and audit mutation but leaves no
+  invalid coordination state;
 - behavior is equivalent on Oracle, MySQL, PostgreSQL, SQL Server, and SQLite.
 
 ## References

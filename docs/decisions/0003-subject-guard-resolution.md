@@ -236,9 +236,16 @@ The permission resolver:
 3. evaluates direct and role-based sources within that guard;
 4. returns default deny when no matching permission exists.
 
-An explicit permission reference from another guard produces `GuardMismatch`
-for mutation operations. Authorization checks using a name do not search other
-guards and therefore deny when no definition exists in the resolved guard.
+An explicit role or permission reference from another guard produces
+`GuardMismatch` for mutation operations.
+
+Authorization checks do not disclose cross-guard definitions:
+
+- name checks do not search other guards and deny when no definition exists in
+  the resolved guard;
+- model, identifier, and explicit-reference checks return `false` when the
+  resolved definition belongs to another guard;
+- role and permission checks use the same deny behavior.
 
 Infrastructure and invalid-guard failures are not converted to ordinary
 authorization denial. They remain visible exceptions so configuration errors
@@ -384,6 +391,8 @@ Before this decision is considered implemented, tests must prove:
 - `Gate::forUser()` resolves the supplied subject;
 - assignment guard mismatches fail before persistence and audit;
 - name-based authorization never searches another guard;
+- cross-guard role and permission model, identifier, and explicit-reference
+  checks return `false` without exposing the other guard;
 - cache keys include the resolved guard;
 - behavior is equivalent across HTTP, queue, CLI, and tests.
 

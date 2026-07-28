@@ -57,7 +57,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 |---|---:|---|
 | Overall roadmap by primary phases | Approximately 24% | Phase-weighted progress across Phases 0–13 |
 | Deliverable tracker | 9 of 32, approximately 28% | Completed concrete package deliverables |
-| Planning and specification | Approximately 94% | Charter, independent review, nine accepted ADRs, and remediation in progress |
+| Planning and specification | Approximately 98% | Independent review remediation is complete; final freeze review remains |
 | First sprint | 9 of 10, 90% | Repository-and-specification sprint tasks |
 
 These percentages measure different things and must not be combined.
@@ -70,7 +70,7 @@ automated testing, security hardening, a pilot, and release validation.
 | Phase | Name | Progress | Status |
 |---:|---|---:|---|
 | 0 | Ownership and product decisions | 100% | Complete |
-| 1 | Package specification | 85% | In progress |
+| 1 | Package specification | 95% | In progress |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 70% | In progress |
 | 4 | Mutation services | 0% | Not started |
@@ -187,7 +187,7 @@ Completed in the current tooling increment:
 
 Next:
 
-1. Resolve or explicitly defer the remaining independent-review findings.
+1. Perform the final specification freeze review.
 2. Obtain minimum-version evidence before declaring Oracle fully verified.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
@@ -233,14 +233,19 @@ to match one consumer application.
 - [x] Default-deny behavior defined.
 - [x] Role and permission lifecycle defined.
 - [x] Assignment scheduling, expiry, and revocation defined.
+- [x] Null-start assignment periods aligned with `assigned_at`.
 - [x] Revoke and deactivate terminology separated.
 - [x] Public mutation API direction accepted.
+- [x] Mutable definition fields and immutable assignment periods accepted.
 - [x] Subject guard behavior accepted.
+- [x] Cross-guard authorization-check behavior accepted.
 - [x] Middleware any/all syntax accepted.
+- [x] Shared role-check resolver behavior accepted.
 - [x] Laravel Gate hook and resource-policy boundary accepted.
 - [x] Persisted human and system actor identity accepted.
 - [x] Audit snapshot, metadata, and failure-mode contract accepted.
 - [x] Direct database mutation and diagnostic behavior accepted.
+- [x] Deactivated-definition namespace behavior accepted.
 - [x] Database compatibility targets recorded.
 - [x] Identifier and 30-character database-name rules recorded.
 - [x] Initial feature scope and non-goals recorded.
@@ -268,7 +273,7 @@ measured.
 - [x] One independent developer reviews the charter and package specification.
 - [x] Review feedback is recorded in
   `docs/reviews/0001-specification-review-disposition.md`.
-- [ ] Accepted review findings are resolved or explicitly deferred.
+- [x] Accepted review findings are resolved or explicitly deferred.
 - [ ] Specification status is changed from Draft when freeze criteria are met.
 
 ### Exit criteria

@@ -9,9 +9,9 @@
 | Review response | `docs/reviews/0001-specification-review-response.md` |
 | Commit reviewed | `df60a9c5b6f6e41436c1b18901cf70b334d45066` |
 | Reviewer verdict | Accept with changes |
-| Maintainer disposition | Review accepted; remediation required |
+| Maintainer disposition | Review accepted; remediation complete |
 | Specification status | Draft |
-| Remediation status | In progress |
+| Remediation status | Complete |
 
 This document records the maintainer's response to the independent review. It
 does not change the package contract by itself. A finding is resolved only
@@ -48,8 +48,8 @@ Deferred
 | Accepted with modification | 1 |
 | Rejected findings | 0 |
 
-The independent review is complete and its feedback is recorded. Remediation
-is not complete. The specification remains Draft.
+The independent review and finding remediation are complete. The specification
+remains Draft pending one final freeze review against the accepted changes.
 
 No unresolved review finding or architecture decision currently blocks the
 first vertical slice. O01, F-09, and F-11 are resolved by ADR 0008 and the
@@ -129,7 +129,7 @@ existing deactivated definition an authoritative `false` result and reserves
 | Severity | Medium |
 | Decision | Accepted |
 | Blocks first vertical slice | No |
-| Remediation status | Open |
+| Remediation status | Resolved |
 | Authoritative target | `PACKAGE_SPEC.md` sections 9.3 and 9.4 |
 
 The package specification must align evaluation and validation with the
@@ -143,6 +143,9 @@ The active-time formula must use `assigned_at` when `starts_at` is null.
 Period validation must require `expires_at` to be later than
 `starts_at ?? assigned_at`.
 
+Resolved in `PACKAGE_SPEC.md` sections 9.3 and 9.4 and aligned with ADR 0001.
+The effective period uses the accepted half-open interval above.
+
 ### F-04: One role-check source of truth
 
 | Item | Disposition |
@@ -150,7 +153,7 @@ Period validation must require `expires_at` to be later than
 | Severity | Medium |
 | Decision | Accepted |
 | Blocks first vertical slice | No |
-| Remediation status | Open |
+| Remediation status | Resolved |
 | Authoritative target | `PACKAGE_SPEC.md` sections 11 and 12.2 |
 
 Role checks need one documented rule shared by subject helpers and role
@@ -162,6 +165,10 @@ middleware. An active role requires:
 
 The specification must identify the role-check contract that owns this rule.
 
+Resolved by the shared `RoleResolver` contract in `PACKAGE_SPEC.md` section
+11.5. Subject helpers and role middleware derive from the same effective-role
+set.
+
 ### F-05: Mutable role and permission fields
 
 | Item | Disposition |
@@ -169,7 +176,7 @@ The specification must identify the role-check contract that owns this rule.
 | Severity | Medium |
 | Decision | Accepted |
 | Blocks first vertical slice | No |
-| Remediation status | Open |
+| Remediation status | Resolved |
 | Authoritative target | `PACKAGE_SPEC.md` section 10 and ADR 0002 |
 
 The initial public update API must enumerate mutable fields. The preferred
@@ -180,6 +187,9 @@ metadata only. Names and `guard_name` remain immutable through the initial
 Rename and guard migration require separate future decisions because they
 affect ability names, assignments, audit snapshots, and cache invalidation.
 
+Resolved in `PACKAGE_SPEC.md` section 10.1 and ADR 0002. Initial changes objects
+carry `description` only; definition names and guards are immutable.
+
 ### F-06: Assignment rescheduling
 
 | Item | Disposition |
@@ -187,7 +197,7 @@ affect ability names, assignments, audit snapshots, and cache invalidation.
 | Severity | Medium |
 | Decision | Accepted with modification |
 | Blocks first vertical slice | No |
-| Remediation status | Open |
+| Remediation status | Resolved |
 | Authoritative target | `PACKAGE_SPEC.md` section 10.1 and ADR 0001 |
 
 The ambiguity is valid, but no rescheduling API will be added to the initial
@@ -198,6 +208,9 @@ ADR 0001 must stop describing rescheduling as an available managed operation.
 Its coordination rules may be retained as requirements for any future
 rescheduling feature.
 
+Resolved in `PACKAGE_SPEC.md`, ADR 0001, and ADR 0002. Persisted periods are
+immutable; replacement uses revoke followed by a new assignment.
+
 ### F-07: Creation over a deactivated definition
 
 | Item | Disposition |
@@ -205,13 +218,16 @@ rescheduling feature.
 | Severity | Medium |
 | Decision | Accepted |
 | Blocks first vertical slice | No |
-| Remediation status | Open |
+| Remediation status | Resolved |
 | Authoritative target | `PACKAGE_SPEC.md` sections 9.1 and 10.5 |
 
 Name uniqueness includes deactivated definitions. Creating a role or permission
 over a deactivated `(name, guard_name)` pair throws the corresponding duplicate
 domain exception. Restore is the only initial path that makes that definition
 active again.
+
+Resolved in `PACKAGE_SPEC.md` sections 9.1 and 10.5 and ADR 0002. Deactivated
+definitions retain their `(name, guard_name)` namespace.
 
 ### F-08: Explicit permission references from another guard
 
@@ -220,7 +236,7 @@ active again.
 | Severity | Low |
 | Decision | Accepted |
 | Blocks first vertical slice | No |
-| Remediation status | Open |
+| Remediation status | Resolved |
 | Authoritative target | `PACKAGE_SPEC.md` section 11.2 and ADR 0003 |
 
 An authorization check using a permission model, identifier, or explicit
@@ -230,6 +246,10 @@ operations remain different: they reject a cross-guard assignment with
 
 This keeps authorization checks non-disclosing and consistent with name-based
 checks.
+
+Resolved in `PACKAGE_SPEC.md` section 11 and ADR 0003. Cross-guard explicit
+authorization inputs return `false`; cross-guard mutations throw
+`GuardMismatch`.
 
 ### F-09: Non-strict and disabled audit behavior
 
@@ -267,12 +287,15 @@ audit explicitly.
 | Severity | Low |
 | Decision | Accepted |
 | Blocks first vertical slice | No |
-| Remediation status | Open |
+| Remediation status | Resolved |
 | Authoritative target | `PACKAGE_SPEC.md` section 2.1 |
 
 The lifecycle description must use `active`, `deactivated`, and `restored`.
 Soft deletion should be described as the persistence mechanism, not as the
 public lifecycle term.
+
+Resolved in `PACKAGE_SPEC.md` section 2.1 using active, deactivated, and
+restored lifecycle terminology.
 
 ### F-11: Mutation metadata destination
 
@@ -400,13 +423,32 @@ Work should proceed in this order:
 1. [Completed] Decide the Gate integration contract and resolve F-01 and F-02.
 2. [Completed] Decide the audit snapshot and failure-mode contract, resolving
    O01, F-09, and F-11.
-3. Apply the remaining specification clarifications for F-03 through F-08 and
-   F-10.
+3. [Completed] Apply the remaining specification clarifications for F-03
+   through F-08 and F-10.
 4. [Completed] Decide direct database mutation and diagnostic behavior for
    O02.
-5. Recheck all A01-A15 scenarios against the amended authoritative documents.
-6. Mark findings resolved only after their authoritative changes are accepted.
+5. [Completed] Recheck all A01-A15 scenarios against the amended authoritative
+   documents.
+6. [Completed] Mark findings resolved only after their authoritative changes
+   are accepted.
 7. Evaluate whether the specification meets its freeze criteria.
+
+## Post-remediation scenario check
+
+Authorization scenarios A01-A15 were rechecked against the amended
+authoritative documents. Their expected allow, deny, rejection, and
+Laravel-fallback results remain unchanged and deterministic.
+
+The remediations clarify rather than reverse the original results:
+
+- A06 uses `starts_at ?? assigned_at` as its effective lower bound;
+- A10 denies through both the resolver and the authoritative Gate hook for a
+  deactivated definition;
+- A11 denies cross-guard authorization checks while mutations continue to
+  reject with `GuardMismatch`;
+- A13 remains independent from unrelated Laravel Gates in middleware;
+- A14 returns `null` only for a genuine GateTrail non-match;
+- A15 retains coordination-locked overlap prevention.
 
 ## Completion criteria
 
