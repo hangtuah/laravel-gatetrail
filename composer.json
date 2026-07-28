@@ -61,7 +61,8 @@
         "ddl:generate": "php tools/generate-ddl-artifacts.php",
         "format": "pint",
         "format:test": "pint --test",
-        "test": "phpunit"
+        "test": "phpunit",
+        "test:mysql": "phpunit -c phpunit.mysql.xml"
     },
     "minimum-stability": "stable",
     "prefer-stable": true

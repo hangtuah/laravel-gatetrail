@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/11.5/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         cacheDirectory=".phpunit.mysql.cache"
+         beStrictAboutOutputDuringTests="true">
+    <testsuites>
+        <testsuite name="GateTrail MySQL Integration">
+            <directory suffix="Test.php">tests/Integration/MySql</directory>
+        </testsuite>
+    </testsuites>
+
+    <source>
+        <include>
+            <directory suffix=".php">src</directory>
+        </include>
+    </source>
+
+    <php>
+        <env name="APP_ENV" value="testing" force="true"/>
+        <env name="GATETRAIL_MYSQL_HOST" value="127.0.0.1"/>
+        <env name="GATETRAIL_MYSQL_PORT" value="33061"/>
+        <env name="GATETRAIL_MYSQL_DATABASE" value="gatetrail_test"/>
+        <env name="GATETRAIL_MYSQL_USERNAME" value="gatetrail"/>
+        <env name="GATETRAIL_MYSQL_PASSWORD" value="gatetrail_test"/>
+    </php>
+</phpunit>

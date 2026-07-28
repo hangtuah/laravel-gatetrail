@@ -8,6 +8,7 @@
     <testsuites>
         <testsuite name="GateTrail">
             <directory suffix="Test.php">tests</directory>
+            <exclude>tests/Integration</exclude>
         </testsuite>
     </testsuites>
 
