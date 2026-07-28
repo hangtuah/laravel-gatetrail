@@ -1,0 +1,24 @@
+name: gatetrail
+
+services:
+  mysql:
+    image: mysql:8.0.45
+    container_name: gatetrail-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${GATETRAIL_MYSQL_ROOT_PASSWORD:-gatetrail_root_test}
+      MYSQL_DATABASE: ${GATETRAIL_MYSQL_DATABASE:-gatetrail_test}
+      MYSQL_USER: ${GATETRAIL_MYSQL_USERNAME:-gatetrail}
+      MYSQL_PASSWORD: ${GATETRAIL_MYSQL_PASSWORD:-gatetrail_test}
+    ports:
+      - "127.0.0.1:${GATETRAIL_MYSQL_PORT:-33061}:3306"
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mysqladmin ping --host=127.0.0.1 --user=$$MYSQL_USER --password=$$MYSQL_PASSWORD --silent
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+    restart: "no"
