@@ -1,0 +1,59 @@
+{
+    "name": "hangtuah/laravel-gatetrail",
+    "description": "Roles, permissions, and authorization for Laravel",
+    "keywords": [
+        "authorization",
+        "laravel",
+        "permissions",
+        "rbac",
+        "roles"
+    ],
+    "homepage": "https://github.com/hangtuah/laravel-gatetrail",
+    "license": "MIT",
+    "type": "library",
+    "authors": [
+        {
+            "name": "Mohd Fairus bin Ahmad",
+            "email": "mohdfairusahmad@gmail.com"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/hangtuah/laravel-gatetrail/issues",
+        "source": "https://github.com/hangtuah/laravel-gatetrail"
+    },
+    "require": {
+        "php": "^8.3",
+        "illuminate/contracts": "^12.0 || ^13.0",
+        "illuminate/support": "^12.0 || ^13.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^10.0 || ^11.0",
+        "phpunit/phpunit": "^11.5.50"
+    },
+    "autoload": {
+        "psr-4": {
+            "HangTuah\\GateTrail\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "HangTuah\\GateTrail\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "HangTuah\\GateTrail\\GateTrailServiceProvider"
+            ]
+        }
+    },
+    "scripts": {
+        "check": [
+            "@composer validate --strict",
+            "@test"
+        ],
+        "test": "phpunit"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

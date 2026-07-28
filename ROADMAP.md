@@ -54,10 +54,10 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | Approximately 15% | Phase-weighted progress across Phases 0–13 |
-| Deliverable tracker | 3 of 32, approximately 10% | Completed concrete package deliverables |
+| Overall roadmap by primary phases | Approximately 17% | Phase-weighted progress across Phases 0–13 |
+| Deliverable tracker | 5 of 32, approximately 16% | Completed concrete package deliverables |
 | Planning and specification | Approximately 80% | Charter, specification, and four accepted ADRs |
-| First sprint | 4 of 10, 40% | Repository-and-specification sprint tasks |
+| First sprint | 7 of 10, 70% | Repository-and-specification sprint tasks |
 
 These percentages measure different things and must not be combined.
 
@@ -70,7 +70,7 @@ automated testing, security hardening, a pilot, and release validation.
 |---:|---|---:|---|
 | 0 | Ownership and product decisions | 100% | Complete |
 | 1 | Package specification | 80% | In progress |
-| 2 | Repository and development tooling | 25% | In progress |
+| 2 | Repository and development tooling | 55% | In progress |
 | 3 | Database and assignment lifecycle | 0% | Not started |
 | 4 | Mutation services | 0% | Not started |
 | 5 | Effective permission resolver | 0% | Not started |
@@ -139,16 +139,11 @@ features such as cache optimization.
 
 Work should proceed in this order:
 
-1. Review and accept this roadmap.
-2. Push the accepted documentation commits to the remote repository.
-3. Create the Composer package scaffold.
-4. Add the GateTrail service provider and publishable configuration.
-5. Configure Orchestra Testbench.
-6. Add a package-boot smoke test.
-7. Add code style, static analysis, and Composer validation.
-8. Add the initial CI workflow.
-9. Draw the initial ERD from the accepted schema.
-10. Obtain one independent developer review of the charter and specification.
+1. Add code style and static analysis.
+2. Add the initial CI workflow.
+3. Verify Laravel package auto-discovery.
+4. Draw the initial ERD from the accepted schema.
+5. Obtain one independent developer review of the charter and specification.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
 
@@ -250,7 +245,7 @@ consumer application.
 
 - [x] Separate repository created.
 - [x] Default branch and remote configured.
-- [ ] Current documentation commits pushed.
+- [x] Current documentation commits pushed.
 
 ### Required initial structure
 
@@ -338,12 +333,12 @@ and passes.
 
 ### Checklist
 
-- [ ] Composer autoload succeeds.
+- [x] Composer autoload succeeds.
 - [ ] Service provider is auto-discovered.
-- [ ] Testbench boots.
-- [ ] Package smoke test passes.
+- [x] Testbench boots.
+- [x] Package smoke test passes.
 - [ ] CI runs on push and pull request.
-- [ ] `composer validate` passes.
+- [x] `composer validate` passes.
 - [ ] Code formatting is configured.
 - [ ] Static analysis is configured.
 
@@ -785,14 +780,14 @@ The first sprint proves that the repository and specification are solid.
 - [x] Create separate repository.
 - [x] Write `PROJECT_CHARTER.md`.
 - [x] Write `PACKAGE_SPEC.md`.
-- [ ] Set up Composer and namespace.
-- [ ] Set up Orchestra Testbench.
+- [x] Set up Composer and namespace.
+- [x] Set up Orchestra Testbench.
 - [ ] Set up CI.
-- [ ] Add service-provider smoke test.
+- [x] Add service-provider smoke test.
 - [ ] Draw initial ERD.
 - [ ] Obtain one independent developer review.
 
-Current result: **4 of 10 tasks, 40%**
+Current result: **7 of 10 tasks, 70%**
 
 ### First sprint deliverable
 
@@ -851,13 +846,13 @@ discussion.
 - [x] Project charter
 - [x] Package specification
 - [x] Repository
-- [ ] Composer
-- [ ] Testbench
+- [x] Composer
+- [x] Testbench
 - [ ] CI
 - [ ] Code style
 - [ ] Static analysis
 
-Progress: **3 of 8**
+Progress: **5 of 8**
 
 ### Core implementation
 
@@ -901,9 +896,9 @@ Progress: **0 of 8**
 ### Total
 
 ```text
-Completed: 3
+Completed: 5
 Total:     32
-Progress:  9.375%, reported as approximately 10%
+Progress:  15.625%, reported as approximately 16%
 ```
 
 ## 25. Progress update rules
