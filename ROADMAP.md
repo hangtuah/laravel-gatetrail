@@ -56,7 +56,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 | Measurement | Current value | Interpretation |
 |---|---:|---|
 | Overall roadmap by primary phases | Approximately 28% | Phase-weighted progress across Phases 0–13 |
-| Deliverable tracker | 10 of 32, approximately 31% | Completed concrete package deliverables |
+| Deliverable tracker | 11 of 32, approximately 34% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
 
@@ -73,7 +73,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 5% | In progress |
+| 4 | Mutation services | 10% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -583,7 +583,7 @@ Implement every state-changing operation through the accepted public managers.
 - [ ] Internal immutable commands.
 - [ ] One internal handler per mutation use case.
 - [ ] Typed domain exceptions.
-- [ ] Mutation results and outcomes.
+- [x] Mutation results and outcomes.
 - [ ] After-commit cache and event hooks.
 
 ### Required strict-audit flow
@@ -625,6 +625,10 @@ audit write.
 - Immediate replay returns one currently active equivalent assignment as
   unchanged. Scheduled overlap, future-only overlap, and ambiguous multiple
   conflicts fail closed as conflict decisions.
+- Public generic mutation results expose the affected model, a typed successful
+  outcome, and a nullable audit identifier. Unchanged results reject audit
+  identifiers and report no state change. Duplicate active assignments have a
+  typed exception containing only safe hashed scope context.
 
 ### Exit criteria
 
@@ -1052,7 +1056,7 @@ Progress: **8 of 8**
 - [ ] Audit trail
 - [ ] Cache invalidation
 
-Progress: **2 of 10**
+Progress: **3 of 10**
 
 ### Quality
 
@@ -1081,9 +1085,9 @@ Progress: **0 of 8**
 ### Total
 
 ```text
-Completed: 10
+Completed: 11
 Total:     32
-Progress:  31.25%, reported as approximately 31%
+Progress:  34.375%, reported as approximately 34%
 ```
 
 ## 25. Progress update rules
