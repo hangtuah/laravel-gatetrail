@@ -484,6 +484,11 @@ acl_access_audits
   UTC whole seconds. Its internal effective-period representation applies the
   `starts_at ?? assigned_at` fallback, validates expiry ordering, and shares one
   half-open overlap evaluator for adjacent, bounded, and open-ended periods.
+- The transaction-bound assignment-conflict query locks and returns equivalent
+  non-revoked assignments whose historical periods overlap a candidate. It
+  supports all assignment kinds, excludes revoked and unrelated scopes, allows
+  adjacent boundaries, and retains domain-level overlap verification after its
+  portable database prefilter.
 - Assignment and audit timestamps use immutable datetime casts. Audit
   `before`, `after`, and `context` documents cast from portable text/CLOB
   storage.

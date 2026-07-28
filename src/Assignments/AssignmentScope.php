@@ -12,6 +12,8 @@ final readonly class AssignmentScope
 
     private function __construct(
         private AssignmentKind $kind,
+        /** @var array<string, string> */
+        private array $components,
         private string $key,
         private string $hash,
     ) {}
@@ -81,6 +83,14 @@ final readonly class AssignmentScope
         return $this->key;
     }
 
+    /**
+     * @return array<string, string>
+     */
+    public function components(): array
+    {
+        return $this->components;
+    }
+
     public function hash(): string
     {
         return $this->hash;
@@ -107,6 +117,7 @@ final readonly class AssignmentScope
 
         return new self(
             $kind,
+            $components,
             $key,
             hash('sha256', $key),
         );
