@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail\Tests\Database;
 
+use HangTuah\GateTrail\Database\Schema\Manifest\SchemaManifest;
 use PHPUnit\Framework\TestCase;
 
 final class MigrationOrderTest extends TestCase
@@ -13,14 +14,14 @@ final class MigrationOrderTest extends TestCase
         $files = glob(__DIR__.'/../../database/migrations/*.php');
 
         $this->assertIsArray($files);
-        $this->assertSame([
-            '2026_07_28_000001_create_gatetrail_roles_table.php',
-            '2026_07_28_000002_create_gatetrail_permissions_table.php',
-            '2026_07_28_000003_create_gatetrail_assignment_locks_table.php',
-            '2026_07_28_000004_create_gatetrail_role_assignments_table.php',
-            '2026_07_28_000005_create_gatetrail_permission_assignments_table.php',
-            '2026_07_28_000006_create_gatetrail_role_permissions_table.php',
-            '2026_07_28_000007_create_gatetrail_access_audits_table.php',
-        ], array_map(basename(...), $files));
+        $manifestMigrations = array_map(
+            static fn ($table): string => $table->migration,
+            SchemaManifest::gateTrail()->tables(),
+        );
+
+        $this->assertSame(
+            $manifestMigrations,
+            array_map(basename(...), $files),
+        );
     }
 }
