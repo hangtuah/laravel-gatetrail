@@ -469,8 +469,8 @@ acl_access_audits
 Table names are configurable before migrations are run.
 
 The accepted relationship model is documented in the
-[initial ERD](docs/architecture/initial-erd.md). The proposed migration-level
-rules are documented in the
+[initial ERD](docs/architecture/initial-erd.md). The accepted migration-level
+baseline is documented in the
 [constraint and index plan](docs/architecture/constraints-and-indexes.md).
 
 ### 8.2 Roles

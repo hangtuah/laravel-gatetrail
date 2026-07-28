@@ -1,6 +1,6 @@
 # GateTrail Constraint and Index Plan
 
-- Status: Draft for review
+- Status: Accepted baseline
 - Date: 2026-07-28
 - Depends on: Initial ERD, ADR 0001, ADR 0005
 
@@ -288,4 +288,3 @@ Each Tier 1 database must prove:
 5. use of the intended indexes for core resolver and overlap queries;
 6. schema-qualified table support;
 7. migration and rollback with explicit object names.
-

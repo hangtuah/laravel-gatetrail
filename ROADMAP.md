@@ -149,12 +149,13 @@ Completed in the current tooling increment:
 - [x] Verify Laravel package auto-discovery metadata.
 - [x] Confirm the initial remote CI run.
 - [x] Draw the initial ERD from the accepted schema.
+- [x] Accept the migration-level constraint and index plan.
 
 Next:
 
 1. Obtain one independent developer review of the charter and specification.
-2. Review and accept the migration-level constraint and index plan.
-3. Implement the first versioned package migrations.
+2. Implement the first versioned package migrations.
+3. Verify migration and rollback behavior in the SQLite package suite.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
 
