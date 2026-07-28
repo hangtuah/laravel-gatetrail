@@ -430,7 +430,7 @@ Implement the portable schema and history-preserving assignment lifecycle.
 - [ ] Versioned DBA-managed DDL artifacts for every Tier 1 database.
 - [x] Models and relationships.
 - [x] Explicit indexes, foreign keys, and constraints in the SQLite reference schema.
-- [ ] `acl_assignment_locks` coordination model or query component.
+- [x] `acl_assignment_locks` coordination model or query component.
 - [x] Assignment period scopes.
 - [x] Soft deletion for roles and permissions.
 - [x] No normal hard deletion or cascading deletion of assignments.
@@ -475,6 +475,11 @@ acl_access_audits
   revoked lifecycle states across all three assignment models. Boundary tests
   confirm that the start time is inclusive, the expiry time is exclusive, and
   `assigned_at` is used when `starts_at` is omitted.
+- Canonical assignment scopes use versioned, length-prefixed keys and lowercase
+  SHA-256 hashes with stable golden vectors. The internal coordination query
+  component requires an existing transaction, acquires pessimistic row locks,
+  preserves one row per equivalent scope, honors configured table context, and
+  fails closed on a stored-key mismatch.
 - Assignment and audit timestamps use immutable datetime casts. Audit
   `before`, `after`, and `context` documents cast from portable text/CLOB
   storage.
