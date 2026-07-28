@@ -182,8 +182,7 @@ Completed in the current tooling increment:
 Next:
 
 1. Obtain one independent developer review of the charter and specification.
-2. Confirm the first remote Oracle compatibility run.
-3. Obtain minimum-version evidence before declaring Oracle fully verified.
+2. Obtain minimum-version evidence before declaring Oracle fully verified.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
 
@@ -487,8 +486,9 @@ acl_access_audits
   compiler. Non-Oracle migrations retain their existing Schema Builder path.
 - The dedicated Oracle compatibility workflow runs the Laravel 13 reference
   lock and a temporary Laravel 12 compatibility checkout sequentially against
-  one Oracle service container. Remote run evidence remains pending until the
-  first workflow completes successfully.
+  one Oracle service container. GitHub Actions run `Oracle compatibility #1`
+  for commit `882af5a` passes both supported major lanes. The accompanying
+  primary workflow run `CI #25` also passes for the same commit.
 - MySQL release `0001` provides committed install and rollback artifacts with
   byte-for-byte compiler conformance tests and DBA operational guidance.
 - The read-only inspection contract reports schema differences without mutating
