@@ -431,7 +431,7 @@ Implement the portable schema and history-preserving assignment lifecycle.
 - [x] Models and relationships.
 - [x] Explicit indexes, foreign keys, and constraints in the SQLite reference schema.
 - [ ] `acl_assignment_locks` coordination model or query component.
-- [ ] Assignment period scopes.
+- [x] Assignment period scopes.
 - [x] Soft deletion for roles and permissions.
 - [x] No normal hard deletion or cascading deletion of assignments.
 
@@ -471,6 +471,10 @@ acl_access_audits
   are covered by integration tests.
 - Assignment relationships retain access to soft-deleted role and permission
   definitions without deleting or rewriting assignment history.
+- Assignment period scopes consistently expose active, scheduled, expired, and
+  revoked lifecycle states across all three assignment models. Boundary tests
+  confirm that the start time is inclusive, the expiry time is exclusive, and
+  `assigned_at` is used when `starts_at` is omitted.
 - Assignment and audit timestamps use immutable datetime casts. Audit
   `before`, `after`, and `context` documents cast from portable text/CLOB
   storage.

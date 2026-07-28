@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace HangTuah\GateTrail\Models;
 
 use HangTuah\GateTrail\Contracts\RoleAssignmentContract;
+use HangTuah\GateTrail\Models\Concerns\HasAssignmentPeriodScopes;
 use HangTuah\GateTrail\Support\ModelRegistry;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,6 +13,8 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class RoleAssignment extends GateTrailModel implements RoleAssignmentContract
 {
+    use HasAssignmentPeriodScopes;
+
     /**
      * @var list<string>
      */
