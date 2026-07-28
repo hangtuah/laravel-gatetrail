@@ -73,7 +73,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 15% | In progress |
+| 4 | Mutation services | 20% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -634,6 +634,10 @@ audit write.
   missing-key, and system-name boundaries are covered. Assignment reasons are
   trimmed and enforce the secure-by-default configurable requirement before a
   mutation transaction begins.
+- The package binds a PSR-20 clock with UTC whole-second output. The first
+  internal immutable command captures one normalized request timestamp for
+  deterministic transaction retries and preserves explicit role references,
+  periods, actors, reasons, and copied metadata without performing queries.
 
 ### Exit criteria
 

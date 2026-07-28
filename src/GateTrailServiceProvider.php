@@ -16,8 +16,10 @@ use HangTuah\GateTrail\Database\Schema\SchemaContext;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
 use HangTuah\GateTrail\Support\ModelRegistry;
+use HangTuah\GateTrail\Time\SystemClock;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
+use Psr\Clock\ClockInterface;
 
 final class GateTrailServiceProvider extends ServiceProvider
 {
@@ -33,6 +35,7 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(AssignmentDecisionMaker::class);
         $this->app->singleton(AssignmentLockStore::class);
         $this->app->singleton(ActorIdentityResolver::class);
+        $this->app->singleton(ClockInterface::class, SystemClock::class);
         $this->app->singleton(
             MutationReasonValidator::class,
             static function (Application $app): MutationReasonValidator {
