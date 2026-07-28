@@ -72,7 +72,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 0 | Ownership and product decisions | 100% | Complete |
 | 1 | Package specification | 80% | In progress |
 | 2 | Repository and development tooling | 100% | Complete |
-| 3 | Database and assignment lifecycle | 35% | In progress |
+| 3 | Database and assignment lifecycle | 40% | In progress |
 | 4 | Mutation services | 0% | Not started |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
@@ -152,12 +152,13 @@ Completed in the current tooling increment:
 - [x] Accept the migration-level constraint and index plan.
 - [x] Implement the first versioned package migrations.
 - [x] Verify migration and rollback behavior in the SQLite package suite.
+- [x] Add the database-neutral schema manifest.
 
 Next:
 
 1. Obtain one independent developer review of the charter and specification.
-2. Validate production-adapter DDL, beginning with Oracle.
-3. Implement models and relationships.
+2. Implement the first vendor DBA DDL compiler from the canonical manifest.
+3. Define the read-only schema-inspector contract.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
 
@@ -385,8 +386,9 @@ Implement the portable schema and history-preserving assignment lifecycle.
 ### Deliverables
 
 - [x] ERD.
+- [x] Database-neutral schema manifest.
 - [x] Versioned package migrations.
-- [ ] Oracle DBA-managed schema manifest or reference DDL.
+- [ ] Versioned DBA-managed DDL artifacts for every Tier 1 database.
 - [ ] Models and relationships.
 - [x] Explicit indexes, foreign keys, and constraints in the SQLite reference schema.
 - [ ] `acl_assignment_locks` coordination model or query component.
@@ -428,10 +430,12 @@ acl_access_audits
   and non-cascading foreign-key rules.
 - Configured table prefixes are exercised by the migration suite.
 - The full suite passes on Laravel 12/Testbench 10 and Laravel 13/Testbench 11.
+- Manifest conformance tests compare migrated columns, nullability, indexes,
+  dependency order, and rollback order with the canonical schema contract.
 
 Production database adapters are not marked verified until their integration
-suites pass. Oracle sequence/trigger behavior and the DBA-managed reference
-schema remain open.
+suites pass. Vendor DBA DDL, read-only schema inspection, and Oracle
+sequence/trigger behavior remain open.
 
 ### Exit criteria
 
@@ -657,7 +661,7 @@ understandable without reading package internals.
 - [ ] Public manager API guide.
 - [ ] Role and permission naming guide.
 - [ ] Lifecycle and audit guide.
-- [ ] Oracle DBA-managed installation guide.
+- [ ] DBA-managed installation guides for every Tier 1 database.
 - [ ] SQL Server setup guide.
 - [ ] Upgrade and migration guides.
 - [ ] `gatetrail:install`.

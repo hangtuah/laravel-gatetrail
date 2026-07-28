@@ -121,29 +121,52 @@ Core behavior must not depend on a single database dialect.
 - Do not use quoted mixed-case database identifiers.
 - Run the same behavioral authorization suite against every Tier 1 database.
 
-### 3.4 Oracle integration
+### 3.4 Provisioning modes
 
-Oracle support is a first-class requirement.
+Every Tier 1 production database supports two provisioning modes:
 
-GateTrail supports two Oracle provisioning modes:
+1. **Package-managed** — GateTrail migrations create and upgrade the required
+   database objects.
+2. **DBA-managed** — an external database owner creates and upgrades the
+   required objects from GateTrail's versioned schema contract.
 
-1. **Package-managed** — published GateTrail migrations create the required
-   tables and use Laravel-OCI8 schema support for Oracle-specific objects.
-2. **DBA-managed** — a DBA creates tables, indexes, constraints, sequences, and
-   triggers from the GateTrail schema contract before the application is
-   deployed.
+Package-managed provisioning is the default for general package use, local
+development, and automated tests. DBA-managed provisioning is a first-class
+option for environments that separate application and DDL privileges.
 
 In DBA-managed mode:
 
-- GateTrail migrations for the existing objects are not executed;
-- the package does not require runtime permission to create or alter schema
-  objects;
-- DBA-owned triggers may populate primary keys from DBA-owned sequences;
-- configured sequence and trigger names must be supported;
-- `gatetrail:doctor` must validate the expected tables, columns, indexes, and
-  identifier configuration without modifying the schema;
-- GateTrail must provide a versioned schema manifest or reference DDL describing
-  the objects required by each package release.
+- GateTrail migrations do not execute;
+- the runtime account does not require create, alter, or drop privileges;
+- the configured schema may be prepared by a DBA, platform team, or another
+  deployment system;
+- GateTrail performs read-only schema inspection before claiming compatibility;
+- versioned install, upgrade, and rollback DDL must be available for Oracle,
+  MySQL, PostgreSQL, and SQL Server;
+- vendor DDL must conform to the same database-neutral schema manifest used to
+  verify package migrations.
+
+Business behavior, models, relationships, and mutation services must not depend
+on which provisioning mode created the schema.
+
+Each schema release has two synchronized delivery paths:
+
+```text
+Laravel package migration  → package-managed environments
+Versioned vendor DDL       → DBA-managed environments
+```
+
+### 3.5 Oracle integration
+
+Oracle support is a first-class requirement.
+
+Package-managed Oracle uses Laravel-OCI8 support for Oracle-specific objects.
+DBA-managed Oracle permits organization-owned tables, indexes, constraints,
+sequences, and triggers that conform to the GateTrail schema manifest.
+
+Configured sequence and trigger names must be supported. A future
+`gatetrail:doctor` command validates expected objects and identifier
+configuration without modifying the schema.
 
 Oracle integration tests must cover:
 
@@ -161,7 +184,7 @@ Oracle integration tests must cover:
 - schema-qualified table names;
 - identifier length and Oracle name normalization.
 
-### 3.5 SQL Server integration
+### 3.6 SQL Server integration
 
 SQL Server support is a first-class requirement and must use Laravel's native
 SQL Server connection through the `sqlsrv` driver.

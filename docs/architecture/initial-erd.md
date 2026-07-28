@@ -226,8 +226,8 @@ core design.
   compatible types.
 - `acl_assignment_locks` uses a composite primary key and needs no sequence or
   trigger.
-- Oracle package-managed and DBA-managed provisioning must represent the same
-  logical model.
+- Package-managed and DBA-managed provisioning must represent the same logical
+  model on every Tier 1 production database.
 - MySQL, PostgreSQL, SQL Server, and Oracle must preserve the same assignment
   lifecycle and relationship behavior.
 - SQLite represents the same logical design in automated package tests.
