@@ -55,7 +55,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | Approximately 23% | Phase-weighted progress across Phases 0–13 |
+| Overall roadmap by primary phases | Approximately 24% | Phase-weighted progress across Phases 0–13 |
 | Deliverable tracker | 9 of 32, approximately 28% | Completed concrete package deliverables |
 | Planning and specification | Approximately 90% | Charter, specification, five accepted ADRs, and the provisioning contract |
 | First sprint | 9 of 10, 90% | Repository-and-specification sprint tasks |
@@ -72,7 +72,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 0 | Ownership and product decisions | 100% | Complete |
 | 1 | Package specification | 80% | In progress |
 | 2 | Repository and development tooling | 100% | Complete |
-| 3 | Database and assignment lifecycle | 55% | In progress |
+| 3 | Database and assignment lifecycle | 65% | In progress |
 | 4 | Mutation services | 0% | Not started |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
@@ -157,13 +157,16 @@ Completed in the current tooling increment:
 - [x] Define the read-only schema-inspector contract.
 - [x] Publish reproducible MySQL release `0001` install and rollback artifacts.
 - [x] Implement strict read-only MySQL catalog inspection.
+- [x] Verify MySQL 8.0.45 package-managed and DBA-managed paths on Laravel 12
+  and Laravel 13.
+- [x] Validate catalog normalization and fail-closed drift detection against
+  live MySQL metadata.
 
 Next:
 
 1. Obtain one independent developer review of the charter and specification.
-2. Exercise MySQL package-managed and DBA-managed paths against a real server.
-3. Validate MySQL catalog normalization against live `information_schema`
-   output.
+2. Add the MySQL integration suite to CI.
+3. Exercise the lowest advertised MySQL version before release verification.
 4. Add the next Tier 1 compiler without changing the canonical manifest.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
@@ -446,12 +449,16 @@ acl_access_audits
   DBA-managed objects.
 - The MySQL catalog inspector compares tables, columns, indexes, constraints,
   referential rules, and check expressions using read queries only.
+- MySQL 8.0.45 live integration passes for package-managed and DBA-managed
+  provisioning on Laravel 12/Testbench 10 and Laravel 13/Testbench 11.
+- Live drift tests confirm missing indexes, changed exact-name collation, and
+  cascading foreign keys are reported without automatic repair.
 
 Production database adapters are not marked verified until their integration
-suites pass. The MySQL compiler, artifacts, and catalog inspector are
-unit-tested but still require live integration evidence. The remaining Tier 1
-compilers and inspectors, including Oracle sequence/trigger behavior, remain
-open.
+suites pass. MySQL 8.0.45 is the verified live reference lane; the lowest
+advertised MySQL version and CI automation remain open before release-level
+range verification. The remaining Tier 1 compilers and inspectors, including
+Oracle sequence/trigger behavior, remain open.
 
 ### Exit criteria
 
