@@ -330,4 +330,3 @@ An `Accept` verdict requires no unresolved Critical or High finding and no
 ambiguity that blocks the first vertical slice. The maintainers retain final
 decision authority and may accept, defer, or reject recommendations with a
 recorded rationale.
-
