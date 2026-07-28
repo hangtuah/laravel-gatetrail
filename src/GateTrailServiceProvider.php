@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail;
 
+use HangTuah\GateTrail\Database\Schema\Ddl\DdlCompilerFactory;
 use HangTuah\GateTrail\Database\Schema\IdentifierValidator;
 use HangTuah\GateTrail\Database\Schema\Manifest\SchemaManifest;
 use HangTuah\GateTrail\Database\Schema\SchemaAdapterFactory;
@@ -21,6 +22,7 @@ final class GateTrailServiceProvider extends ServiceProvider
         );
 
         $this->app->singleton(IdentifierValidator::class);
+        $this->app->singleton(DdlCompilerFactory::class);
         $this->app->singleton(SchemaAdapterFactory::class);
         $this->app->singleton(
             SchemaManifest::class,
