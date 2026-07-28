@@ -1,0 +1,934 @@
+# GateTrail Roadmap and Implementation Guide
+
+Last updated: 2026-07-28
+
+## 1. Purpose
+
+This document is the official implementation roadmap and progress tracker for
+GateTrail.
+
+GateTrail is developed as an independent Laravel package. Its design,
+implementation, tests, releases, and documentation must not depend on a
+specific consumer application.
+
+This roadmap answers:
+
+- what has been completed;
+- where the project is now;
+- what should happen next;
+- which work must not start yet;
+- how completion percentages are calculated;
+- what evidence is required before a phase is marked complete.
+
+## 2. Status legend
+
+| Status | Meaning |
+|---|---|
+| Complete | Deliverables and exit criteria are satisfied |
+| In progress | Work has started but exit criteria are not fully satisfied |
+| Not started | No implementation evidence exists yet |
+| Deferred | Deliberately postponed to a later phase |
+| Optional | Not required for the initial stable release |
+
+A design described in `PACKAGE_SPEC.md` is not considered implemented until
+working code and the required automated tests exist.
+
+## 3. Current progress
+
+### 3.1 Current position
+
+```text
+Phase 0 — Complete
+Phase 1 — In progress
+Phase 2 — In progress
+Phase 3 onward — Not started
+```
+
+The project is currently at the end of specification work and the beginning of
+repository tooling.
+
+ADR numbers are decision-record numbers, not roadmap phase numbers. For
+example, ADR 0004 does not mean the project has reached Phase 4.
+
+### 3.2 Progress percentages
+
+| Measurement | Current value | Interpretation |
+|---|---:|---|
+| Overall roadmap by primary phases | Approximately 15% | Phase-weighted progress across Phases 0–13 |
+| Deliverable tracker | 3 of 32, approximately 10% | Completed concrete package deliverables |
+| Planning and specification | Approximately 80% | Charter, specification, and four accepted ADRs |
+| First sprint | 4 of 10, 40% | Repository-and-specification sprint tasks |
+
+These percentages measure different things and must not be combined.
+
+The overall percentage remains low because most work consists of implementation,
+automated testing, security hardening, a pilot, and release validation.
+
+### 3.3 Phase summary
+
+| Phase | Name | Progress | Status |
+|---:|---|---:|---|
+| 0 | Ownership and product decisions | 100% | Complete |
+| 1 | Package specification | 80% | In progress |
+| 2 | Repository and development tooling | 25% | In progress |
+| 3 | Database and assignment lifecycle | 0% | Not started |
+| 4 | Mutation services | 0% | Not started |
+| 5 | Effective permission resolver | 0% | Not started |
+| 6 | Laravel integration | 0% | Not started |
+| 7 | Audit trail | 0% | Not started |
+| 8 | Cache and performance | 0% | Not started |
+| 9 | Security hardening | 0% | Not started |
+| 10 | Developer experience and documentation | 0% | Not started |
+| 11 | Internal pilot | 0% | Not started |
+| 12 | Existing-application integration | 0% | Not started |
+| 13 | Stable release | 0% | Not started |
+| 14 | Post-v1 optional features | — | Optional |
+
+## 4. Completed foundation
+
+The following product decisions are complete:
+
+- Product name: GateTrail
+- Composer package: `hangtuah/laravel-gatetrail`
+- PHP namespace: `HangTuah\GateTrail`
+- Repository: `hangtuah/laravel-gatetrail`
+- Default branch: `main`
+- Initial visibility: private
+- Intended public license: MIT
+- Owner and primary maintainer recorded
+- Initial public description recorded
+
+Completed documents:
+
+- `PROJECT_CHARTER.md`
+- `PACKAGE_SPEC.md`
+- `docs/decisions/0001-unique-active-assignments.md`
+- `docs/decisions/0002-public-mutation-api.md`
+- `docs/decisions/0003-subject-guard-resolution.md`
+- `docs/decisions/0004-middleware-any-all-syntax.md`
+
+Accepted architecture decisions:
+
+| ADR | Decision | Status |
+|---|---|---|
+| 0001 | Serialize equivalent assignment mutations through persistent coordination rows | Accepted |
+| 0002 | Provide simple public manager methods and keep commands internal | Accepted |
+| 0003 | Resolve one stable guard for each subject | Accepted |
+| 0004 | Use explicit middleware aliases for singular, any, and all checks | Accepted |
+
+## 5. Roadmap adherence
+
+GateTrail is still following this roadmap.
+
+Intentional variations so far:
+
+- the separate repository was created while specification work was still in
+  progress;
+- architecture decisions were documented in more detail than the minimum
+  originally required;
+- database portability requirements were defined before migrations were
+  written.
+
+These variations do not skip implementation evidence or move production
+integration ahead of package foundations.
+
+The project should now return to Phase 2 rather than continue designing distant
+features such as cache optimization.
+
+## 6. Immediate action queue
+
+Work should proceed in this order:
+
+1. Review and accept this roadmap.
+2. Push the accepted documentation commits to the remote repository.
+3. Create the Composer package scaffold.
+4. Add the GateTrail service provider and publishable configuration.
+5. Configure Orchestra Testbench.
+6. Add a package-boot smoke test.
+7. Add code style, static analysis, and Composer validation.
+8. Add the initial CI workflow.
+9. Draw the initial ERD from the accepted schema.
+10. Obtain one independent developer review of the charter and specification.
+
+Do not begin the first vertical slice until the Phase 2 exit criteria are met.
+
+## 7. Phase 0 — Ownership and product decisions
+
+### Objective
+
+Establish package identity, ownership, intended users, license, and repository
+direction before implementation.
+
+### Checklist
+
+- [x] Package name selected.
+- [x] Composer vendor selected.
+- [x] Namespace selected.
+- [x] Ownership recorded.
+- [x] Repository visibility decided.
+- [x] Maintainer identified.
+- [x] Intended users stated.
+- [x] License selected.
+- [x] Project charter created.
+
+### Exit criteria
+
+- [x] Package identity is independent of a consumer application.
+- [x] Ownership and release responsibility are explicit.
+- [x] `PROJECT_CHARTER.md` is committed.
+
+Status: **Complete**
+
+## 8. Phase 1 — Freeze the package specification
+
+### Objective
+
+Define authorization behavior before implementation so behavior does not change
+to match one consumer application.
+
+### Completed
+
+- [x] Effective-permission formula defined.
+- [x] Direct permission behavior defined.
+- [x] Default-deny behavior defined.
+- [x] Role and permission lifecycle defined.
+- [x] Assignment scheduling, expiry, and revocation defined.
+- [x] Revoke and deactivate terminology separated.
+- [x] Public mutation API direction accepted.
+- [x] Subject guard behavior accepted.
+- [x] Middleware any/all syntax accepted.
+- [x] Database compatibility targets recorded.
+- [x] Identifier and 30-character database-name rules recorded.
+- [x] Initial feature scope and non-goals recorded.
+- [x] First vertical slice defined.
+
+### Remaining decisions
+
+The following decisions remain open in `PACKAGE_SPEC.md`:
+
+- [ ] Cache store, TTL, and role-change fan-out strategy.
+- [ ] Persisted identity for automated actors.
+- [ ] Whether first-class UUID/ULID migrations are required before `1.0.0`.
+- [ ] Minimum audit snapshot content.
+- [ ] Behavior when direct database mutation is detected.
+- [ ] Whether role convenience directives belong in the core package.
+
+Not all decisions block repository tooling.
+
+Before the first vertical slice, prioritize:
+
+1. persisted automated-actor identity;
+2. minimum audit snapshot content;
+3. direct database mutation behavior.
+
+Cache strategy should wait until the uncached resolver exists and is measured.
+
+### Remaining review
+
+- [ ] One independent developer reviews the charter and package specification.
+- [ ] Review feedback is resolved or recorded.
+- [ ] Specification status is changed from Draft when freeze criteria are met.
+
+### Exit criteria
+
+- Two developers can independently reach the same authorization decision for
+  every documented example.
+- All decisions required by the first vertical slice are accepted.
+- Compatibility, lifecycle, public API, error behavior, and non-goals are
+  unambiguous.
+
+Status: **In progress**
+
+## 9. Phase 2 — Repository and development tooling
+
+### Objective
+
+Produce a fresh-clone package that installs, boots, and runs tests without a
+consumer application.
+
+### Repository
+
+- [x] Separate repository created.
+- [x] Default branch and remote configured.
+- [ ] Current documentation commits pushed.
+
+### Required initial structure
+
+```text
+laravel-gatetrail/
+├── src/
+│   └── GateTrailServiceProvider.php
+├── config/
+│   └── gatetrail.php
+├── database/
+│   └── migrations/
+├── tests/
+│   ├── TestCase.php
+│   └── PackageBootTest.php
+├── docs/
+│   └── decisions/
+├── composer.json
+├── phpunit.xml
+├── README.md
+├── CHANGELOG.md
+├── LICENSE
+├── PACKAGE_SPEC.md
+├── PROJECT_CHARTER.md
+└── ROADMAP.md
+```
+
+### Composer scaffold
+
+The initial `composer.json` must define:
+
+- package name `hangtuah/laravel-gatetrail`;
+- type `library`;
+- license `MIT`;
+- PSR-4 namespace `HangTuah\GateTrail\`;
+- test namespace `HangTuah\GateTrail\Tests\`;
+- supported PHP and Illuminate versions from `PACKAGE_SPEC.md`;
+- Laravel service-provider auto-discovery;
+- validation, test, format, and static-analysis scripts.
+
+The Oracle integration driver remains an integration dependency and must not
+force OCI8 installation on non-Oracle consumers.
+
+### Testbench
+
+The Testbench base test case must:
+
+- boot the GateTrail service provider;
+- load package configuration;
+- use an isolated test database;
+- provide a test subject model;
+- permit package migrations to be loaded in later phases.
+
+The first smoke test proves:
+
+```text
+Fresh clone
+→ composer install
+→ package service provider boots
+→ configuration is available
+→ test passes
+```
+
+### Quality tooling
+
+Required:
+
+- PHPUnit or Pest test runner;
+- Laravel Pint;
+- PHPStan or Larastan;
+- `composer validate`;
+- a CI workflow.
+
+Initial CI jobs:
+
+```text
+composer validate
+code style
+static analysis
+test
+```
+
+The first CI matrix may use SQLite for package-boot tests. A database is not
+advertised as production-supported until its required integration suite exists
+and passes.
+
+### Checklist
+
+- [ ] Composer autoload succeeds.
+- [ ] Service provider is auto-discovered.
+- [ ] Testbench boots.
+- [ ] Package smoke test passes.
+- [ ] CI runs on push and pull request.
+- [ ] `composer validate` passes.
+- [ ] Code formatting is configured.
+- [ ] Static analysis is configured.
+
+### Exit criteria
+
+A fresh clone can install dependencies and run all initial quality checks
+without a consumer application.
+
+Status: **In progress**
+
+## 10. Phase 3 — Database and assignment lifecycle
+
+### Objective
+
+Implement the portable schema and history-preserving assignment lifecycle.
+
+### Deliverables
+
+- [ ] ERD.
+- [ ] Versioned package migrations.
+- [ ] Oracle DBA-managed schema manifest or reference DDL.
+- [ ] Models and relationships.
+- [ ] Explicit indexes, foreign keys, and constraints.
+- [ ] `acl_assignment_locks` coordination model or query component.
+- [ ] Assignment period scopes.
+- [ ] Soft deletion for roles and permissions.
+- [ ] No normal hard deletion of assignments.
+
+### Default tables
+
+```text
+acl_roles
+acl_permissions
+acl_role_assignments
+acl_permission_assignments
+acl_role_permissions
+acl_assignment_locks
+acl_access_audits
+```
+
+### Required tests
+
+- migration and rollback;
+- relationship behavior;
+- active, scheduled, expired, and revoked scopes;
+- adjacent and overlapping periods;
+- duplicate active-assignment concurrency;
+- portable identifiers and explicit constraint names;
+- Oracle sequence/trigger behavior;
+- SQL Server identity behavior;
+- schema-qualified tables;
+- audit text/CLOB casts.
+
+### Exit criteria
+
+Every supported database adapter can represent the accepted schema and the
+assignment lifecycle behaves consistently in automated tests.
+
+Status: **Not started**
+
+## 11. Phase 4 — Mutation services
+
+### Objective
+
+Implement every state-changing operation through the accepted public managers.
+
+### Deliverables
+
+- [ ] `RoleManager`.
+- [ ] `PermissionManager`.
+- [ ] `AssignmentManager`.
+- [ ] Thin default manager adapters.
+- [ ] Internal immutable commands.
+- [ ] One internal handler per mutation use case.
+- [ ] Typed domain exceptions.
+- [ ] Mutation results and outcomes.
+- [ ] After-commit cache and event hooks.
+
+### Required flow
+
+```text
+Validate
+→ Begin or join transaction
+→ Resolve references
+→ Acquire coordination lock
+→ Persist mutation
+→ Persist audit
+→ Commit
+→ Invalidate cache
+→ Dispatch event
+```
+
+### Required tests
+
+- actor and reason rules;
+- idempotent assignment replay;
+- typed exceptions;
+- transaction rollback;
+- audit rollback in strict mode;
+- after-commit event behavior;
+- bounded concurrency retry;
+- no public `attach()` or `detach()` mutation path.
+
+### Exit criteria
+
+Every supported mutation uses one managed path and produces deterministic,
+audited, transactional behavior.
+
+Status: **Not started**
+
+## 12. Phase 5 — Effective permission resolver
+
+### Objective
+
+Implement one source of truth for every GateTrail authorization decision.
+
+### Deliverables
+
+- [ ] `PermissionResolver` contract and implementation.
+- [ ] Direct permission resolution.
+- [ ] Role-derived permission resolution.
+- [ ] Subject guard resolution.
+- [ ] Lifecycle filtering.
+- [ ] Effective permission collection.
+- [ ] Request-level memoization.
+- [ ] Query-count instrumentation.
+
+### Required rules
+
+- default deny;
+- evaluate the supplied subject;
+- never substitute the authenticated global user;
+- apply guard, start, expiry, revoke, and deactivation filters;
+- preserve parity between boolean checks and effective collections;
+- avoid N+1 queries.
+
+### Exit criteria
+
+The complete resolver test matrix passes without Laravel Gate, middleware, or
+cross-request caching.
+
+Status: **Not started**
+
+## 13. Phase 6 — Laravel integration
+
+### Objective
+
+Expose the resolver through Laravel conventions without duplicating its logic.
+
+### Deliverables
+
+- [ ] `HasGateTrail` concern.
+- [ ] Subject convenience methods.
+- [ ] Central Laravel Gate hook.
+- [ ] `Gate::forUser()` behavior.
+- [ ] Native `@can` behavior.
+- [ ] Six route middleware aliases.
+- [ ] Authentication and authorization exception behavior.
+- [ ] Policy coexistence.
+
+### Middleware aliases
+
+```text
+gatetrail.permission
+gatetrail.permission.any
+gatetrail.permission.all
+gatetrail.role
+gatetrail.role.any
+gatetrail.role.all
+```
+
+### Exit criteria
+
+`$user->can()`, `Gate::authorize()`, `Gate::forUser()`, Blade, policies, and
+GateTrail middleware all use the same underlying authorization result.
+
+Status: **Not started**
+
+## 14. Phase 7 — Audit trail
+
+### Objective
+
+Persist complete, safe, append-only records for managed authorization
+mutations.
+
+### Deliverables
+
+- [ ] Human actor persistence.
+- [ ] System actor persistence.
+- [ ] Reason enforcement.
+- [ ] Before and after snapshots.
+- [ ] Safe contextual metadata.
+- [ ] Sensitive-field filtering.
+- [ ] Append-only enforcement.
+- [ ] Strict audit mode.
+- [ ] Audit transaction tests.
+
+### Exit criteria
+
+Every managed mutation is attributable and reconstructable without exposing
+configured sensitive values.
+
+Status: **Not started**
+
+## 15. Phase 8 — Cache and performance
+
+### Objective
+
+Optimize a correct, measured resolver without changing authorization behavior.
+
+### Sequence
+
+1. Measure uncached resolver queries and latency.
+2. Keep request-level memoization.
+3. Decide whether cross-request cache is necessary.
+4. Record the cache strategy in an ADR.
+5. Implement deterministic invalidation.
+6. Ensure entries do not outlive relevant assignment expiry.
+7. Compare cached and uncached authorization parity.
+
+### Deliverables
+
+- [ ] Reproducible benchmark.
+- [ ] Cache ADR, if cross-request caching is retained.
+- [ ] Guard-aware subject cache keys.
+- [ ] Invalidation matrix.
+- [ ] Expiry-safe TTL.
+- [ ] Stampede and stale-access tests where applicable.
+
+### Exit criteria
+
+Every performance claim has a reproducible benchmark and caching cannot grant
+access beyond uncached resolver behavior.
+
+Status: **Not started**
+
+## 16. Phase 9 — Security hardening
+
+### Objective
+
+Review abuse paths and prove that secure defaults fail closed.
+
+### Deliverables
+
+- [ ] Threat model.
+- [ ] Mutation authorization guidance or hook.
+- [ ] SQL injection regression tests.
+- [ ] Cross-subject and cross-guard tests.
+- [ ] Concurrency and retry tests.
+- [ ] Audit tampering review.
+- [ ] Sensitive audit filtering tests.
+- [ ] Alias-collision diagnostics.
+- [ ] Security reporting policy.
+- [ ] Static-analysis baseline with no unexplained high-risk findings.
+
+### Exit criteria
+
+No known critical or high-severity issue remains and every security default is
+documented and tested.
+
+Status: **Not started**
+
+## 17. Phase 10 — Developer experience and documentation
+
+### Objective
+
+Make installation, correct usage, diagnostics, and extension points
+understandable without reading package internals.
+
+### Deliverables
+
+- [ ] Complete README.
+- [ ] Installation guide.
+- [ ] Configuration reference.
+- [ ] Public manager API guide.
+- [ ] Role and permission naming guide.
+- [ ] Lifecycle and audit guide.
+- [ ] Oracle DBA-managed installation guide.
+- [ ] SQL Server setup guide.
+- [ ] Upgrade and migration guides.
+- [ ] `gatetrail:install`.
+- [ ] `gatetrail:doctor`.
+- [ ] `gatetrail:matrix`.
+- [ ] Minimal example application.
+
+### Exit criteria
+
+A developer unfamiliar with the package can install it in a fresh Laravel
+application, run diagnostics, assign access, authorize a route, and understand
+the resulting audit records.
+
+Status: **Not started**
+
+## 18. Phase 11 — Internal pilot
+
+### Objective
+
+Validate GateTrail in a controlled application before any stable or public
+release claim.
+
+### Pilot rules
+
+- use an application that can tolerate package iteration;
+- integrate through the package's public API only;
+- do not copy internal classes into the application;
+- record every workaround as package feedback;
+- measure query count, cache behavior, developer usability, and operational
+  diagnostics.
+
+### Deliverables
+
+- [ ] Pre-release package tag.
+- [ ] Private Composer installation path.
+- [ ] Pilot test plan.
+- [ ] Pilot defect log.
+- [ ] Performance observations.
+- [ ] Developer feedback.
+- [ ] Pilot retrospective.
+
+### Exit criteria
+
+The pilot uses GateTrail without application-specific changes inside the
+package, and all release-blocking findings are resolved.
+
+Status: **Not started**
+
+## 19. Phase 12 — Existing-application integration
+
+### Objective
+
+Provide a controlled path for applications with existing authorization data or
+behavior.
+
+### Sequence
+
+1. Inventory existing roles, permissions, assignments, guards, and audit data.
+2. Map semantic differences.
+3. Build an adapter or migration tool outside the core resolver where
+   practical.
+4. Run shadow authorization comparisons.
+5. Investigate every mismatch.
+6. Plan rollback before switching enforcement.
+
+### Deliverables
+
+- [ ] Inventory template.
+- [ ] Mapping guide.
+- [ ] Adapter or migration strategy.
+- [ ] Shadow comparison report.
+- [ ] Consumer change-control plan.
+- [ ] Rollback plan.
+
+### Exit criteria
+
+Authorization parity or explicitly approved differences are demonstrated before
+GateTrail becomes the enforcement source.
+
+Status: **Not started**
+
+## 20. Phase 13 — Stable release
+
+### Objective
+
+Release `1.0.0` only after implementation, security, compatibility,
+documentation, and pilot evidence are complete.
+
+### Code and quality
+
+- [ ] Initial feature scope complete.
+- [ ] Full test suite passes.
+- [ ] Code style passes.
+- [ ] Static analysis passes.
+- [ ] Database matrix passes.
+- [ ] Concurrency suite passes.
+- [ ] Reproducible performance results recorded.
+
+### Security
+
+- [ ] Threat model reviewed.
+- [ ] Security review complete.
+- [ ] No known critical or high-severity issue.
+- [ ] Security reporting channel available.
+- [ ] Strict audit mode tested.
+
+### Documentation
+
+- [ ] README complete.
+- [ ] Fresh-install guide verified.
+- [ ] Configuration reference complete.
+- [ ] Upgrade guide available.
+- [ ] Migration guide available.
+- [ ] API examples tested.
+- [ ] Changelog complete.
+
+### Release operations
+
+- [ ] Maintainer and release approver confirmed.
+- [ ] Semantic versioning policy followed.
+- [ ] Supported compatibility matrix published.
+- [ ] Rollback version and procedure known.
+- [ ] Release tag created.
+- [ ] Repository visibility decision revisited.
+- [ ] Public package publication decision made.
+
+### Exit criteria
+
+A fresh consumer can install the tagged package and reproduce all advertised
+behavior using the documented compatibility matrix.
+
+Status: **Not started**
+
+## 21. Phase 14 — Optional features after v1
+
+These features are not part of the initial stable-release commitment:
+
+- explainable access;
+- point-in-time authorization queries;
+- temporary-access management UI;
+- access request and approval workflows;
+- separation of duties;
+- role hierarchy;
+- team or tenant scope;
+- administration UI;
+- wildcard permissions;
+- explicit deny;
+- super-administrator bypass;
+- audit-retention automation.
+
+Each feature requires a new specification and architecture review before
+implementation.
+
+Status: **Optional**
+
+## 22. First sprint tracker
+
+The first sprint proves that the repository and specification are solid.
+
+- [x] Select package name.
+- [x] Create separate repository.
+- [x] Write `PROJECT_CHARTER.md`.
+- [x] Write `PACKAGE_SPEC.md`.
+- [ ] Set up Composer and namespace.
+- [ ] Set up Orchestra Testbench.
+- [ ] Set up CI.
+- [ ] Add service-provider smoke test.
+- [ ] Draw initial ERD.
+- [ ] Obtain one independent developer review.
+
+Current result: **4 of 10 tasks, 40%**
+
+### First sprint deliverable
+
+```text
+Fresh clone
+→ composer install
+→ quality checks
+→ tests
+→ package boots successfully
+```
+
+### Do not do in the first sprint
+
+- build an administration UI;
+- integrate a production application;
+- migrate production data;
+- add teams, hierarchy, or wildcard permissions;
+- publish a public package release;
+- optimize cross-request caching before the resolver exists.
+
+## 23. First vertical slice
+
+After Phase 2, build one end-to-end flow:
+
+```text
+Create role
+→ Create permission
+→ Grant permission to role with actor and reason
+→ Assign role to test subject with actor and reason
+→ Laravel Gate allows the permission
+→ Revoke the role assignment
+→ Laravel Gate denies the permission
+→ Assignment history remains
+→ Audit records contain actor and reason
+```
+
+The vertical slice is complete only when:
+
+- migrations run;
+- model relationships work;
+- public mutation managers are used;
+- assignment coordination prevents duplicates;
+- the resolver returns the expected result;
+- Laravel Gate uses the resolver;
+- audit records persist in the same mutation transaction;
+- revoke does not hard delete;
+- automated integration tests pass.
+
+## 24. Deliverable progress tracker
+
+This tracker measures completed package artifacts and implementation, not design
+discussion.
+
+### Foundation
+
+- [x] Project charter
+- [x] Package specification
+- [x] Repository
+- [ ] Composer
+- [ ] Testbench
+- [ ] CI
+- [ ] Code style
+- [ ] Static analysis
+
+Progress: **3 of 8**
+
+### Core implementation
+
+- [ ] Migrations
+- [ ] Models
+- [ ] Contracts
+- [ ] Assignment lifecycle
+- [ ] Mutation services
+- [ ] Effective permission resolver
+- [ ] Gate integration
+- [ ] Middleware
+- [ ] Audit trail
+- [ ] Cache invalidation
+
+Progress: **0 of 10**
+
+### Quality
+
+- [ ] Unit tests
+- [ ] Integration tests
+- [ ] Security tests
+- [ ] Concurrency tests
+- [ ] Verified compatibility matrix
+- [ ] Performance benchmark
+
+Progress: **0 of 6**
+
+### Delivery
+
+- [ ] Complete README
+- [ ] Full user documentation
+- [ ] Artisan diagnostics
+- [ ] Internal pilot
+- [ ] Pilot retrospective
+- [ ] Existing-application parity study
+- [ ] Security review
+- [ ] `v1.0.0`
+
+Progress: **0 of 8**
+
+### Total
+
+```text
+Completed: 3
+Total:     32
+Progress:  9.375%, reported as approximately 10%
+```
+
+## 25. Progress update rules
+
+When work is completed:
+
+1. update the relevant checklist;
+2. add evidence such as a commit, test, CI run, or release tag;
+3. recalculate the affected phase;
+4. recalculate the first sprint or deliverable tracker when applicable;
+5. update the `Last updated` date;
+6. do not mark design-only work as implemented.
+
+A phase reaches 100% only when its exit criteria are satisfied.
+
+## 26. Definition of success
+
+GateTrail is successful when:
+
+- its authorization decisions are deterministic;
+- its mutation history is attributable and preserved;
+- its public API is simple to use correctly;
+- its internal design remains testable and replaceable;
+- it behaves consistently across advertised databases;
+- it can be installed without knowledge of a specific consumer application;
+- its secure defaults fail closed;
+- its documentation is sufficient for a first-time maintainer;
+- its stable-release claims are backed by reproducible evidence.
