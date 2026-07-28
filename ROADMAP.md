@@ -40,13 +40,13 @@ working code and the required automated tests exist.
 ```text
 Phase 0 — Complete
 Phase 1 — In progress
-Phase 2 — In progress
-Phase 3 onward — Not started
+Phase 2 — Complete
+Phase 3 — In progress
+Phase 4 onward — Not started
 ```
 
-The project now has its initial package scaffold, local quality tooling, and a
-Laravel 12/13 compatibility workflow. Repository tooling is in final
-verification before Phase 2 can close.
+The repository and development tooling phase is complete. Work has entered the
+database-design phase with an initial ERD draft.
 
 ADR numbers are decision-record numbers, not roadmap phase numbers. For
 example, ADR 0004 does not mean the project has reached Phase 4.
@@ -55,10 +55,10 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | Approximately 20% | Phase-weighted progress across Phases 0–13 |
+| Overall roadmap by primary phases | Approximately 21% | Phase-weighted progress across Phases 0–13 |
 | Deliverable tracker | 8 of 32, 25% | Completed concrete package deliverables |
 | Planning and specification | Approximately 80% | Charter, specification, and four accepted ADRs |
-| First sprint | 8 of 10, 80% | Repository-and-specification sprint tasks |
+| First sprint | 9 of 10, 90% | Repository-and-specification sprint tasks |
 
 These percentages measure different things and must not be combined.
 
@@ -71,8 +71,8 @@ automated testing, security hardening, a pilot, and release validation.
 |---:|---|---:|---|
 | 0 | Ownership and product decisions | 100% | Complete |
 | 1 | Package specification | 80% | In progress |
-| 2 | Repository and development tooling | 95% | In progress |
-| 3 | Database and assignment lifecycle | 0% | Not started |
+| 2 | Repository and development tooling | 100% | Complete |
+| 3 | Database and assignment lifecycle | 10% | In progress |
 | 4 | Mutation services | 0% | Not started |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
@@ -145,12 +145,14 @@ Completed in the current tooling increment:
 - [x] Add code style and static analysis.
 - [x] Add the initial CI workflow.
 - [x] Verify Laravel package auto-discovery metadata.
+- [x] Confirm the initial remote CI run.
+- [x] Draw the initial ERD from the accepted schema.
 
 Next:
 
-1. Confirm the initial remote CI run.
-2. Draw the initial ERD from the accepted schema.
-3. Obtain one independent developer review of the charter and specification.
+1. Obtain one independent developer review of the charter and specification.
+2. Finalize the migration-level constraint and index plan.
+3. Implement the first versioned package migrations.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
 
@@ -361,17 +363,14 @@ and passes.
   connection.
 - Package provisioning registers GateTrail migrations, while DBA provisioning
   leaves the package migration path unregistered.
-
-Remaining before Phase 2 closes:
-
-- confirm the first remote CI run.
+- The initial remote CI run passes.
 
 ### Exit criteria
 
 A fresh clone can install dependencies and run all initial quality checks
 without a consumer application.
 
-Status: **In progress**
+Status: **Complete**
 
 ## 10. Phase 3 — Database and assignment lifecycle
 
@@ -381,7 +380,7 @@ Implement the portable schema and history-preserving assignment lifecycle.
 
 ### Deliverables
 
-- [ ] ERD.
+- [x] ERD.
 - [ ] Versioned package migrations.
 - [ ] Oracle DBA-managed schema manifest or reference DDL.
 - [ ] Models and relationships.
@@ -421,7 +420,7 @@ acl_access_audits
 Every supported database adapter can represent the accepted schema and the
 assignment lifecycle behaves consistently in automated tests.
 
-Status: **Not started**
+Status: **In progress**
 
 ## 11. Phase 4 — Mutation services
 
@@ -808,10 +807,10 @@ The first sprint proves that the repository and specification are solid.
 - [x] Set up Orchestra Testbench.
 - [x] Set up CI.
 - [x] Add service-provider smoke test.
-- [ ] Draw initial ERD.
+- [x] Draw initial ERD.
 - [ ] Obtain one independent developer review.
 
-Current result: **8 of 10 tasks, 80%**
+Current result: **9 of 10 tasks, 90%**
 
 ### First sprint deliverable
 

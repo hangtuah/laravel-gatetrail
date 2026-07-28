@@ -451,6 +451,9 @@ acl_access_audits
 
 Table names are configurable before migrations are run.
 
+The initial relationship model is documented in the
+[initial ERD draft](docs/architecture/initial-erd.md).
+
 ### 8.2 Roles
 
 Minimum columns:
