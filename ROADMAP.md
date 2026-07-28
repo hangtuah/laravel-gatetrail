@@ -56,7 +56,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 | Measurement | Current value | Interpretation |
 |---|---:|---|
 | Overall roadmap by primary phases | Approximately 26% | Phase-weighted progress across Phases 0–13 |
-| Deliverable tracker | 9 of 32, approximately 28% | Completed concrete package deliverables |
+| Deliverable tracker | 10 of 32, approximately 31% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
 
@@ -428,11 +428,11 @@ Implement the portable schema and history-preserving assignment lifecycle.
 - [x] Database-neutral schema manifest.
 - [x] Versioned package migrations.
 - [ ] Versioned DBA-managed DDL artifacts for every Tier 1 database.
-- [ ] Models and relationships.
+- [x] Models and relationships.
 - [x] Explicit indexes, foreign keys, and constraints in the SQLite reference schema.
 - [ ] `acl_assignment_locks` coordination model or query component.
 - [ ] Assignment period scopes.
-- [ ] Soft deletion for roles and permissions.
+- [x] Soft deletion for roles and permissions.
 - [x] No normal hard deletion or cascading deletion of assignments.
 
 ### Default tables
@@ -464,6 +464,16 @@ acl_access_audits
 ### Current verification evidence
 
 - Seven migrations encode parent-before-child creation order.
+- Configurable Eloquent models map the accepted role, permission, assignment,
+  and audit tables through the same connection, schema, prefix, and table
+  configuration used by migrations.
+- Role, permission, subject, and history-preserving assignment relationships
+  are covered by integration tests.
+- Assignment relationships retain access to soft-deleted role and permission
+  definitions without deleting or rewriting assignment history.
+- Assignment and audit timestamps use immutable datetime casts. Audit
+  `before`, `after`, and `context` documents cast from portable text/CLOB
+  storage.
 - Reverse rollback removes child tables before parent tables.
 - Missing parents fail with a GateTrail dependency error before child DDL.
 - SQLite enforces assignment-period, revocation-tuple, audit-pair, uniqueness,
@@ -1006,7 +1016,7 @@ Progress: **8 of 8**
 ### Core implementation
 
 - [x] Migrations
-- [ ] Models
+- [x] Models
 - [ ] Contracts
 - [ ] Assignment lifecycle
 - [ ] Mutation services
@@ -1016,7 +1026,7 @@ Progress: **8 of 8**
 - [ ] Audit trail
 - [ ] Cache invalidation
 
-Progress: **1 of 10**
+Progress: **2 of 10**
 
 ### Quality
 
@@ -1045,9 +1055,9 @@ Progress: **0 of 8**
 ### Total
 
 ```text
-Completed: 9
+Completed: 10
 Total:     32
-Progress:  28.125%, reported as approximately 28%
+Progress:  31.25%, reported as approximately 31%
 ```
 
 ## 25. Progress update rules

@@ -10,6 +10,7 @@ use HangTuah\GateTrail\Database\Schema\Inspection\SchemaInspectorFactory;
 use HangTuah\GateTrail\Database\Schema\Manifest\SchemaManifest;
 use HangTuah\GateTrail\Database\Schema\SchemaAdapterFactory;
 use HangTuah\GateTrail\Database\Schema\SchemaContext;
+use HangTuah\GateTrail\Support\ModelRegistry;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 
@@ -26,6 +27,17 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(DdlCompilerFactory::class);
         $this->app->singleton(SchemaInspectorFactory::class);
         $this->app->singleton(SchemaAdapterFactory::class);
+        $this->app->singleton(
+            ModelRegistry::class,
+            static function (Application $app): ModelRegistry {
+                $models = $app->make('config')->get('gatetrail.models');
+
+                /** @var array<string, mixed> $models */
+                $models = is_array($models) ? $models : [];
+
+                return new ModelRegistry($models);
+            },
+        );
         $this->app->singleton(
             SchemaManifest::class,
             static fn (): SchemaManifest => SchemaManifest::gateTrail(),

@@ -2,6 +2,13 @@
 
 declare(strict_types=1);
 
+use HangTuah\GateTrail\Models\AccessAudit;
+use HangTuah\GateTrail\Models\Permission;
+use HangTuah\GateTrail\Models\PermissionAssignment;
+use HangTuah\GateTrail\Models\Role;
+use HangTuah\GateTrail\Models\RoleAssignment;
+use HangTuah\GateTrail\Models\RolePermission;
+
 return [
     'database' => [
         'connection' => null,
@@ -18,6 +25,15 @@ return [
         'role_permissions' => 'acl_role_permissions',
         'assignment_locks' => 'acl_assignment_locks',
         'access_audits' => 'acl_access_audits',
+    ],
+
+    'models' => [
+        'role' => Role::class,
+        'permission' => Permission::class,
+        'role_assignment' => RoleAssignment::class,
+        'permission_assignment' => PermissionAssignment::class,
+        'role_permission' => RolePermission::class,
+        'access_audit' => AccessAudit::class,
     ],
 
     'oracle' => [
