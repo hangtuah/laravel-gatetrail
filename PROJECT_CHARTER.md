@@ -198,14 +198,13 @@ GateTrail is successful when:
 
 ## Next milestone
 
-Create and review `PACKAGE_SPEC.md` to define:
+Implement the first vertical slice from the accepted package specification:
 
-1. terminology;
-2. supported PHP, Laravel, and database versions;
-3. subject and identifier strategy;
-4. effective-permission rules;
-5. assignment lifecycle;
-6. public API;
-7. error behavior;
-8. audit requirements;
-9. initial scope and explicit non-goals.
+1. create a role and permission;
+2. grant the permission to the role with actor and reason;
+3. assign the role to a test subject with actor and reason;
+4. allow the permission through Laravel Gate;
+5. revoke the role assignment;
+6. deny the permission through Laravel Gate;
+7. preserve assignment history and versioned audit evidence;
+8. prove the flow with automated integration tests.

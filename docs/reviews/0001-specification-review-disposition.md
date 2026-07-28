@@ -10,7 +10,7 @@
 | Commit reviewed | `df60a9c5b6f6e41436c1b18901cf70b334d45066` |
 | Reviewer verdict | Accept with changes |
 | Maintainer disposition | Review accepted; remediation complete |
-| Specification status | Draft |
+| Specification status | Accepted for implementation |
 | Remediation status | Complete |
 
 This document records the maintainer's response to the independent review. It
@@ -48,8 +48,8 @@ Deferred
 | Accepted with modification | 1 |
 | Rejected findings | 0 |
 
-The independent review and finding remediation are complete. The specification
-remains Draft pending one final freeze review against the accepted changes.
+The independent review, finding remediation, and final freeze check are
+complete. The specification is accepted for implementation.
 
 No unresolved review finding or architecture decision currently blocks the
 first vertical slice. O01, F-09, and F-11 are resolved by ADR 0008 and the
@@ -431,7 +431,10 @@ Work should proceed in this order:
    documents.
 6. [Completed] Mark findings resolved only after their authoritative changes
    are accepted.
-7. Evaluate whether the specification meets its freeze criteria.
+7. [Completed] Evaluate whether the specification meets its freeze criteria.
+
+Freeze evidence is recorded in
+[Specification Freeze Check 0001](0001-specification-freeze-check.md).
 
 ## Post-remediation scenario check
 

@@ -39,14 +39,14 @@ working code and the required automated tests exist.
 
 ```text
 Phase 0 — Complete
-Phase 1 — In progress
+Phase 1 — Complete
 Phase 2 — Complete
 Phase 3 — In progress
 Phase 4 onward — Not started
 ```
 
-The repository and development tooling phase is complete. Work has entered the
-database-design phase with an initial ERD draft.
+The package specification is accepted for implementation. Repository tooling
+is complete, and database/lifecycle implementation remains in progress.
 
 ADR numbers are decision-record numbers, not roadmap phase numbers. For
 example, ADR 0004 does not mean the project has reached Phase 4.
@@ -55,10 +55,10 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | Approximately 24% | Phase-weighted progress across Phases 0–13 |
+| Overall roadmap by primary phases | Approximately 26% | Phase-weighted progress across Phases 0–13 |
 | Deliverable tracker | 9 of 32, approximately 28% | Completed concrete package deliverables |
-| Planning and specification | Approximately 98% | Independent review remediation is complete; final freeze review remains |
-| First sprint | 9 of 10, 90% | Repository-and-specification sprint tasks |
+| Planning and specification | 100% | Specification baseline is accepted for implementation |
+| First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
 
 These percentages measure different things and must not be combined.
 
@@ -70,7 +70,7 @@ automated testing, security hardening, a pilot, and release validation.
 | Phase | Name | Progress | Status |
 |---:|---|---:|---|
 | 0 | Ownership and product decisions | 100% | Complete |
-| 1 | Package specification | 95% | In progress |
+| 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 70% | In progress |
 | 4 | Mutation services | 0% | Not started |
@@ -187,8 +187,9 @@ Completed in the current tooling increment:
 
 Next:
 
-1. Perform the final specification freeze review.
-2. Obtain minimum-version evidence before declaring Oracle fully verified.
+1. Continue the database and assignment-lifecycle implementation.
+2. Build the first vertical slice from the accepted specification.
+3. Obtain minimum-version evidence before declaring Oracle fully verified.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
 
@@ -274,7 +275,7 @@ measured.
 - [x] Review feedback is recorded in
   `docs/reviews/0001-specification-review-disposition.md`.
 - [x] Accepted review findings are resolved or explicitly deferred.
-- [ ] Specification status is changed from Draft when freeze criteria are met.
+- [x] Specification status is accepted when freeze criteria are met.
 
 ### Exit criteria
 
@@ -284,7 +285,7 @@ measured.
 - Compatibility, lifecycle, public API, error behavior, and non-goals are
   unambiguous.
 
-Status: **In progress**
+Status: **Complete**
 
 ## 9. Phase 2 — Repository and development tooling
 
@@ -932,9 +933,9 @@ The first sprint proves that the repository and specification are solid.
 - [x] Set up CI.
 - [x] Add service-provider smoke test.
 - [x] Draw initial ERD.
-- [ ] Obtain one independent developer review.
+- [x] Obtain one independent developer review.
 
-Current result: **9 of 10 tasks, 90%**
+Current result: **10 of 10 tasks, 100%**
 
 ### First sprint deliverable
 
@@ -979,7 +980,8 @@ The vertical slice is complete only when:
 - assignment coordination prevents duplicates;
 - the resolver returns the expected result;
 - Laravel Gate uses the resolver;
-- audit records persist in the same mutation transaction;
+- audit records persist in the same mutation transaction under the default
+  strict audit mode;
 - revoke does not hard delete;
 - automated integration tests pass.
 

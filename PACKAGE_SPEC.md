@@ -6,14 +6,19 @@
 |---|---|
 | Package | `hangtuah/laravel-gatetrail` |
 | Namespace | `HangTuah\GateTrail` |
-| Specification status | Draft |
+| Specification status | Accepted for implementation |
+| Baseline date | 2026-07-28 |
 | Product status | Pre-alpha |
 | Target release | `0.1.0` foundation, `1.0.0` after an internal pilot |
 
-This specification defines the expected behavior of GateTrail before
-implementation begins. Where this document conflicts with implementation code,
-the conflict must be resolved explicitly rather than silently changing package
-behavior.
+This specification is GateTrail's accepted implementation baseline. Acceptance
+does not claim that every described feature is implemented or that every
+compatibility target is verified. Where this document conflicts with
+implementation code, the conflict must be resolved explicitly rather than
+silently changing package behavior.
+
+Freeze evidence is recorded in
+[Specification Freeze Check 0001](docs/reviews/0001-specification-freeze-check.md).
 
 ## 2. Product definition
 
@@ -70,9 +75,9 @@ names before publishing and running the package migrations.
 
 ## 3. Compatibility
 
-### 3.1 Initial support matrix
+### 3.1 Initial compatibility targets
 
-| Dependency | Supported versions |
+| Dependency | Target versions |
 |---|---|
 | PHP | `^8.3` |
 | Laravel | `^12.0 \| ^13.0` |
@@ -84,8 +89,10 @@ names before publishing and running the package migrations.
 | SQL Server | 2017 or later |
 | SQLite | Current supported version for automated tests |
 
-Oracle, MySQL, PostgreSQL, and SQL Server are Tier 1 production databases.
-SQLite is a Tier 1 test database but is not the reference production database.
+Oracle, MySQL, PostgreSQL, and SQL Server are target Tier 1 production
+databases. SQLite is a Tier 1 test database but is not the reference production
+database. A target becomes verified only through the evidence required by
+sections 3.2 and 20.
 
 ### 3.2 Compatibility policy
 
@@ -1944,6 +1951,9 @@ Implementation may begin when:
 - non-goals are accepted;
 - open architecture decisions required by the first vertical slice are
   identified.
+
+These criteria are satisfied for the accepted baseline recorded in
+[Specification Freeze Check 0001](docs/reviews/0001-specification-freeze-check.md).
 
 ## 26. First vertical slice
 
