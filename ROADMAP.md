@@ -57,7 +57,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 |---|---:|---|
 | Overall roadmap by primary phases | Approximately 24% | Phase-weighted progress across Phases 0–13 |
 | Deliverable tracker | 9 of 32, approximately 28% | Completed concrete package deliverables |
-| Planning and specification | Approximately 92% | Charter, independent review, eight accepted ADRs, and remediation in progress |
+| Planning and specification | Approximately 94% | Charter, independent review, nine accepted ADRs, and remediation in progress |
 | First sprint | 9 of 10, 90% | Repository-and-specification sprint tasks |
 
 These percentages measure different things and must not be combined.
@@ -111,6 +111,7 @@ Completed documents:
 - `docs/decisions/0006-oracle-generated-key-strategy.md`
 - `docs/decisions/0007-laravel-gate-hook-boundary.md`
 - `docs/decisions/0008-audit-snapshot-and-failure-modes.md`
+- `docs/decisions/0009-direct-database-mutation-and-diagnostics.md`
 
 Accepted architecture decisions:
 
@@ -124,6 +125,7 @@ Accepted architecture decisions:
 | 0006 | Support explicit Oracle identity and sequence-trigger generated-key strategies | Accepted |
 | 0007 | Bound the Laravel Gate hook to argument-free abilities | Accepted |
 | 0008 | Version audit snapshots and separate audit failure modes | Accepted |
+| 0009 | Treat direct database mutation as unsupported and diagnostic-only | Accepted |
 
 ## 5. Roadmap adherence
 
@@ -186,8 +188,7 @@ Completed in the current tooling increment:
 Next:
 
 1. Resolve or explicitly defer the remaining independent-review findings.
-2. Record direct database mutation and diagnostic behavior.
-3. Obtain minimum-version evidence before declaring Oracle fully verified.
+2. Obtain minimum-version evidence before declaring Oracle fully verified.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
 
@@ -239,6 +240,7 @@ to match one consumer application.
 - [x] Laravel Gate hook and resource-policy boundary accepted.
 - [x] Persisted human and system actor identity accepted.
 - [x] Audit snapshot, metadata, and failure-mode contract accepted.
+- [x] Direct database mutation and diagnostic behavior accepted.
 - [x] Database compatibility targets recorded.
 - [x] Identifier and 30-character database-name rules recorded.
 - [x] Initial feature scope and non-goals recorded.
@@ -250,16 +252,13 @@ The following decisions remain open in `PACKAGE_SPEC.md`:
 
 - [ ] Cache store, TTL, and role-change fan-out strategy.
 - [ ] Whether first-class UUID/ULID migrations are required before `1.0.0`.
-- [ ] Behavior when direct database mutation is detected.
 - [ ] Whether role convenience directives belong in the core package.
 
 Not all decisions block repository tooling.
 
 No remaining open architecture decision currently blocks the first vertical
-slice. Direct database mutation behavior is the next review-remediation
-decision but does not block the managed-mutation vertical slice.
-
-Cache strategy should wait until the uncached resolver exists and is measured.
+slice. Cache strategy should wait until the uncached resolver exists and is
+measured.
 
 ### Remaining review
 

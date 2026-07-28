@@ -308,6 +308,12 @@ rename, disable, or repair an object. Catalog inspection passing is unit-level
 evidence; a database adapter is not marked verified until the same inspection
 runs successfully against its real supported database versions.
 
+Schema inspection proves physical conformance only. It does not prove that
+existing rows were created through managed services, that audit history is
+complete, or that authorization caches were invalidated. Data diagnostics are
+a separate read-only concern defined by
+[ADR 0009](docs/decisions/0009-direct-database-mutation-and-diagnostics.md).
+
 ## 4. Terminology
 
 ### Subject
@@ -928,12 +934,23 @@ successful mutation events still occur.
 
 ### 10.4 Direct relationship mutation
 
-GateTrail does not guarantee auditing or cache invalidation when a consumer
-directly calls low-level Eloquent methods such as `attach()`, `detach()`, or
-manual table updates.
+Direct writes to GateTrail-owned data are unsupported. This includes manual
+SQL, raw query-builder writes, external imports, and low-level Eloquent
+mutation methods such as `attach()`, `detach()`, `sync()`, `save()`, or
+`delete()`.
 
-Documentation must direct consumers to managed package services. The package
-should make unsafe mutation paths difficult where practical.
+GateTrail guarantees validation, coordination, audit persistence, cache
+invalidation, events, and domain exceptions only through managed package
+services.
+
+The resolver evaluates accepted persisted-state rules and does not attempt to
+prove write origin. Read-only diagnostics can report observable
+inconsistencies but cannot prove that no direct mutation occurred. GateTrail
+does not automatically repair inconsistent rows.
+
+Exact runtime, diagnostic, cache, privilege, and operational behavior is
+defined by
+[ADR 0009](docs/decisions/0009-direct-database-mutation-and-diagnostics.md).
 
 ### 10.5 Idempotency
 
@@ -1430,6 +1447,19 @@ Affected subject caches are invalidated after:
 A cache entry must not remain valid beyond the nearest relevant assignment
 expiry unless another mechanism guarantees timely invalidation.
 
+### 14.6 Unmanaged writes
+
+Direct writes do not trigger GateTrail cache invalidation. If cross-request
+caching is enabled, an unmanaged change may leave a stale allow or deny until
+an explicit cache clear, expiry, or later managed invalidation.
+
+Known direct intervention requires an explicit GateTrail cache clear.
+`gatetrail:doctor` never clears caches implicitly. The future cache ADR must
+define bounded staleness without treating direct mutation as supported.
+
+Cross-request caching remains disabled by default until its store, TTL,
+role-change fan-out, and invalidation strategy are accepted and measured.
+
 ## 15. Exceptions
 
 GateTrail uses specific domain exceptions. Initial exception categories:
@@ -1566,12 +1596,34 @@ the equivalent service operation requires one.
 missing or malformed coordination rows and overlapping equivalent assignments
 without modifying them.
 
-It must also report assignments whose referenced definition guard no longer
-matches the subject's currently resolved guard. It must not migrate, revoke, or
-rewrite those assignments.
+Its read-only data checks include:
+
+- overlapping equivalent non-revoked assignment periods;
+- missing, duplicated, or malformed coordination rows;
+- a `scope_key` that does not produce its stored `scope_hash`;
+- invalid assignment periods or partially populated revocation tuples;
+- missing referenced role or permission definitions;
+- assignments whose referenced definition guard no longer matches the
+  subject's currently resolved guard;
+- role-permission assignments whose definitions use different guards.
+
+An assignment referencing a deactivated definition is valid retained history.
+Doctor may report it as informational but must not classify it as an error.
+Expired, scheduled, and normally revoked assignments are also valid lifecycle
+states.
+
+Doctor must not migrate, repair, revoke, rewrite, backfill, or delete data. It
+must not clear caches implicitly. A clean result must state that best-effort
+diagnostics cannot prove the absence of direct writes or missing audit history.
+Partial inspection must identify its coverage and cannot report an unqualified
+clean result.
 
 It should report when a default GateTrail middleware alias is already bound to
 an unrelated middleware class. GateTrail must not silently replace that alias.
+
+Diagnostic severity, limitations, cache remediation, and machine-readable
+output requirements are defined by
+[ADR 0009](docs/decisions/0009-direct-database-mutation-and-diagnostics.md).
 
 ## 19. Security requirements
 
@@ -1590,6 +1642,11 @@ GateTrail must:
 - avoid silent super-administrator behavior;
 - keep GateTrail middleware evaluation independent from unrelated Laravel Gates;
 - reject invalid middleware parameter lists instead of guessing their intent;
+- keep provenance heuristics and diagnostic scans outside runtime permission
+  queries;
+- avoid claiming audit, cache, or provenance guarantees for direct writes;
+- keep diagnostics read-only and avoid requiring elevated runtime schema
+  privileges;
 - document all bypass or extension points;
 - provide a security reporting process before public release.
 
@@ -1677,7 +1734,13 @@ GateTrail must:
 - malformed, oversized, deeply nested, recursive, non-UTF-8, and non-finite
   metadata rejected before mutation;
 - sensitive audit values redacted without conflating absent values;
-- unsafe input handling.
+- unsafe input handling;
+- resolver behavior remaining independent from write-origin guesses;
+- direct writes not receiving managed audit, cache, coordination, or event
+  guarantees;
+- doctor reporting deactivated references as informational rather than errors;
+- doctor never repairing data or clearing caches;
+- clean and partial doctor results disclosing their diagnostic limitations.
 
 ### 20.4 CI matrix
 
@@ -1769,14 +1832,16 @@ finalized:
 
 1. cache store, TTL, and role-change fan-out strategy;
 2. whether UUID/ULID subject migration variants are required before `1.0.0`;
-3. package behavior when direct database mutation is detected;
-4. whether role convenience directives belong in the core package.
+3. whether role convenience directives belong in the core package.
 
 Persisted actor representation is accepted in
 [ADR 0005](docs/decisions/0005-actor-identity-representation.md).
 
 Minimum audit snapshot content and audit failure modes are accepted in
 [ADR 0008](docs/decisions/0008-audit-snapshot-and-failure-modes.md).
+
+Direct database mutation and diagnostic behavior are accepted in
+[ADR 0009](docs/decisions/0009-direct-database-mutation-and-diagnostics.md).
 
 Architecture decisions will be stored under:
 

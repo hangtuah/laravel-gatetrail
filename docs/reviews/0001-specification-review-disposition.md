@@ -338,8 +338,8 @@ strict, non-strict, and disabled failure modes.
 |---|---|
 | Decision | Accepted for an ADR, with modification |
 | Blocks first vertical slice | No |
-| Remediation status | Open |
-| Authoritative target | New direct database mutation and diagnostics ADR |
+| Remediation status | Resolved |
+| Authoritative target | ADR 0009 |
 
 GateTrail cannot portably guarantee detection of schema-valid writes that
 bypass managed services. Detection will be documented as best-effort and
@@ -366,6 +366,13 @@ The review recommendation is modified in one important respect:
 Cache TTL and role-change fan-out remain owned by the future cache ADR. This
 disposition does not select a TTL before the uncached resolver is implemented
 and measured.
+
+Resolved by
+[ADR 0009](../decisions/0009-direct-database-mutation-and-diagnostics.md).
+The accepted contract classifies detection as read-only, best-effort, and
+diagnostic-only; keeps provenance guesses outside runtime authorization;
+requires explicit cache remediation after known intervention; and treats
+assignments to deactivated definitions as valid informational lifecycle state.
 
 ## Non-blocking observations
 
@@ -395,7 +402,8 @@ Work should proceed in this order:
    O01, F-09, and F-11.
 3. Apply the remaining specification clarifications for F-03 through F-08 and
    F-10.
-4. Decide direct database mutation and diagnostic behavior for O02.
+4. [Completed] Decide direct database mutation and diagnostic behavior for
+   O02.
 5. Recheck all A01-A15 scenarios against the amended authoritative documents.
 6. Mark findings resolved only after their authoritative changes are accepted.
 7. Evaluate whether the specification meets its freeze criteria.

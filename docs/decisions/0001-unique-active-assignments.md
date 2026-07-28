@@ -190,8 +190,17 @@ mutation services. Direct inserts or updates to assignment tables bypass the
 coordination protocol and remain unsupported, consistent with the package
 specification.
 
-The `gatetrail:doctor` command should detect duplicate overlapping assignments
-and missing or malformed coordination rows without modifying them.
+Managed mutations fail closed when a coordination row's canonical key does not
+match its stored hash. They do not repair the row automatically.
+
+The `gatetrail:doctor` command performs read-only, best-effort checks for
+overlapping assignments and missing, duplicated, malformed, or hash-mismatched
+coordination rows. A clean result is not proof that managed services created
+every row.
+
+Full direct-mutation boundaries, diagnostic limitations, cache consequences,
+and operational remediation are defined by
+[ADR 0009](0009-direct-database-mutation-and-diagnostics.md).
 
 ## Alternatives considered
 
