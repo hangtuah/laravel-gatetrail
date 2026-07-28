@@ -44,8 +44,9 @@ Phase 2 — In progress
 Phase 3 onward — Not started
 ```
 
-The project is currently at the end of specification work and the beginning of
-repository tooling.
+The project now has its initial package scaffold, local quality tooling, and a
+Laravel 12/13 compatibility workflow. Repository tooling is in final
+verification before Phase 2 can close.
 
 ADR numbers are decision-record numbers, not roadmap phase numbers. For
 example, ADR 0004 does not mean the project has reached Phase 4.
@@ -54,10 +55,10 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | Approximately 17% | Phase-weighted progress across Phases 0–13 |
-| Deliverable tracker | 5 of 32, approximately 16% | Completed concrete package deliverables |
+| Overall roadmap by primary phases | Approximately 20% | Phase-weighted progress across Phases 0–13 |
+| Deliverable tracker | 7 of 32, approximately 22% | Completed concrete package deliverables |
 | Planning and specification | Approximately 80% | Charter, specification, and four accepted ADRs |
-| First sprint | 7 of 10, 70% | Repository-and-specification sprint tasks |
+| First sprint | 9 of 10, 90% | Repository-and-specification sprint tasks |
 
 These percentages measure different things and must not be combined.
 
@@ -70,7 +71,7 @@ automated testing, security hardening, a pilot, and release validation.
 |---:|---|---:|---|
 | 0 | Ownership and product decisions | 100% | Complete |
 | 1 | Package specification | 80% | In progress |
-| 2 | Repository and development tooling | 55% | In progress |
+| 2 | Repository and development tooling | 90% | In progress |
 | 3 | Database and assignment lifecycle | 0% | Not started |
 | 4 | Mutation services | 0% | Not started |
 | 5 | Effective permission resolver | 0% | Not started |
@@ -139,11 +140,18 @@ features such as cache optimization.
 
 Work should proceed in this order:
 
-1. Add code style and static analysis.
-2. Add the initial CI workflow.
-3. Verify Laravel package auto-discovery.
-4. Draw the initial ERD from the accepted schema.
-5. Obtain one independent developer review of the charter and specification.
+Completed in the current tooling increment:
+
+- [x] Add code style and static analysis.
+- [x] Add the initial CI workflow.
+- [x] Verify Laravel package auto-discovery metadata.
+
+Next:
+
+1. Confirm the initial remote CI run.
+2. Complete the remaining Testbench support scaffold.
+3. Draw the initial ERD from the accepted schema.
+4. Obtain one independent developer review of the charter and specification.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
 
@@ -334,13 +342,28 @@ and passes.
 ### Checklist
 
 - [x] Composer autoload succeeds.
-- [ ] Service provider is auto-discovered.
+- [x] Service-provider auto-discovery metadata is verified.
 - [x] Testbench boots.
 - [x] Package smoke test passes.
-- [ ] CI runs on push and pull request.
+- [x] CI is configured for pushes and pull requests.
 - [x] `composer validate` passes.
-- [ ] Code formatting is configured.
-- [ ] Static analysis is configured.
+- [x] Code formatting is configured.
+- [x] Static analysis is configured at the maximum analysis level.
+
+### Current verification evidence
+
+- The full local quality suite passes on PHP 8.3 and Laravel 13.
+- The package test suite passes on PHP 8.3, Laravel 12, and Testbench 10 in an
+  isolated dependency installation.
+- The CI matrix covers Laravel 12/Testbench 10 and Laravel 13/Testbench 11.
+- Composer validation does not require a lock file because GateTrail is a
+  library package.
+
+Remaining before Phase 2 closes:
+
+- confirm the first remote CI run;
+- add the reusable test subject required by later integration tests;
+- add the package-migration loading hook when the first migration exists.
 
 ### Exit criteria
 
