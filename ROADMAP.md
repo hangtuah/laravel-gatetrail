@@ -168,12 +168,13 @@ Completed in the current tooling increment:
 - [x] Add a four-lane MySQL 8.0.16/8.0.45 integration matrix to CI.
 - [x] Confirm remote CI run `#15` passes all MySQL and Laravel matrix lanes.
 - [x] Accept the Oracle generated-key strategy and ownership contract.
+- [x] Implement the Oracle compiler core for both generated-key strategies.
 
 Next:
 
 1. Obtain one independent developer review of the charter and specification.
-2. Implement the Oracle compiler for the accepted identity and
-   sequence-trigger strategies without changing the canonical manifest.
+2. Review generated Oracle SQL, then publish versioned identity and
+   sequence-trigger DBA artifacts without changing the canonical manifest.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
 
@@ -450,6 +451,11 @@ acl_access_audits
   dependency order, and rollback order with the canonical schema contract.
 - The MySQL compiler generates dependency-ordered install and reverse-order
   rollback DDL directly from the canonical manifest.
+- The Oracle compiler maps the same canonical manifest to identity or explicit
+  sequence-trigger generated keys without mixing strategies in one schema.
+- Oracle install compilation creates parent tables before children and emits
+  indexes as separate Oracle statements. Sequence-trigger rollback removes
+  triggers before reverse-ordered tables and sequences.
 - MySQL release `0001` provides committed install and rollback artifacts with
   byte-for-byte compiler conformance tests and DBA operational guidance.
 - The read-only inspection contract reports schema differences without mutating

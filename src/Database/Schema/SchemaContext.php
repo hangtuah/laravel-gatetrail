@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail\Database\Schema;
 
+use HangTuah\GateTrail\Database\Schema\Ddl\Oracle\OracleSchemaOptions;
 use HangTuah\GateTrail\Database\Schema\Manifest\SchemaManifest;
 use InvalidArgumentException;
 
@@ -93,6 +94,23 @@ final class SchemaContext
         }
 
         $this->schemaName();
+    }
+
+    public function oracleOptions(): OracleSchemaOptions
+    {
+        $oracle = $this->config['oracle'] ?? null;
+
+        if (! is_array($oracle)) {
+            throw new InvalidArgumentException(
+                'GateTrail oracle configuration must be an array.',
+            );
+        }
+
+        /** @var array<string, mixed> $oracle */
+        return OracleSchemaOptions::fromConfig(
+            $oracle,
+            $this->identifiers,
+        );
     }
 
     public function schemaName(): ?string

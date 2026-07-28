@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail\Tests\Database;
 
+use HangTuah\GateTrail\Database\Schema\Ddl\Oracle\OracleGeneratedKeyStrategy;
 use HangTuah\GateTrail\Database\Schema\IdentifierValidator;
 use HangTuah\GateTrail\Database\Schema\Manifest\SchemaManifest;
 use HangTuah\GateTrail\Database\Schema\SchemaContext;
@@ -46,6 +47,38 @@ final class SchemaContextTest extends TestCase
         $context->validateAll();
     }
 
+    public function test_it_resolves_the_default_oracle_generated_key_strategy(): void
+    {
+        $context = new SchemaContext(
+            $this->config(),
+            new IdentifierValidator,
+            SchemaManifest::gateTrail(),
+        );
+
+        $this->assertSame(
+            OracleGeneratedKeyStrategy::SequenceTrigger,
+            $context->oracleOptions()->generatedKeys,
+        );
+    }
+
+    public function test_it_rejects_an_invalid_oracle_generated_key_strategy(): void
+    {
+        $config = $this->config();
+        $config['oracle']['generated_keys'] = 'automatic';
+        $context = new SchemaContext(
+            $config,
+            new IdentifierValidator,
+            SchemaManifest::gateTrail(),
+        );
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage(
+            'GateTrail oracle.generated_keys must be [identity] or [sequence_trigger].',
+        );
+
+        $context->oracleOptions();
+    }
+
     /**
      * @param  array<string, mixed>  $database
      * @return array<string, mixed>
@@ -67,6 +100,11 @@ final class SchemaContextTest extends TestCase
                 'role_permissions' => 'acl_role_permissions',
                 'assignment_locks' => 'acl_assignment_locks',
                 'access_audits' => 'acl_access_audits',
+            ],
+            'oracle' => [
+                'generated_keys' => 'sequence_trigger',
+                'sequences' => [],
+                'triggers' => [],
             ],
         ];
     }

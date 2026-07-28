@@ -21,6 +21,8 @@ return [
     ],
 
     'oracle' => [
+        'generated_keys' => 'sequence_trigger',
+
         'sequences' => [
             'roles' => 'acl_roles_seq',
             'permissions' => 'acl_perms_seq',
