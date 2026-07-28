@@ -288,8 +288,16 @@ Rules:
 - actor attribution does not authorize the mutation;
 - assignment and revocation reasons are required by default;
 - configuration may require reasons for definition mutations;
-- metadata is optional and subject to audit redaction and size limits;
+- metadata is an optional string-keyed associative array that persists only
+  under `context.metadata`;
+- metadata must be JSON-safe and pass finite size, depth, and sensitive-field
+  rules before the mutation transaction begins;
+- invalid metadata throws `InvalidAuditMetadata` rather than being truncated,
+  stringified, or silently discarded;
 - request metadata is not copied blindly into audit records.
+
+Exact metadata, audit snapshot, redaction, and failure-mode rules are defined by
+[ADR 0008](0008-audit-snapshot-and-failure-modes.md).
 
 ## Assignment period
 
@@ -428,8 +436,9 @@ in managers, facades, console commands, or Eloquent relationships.
 
 ## Transaction and side-effect contract
 
-Each manager method owns one atomic mutation boundary on GateTrail's configured
-database connection:
+Each manager method owns the mutation boundary on GateTrail's configured
+database connection. With strict auditing, mutation and audit persistence are
+atomic:
 
 ```text
 Validate input
@@ -447,6 +456,17 @@ Validate input
 If the caller already has a transaction on the same connection, GateTrail
 participates in it. Cache invalidation and events wait for the outermost
 successful commit where the connection supports after-commit callbacks.
+
+With non-strict auditing, GateTrail commits or waits for the successful
+outermost mutation commit before attempting audit persistence in a separate
+transaction. When a manager joins a caller-owned transaction, it returns a null
+audit identifier and registers the audit attempt as an outermost after-commit
+callback. An outer rollback creates no audit. Unsupported after-commit
+boundaries are rejected before mutation.
+
+When auditing is disabled, no audit write is attempted. The exact strict,
+non-strict, disabled, metadata, and result rules are defined by
+[ADR 0008](0008-audit-snapshot-and-failure-modes.md).
 
 A transaction on another connection cannot make GateTrail atomic with the
 caller's work. GateTrail does not provide distributed transactions.

@@ -51,9 +51,9 @@ Deferred
 The independent review is complete and its feedback is recorded. Remediation
 is not complete. The specification remains Draft.
 
-Before the first vertical slice, GateTrail must resolve:
-
-1. O01, by accepting an audit snapshot contract.
+No unresolved review finding or architecture decision currently blocks the
+first vertical slice. O01, F-09, and F-11 are resolved by ADR 0008 and the
+aligned audit contract in `PACKAGE_SPEC.md`.
 
 F-01 and F-02 are resolved by ADR 0007 and the aligned Gate integration
 contract in `PACKAGE_SPEC.md`. F-02 was not marked as a vertical-slice blocker
@@ -238,8 +238,8 @@ checks.
 | Severity | Low |
 | Decision | Accepted |
 | Blocks first vertical slice | No |
-| Remediation status | Open |
-| Authoritative target | Audit snapshot ADR and `PACKAGE_SPEC.md` sections 10.3, 10.7, and 13.5 |
+| Remediation status | Resolved |
+| Authoritative target | ADR 0008 and `PACKAGE_SPEC.md` sections 10.3, 10.7, and 13.6 |
 
 The audit contract must define all configured modes:
 
@@ -252,6 +252,13 @@ The audit contract must define all configured modes:
 The exact logging or event contract for a non-strict failure must be decided in
 the audit ADR. Documentation must identify non-strict and disabled modes as
 weakening the package's history guarantee.
+
+Resolved by
+[ADR 0008](../decisions/0008-audit-snapshot-and-failure-modes.md). Strict mode
+keeps mutation and audit atomic. Non-strict mode attempts audit persistence in
+a separate post-commit transaction and reports failure through a safe
+error-level log and `AuditPersistenceFailed` event. Disabled mode skips the
+audit explicitly.
 
 ### F-10: Lifecycle terminology in the table overview
 
@@ -274,8 +281,8 @@ public lifecycle term.
 | Severity | Low |
 | Decision | Accepted |
 | Blocks first vertical slice | No |
-| Remediation status | Open |
-| Authoritative target | Audit snapshot ADR and ADR 0002 |
+| Remediation status | Resolved |
+| Authoritative target | ADR 0008 and ADR 0002 |
 
 Consumer mutation metadata must have one documented destination inside audit
 context, after sensitive-field filtering. The audit ADR must define:
@@ -286,6 +293,11 @@ context, after sensitive-field filtering. The audit ADR must define:
 - size and depth limits;
 - behavior when the limits are exceeded.
 
+Resolved by
+[ADR 0008](../decisions/0008-audit-snapshot-and-failure-modes.md), which fixes
+the destination at `context.metadata`, accepts JSON-safe values, defines
+redaction, and sets finite default size and depth limits.
+
 ## Priority decision dispositions
 
 ### O01: Minimum audit snapshot content
@@ -294,8 +306,8 @@ context, after sensitive-field filtering. The audit ADR must define:
 |---|---|
 | Decision | Accepted for an ADR, with refinement |
 | Blocks first vertical slice | Yes |
-| Remediation status | Open |
-| Authoritative target | New audit snapshot and failure-mode ADR |
+| Remediation status | Resolved |
+| Authoritative target | ADR 0008 |
 
 The reviewer's package-columns-only principle, versioned snapshot structure,
 explicit redaction marker, stable metadata destination, and denormalized
@@ -311,7 +323,14 @@ The ADR must still decide:
 - metadata size, nesting, normalization, and rejection behavior;
 - non-strict audit failure signaling.
 
-The reviewer recommendation is input to the ADR, not yet the package contract.
+The reviewer recommendation was input to the ADR rather than being adopted
+verbatim.
+
+Resolved by
+[ADR 0008](../decisions/0008-audit-snapshot-and-failure-modes.md). The accepted
+contract uses full security-relevant snapshots, versioned context, canonical
+identifier and timestamp serialization, bounded metadata, and explicit
+strict, non-strict, and disabled failure modes.
 
 ### O02: Direct database mutation behavior
 
@@ -372,8 +391,8 @@ not findings in the current remediation set:
 Work should proceed in this order:
 
 1. [Completed] Decide the Gate integration contract and resolve F-01 and F-02.
-2. Decide the audit snapshot and failure-mode contract, resolving O01, F-09,
-   and F-11.
+2. [Completed] Decide the audit snapshot and failure-mode contract, resolving
+   O01, F-09, and F-11.
 3. Apply the remaining specification clarifications for F-03 through F-08 and
    F-10.
 4. Decide direct database mutation and diagnostic behavior for O02.

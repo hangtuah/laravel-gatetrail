@@ -743,6 +743,12 @@ The `before`, `after`, and `context` columns use portable text/CLOB storage with
 Laravel array or JSON casts. Core behavior must not require native JSON column
 types or database-specific JSON query operators.
 
+Managed audit events serialize versioned UTF-8 JSON documents. Package-owned
+numeric identifiers use canonical decimal strings, and timestamps use UTC ISO
+8601 strings with microseconds. Exact version 1 snapshots, context, redaction,
+metadata, and failure-mode rules are defined by
+[ADR 0008](docs/decisions/0008-audit-snapshot-and-failure-modes.md).
+
 ### 8.8 Assignment coordination locks
 
 Minimum columns:
@@ -879,7 +885,10 @@ GateTrail must provide managed operations for:
 
 ### 10.3 Transaction boundary
 
-Each mutation executes in one database transaction:
+Metadata and mutation input are validated before persistence. The selected
+audit mode then determines the transaction boundary.
+
+Strict auditing uses one transaction:
 
 ```text
 Validate
@@ -887,11 +896,35 @@ Validate
 → Persist audit
 → Commit
 → Invalidate cache
-→ Dispatch after-commit event
+→ Dispatch after-commit mutation event
 ```
 
 When strict audit mode is enabled, failure to persist the audit record rolls
-back the mutation.
+back the mutation and throws `AuditWriteFailed`.
+
+Non-strict auditing commits the mutation before attempting the audit in a
+separate transaction:
+
+```text
+Validate
+→ Persist and commit mutation
+→ Attempt audit in a new transaction
+→ Invalidate cache
+→ Dispatch after-commit mutation event
+```
+
+A non-strict audit failure leaves the mutation committed, returns a null audit
+identifier, writes a safe operational error log, and dispatches an
+`AuditPersistenceFailed` operational event. It does not throw after commit.
+
+When GateTrail joins a caller-owned transaction in non-strict mode, it waits
+for the outermost commit before attempting the audit in a new transaction. The
+manager returns a null audit identifier because that audit is still pending.
+An outer rollback creates no audit record. A connection without the required
+after-commit semantics throws `UnsupportedAuditBoundary` before mutation.
+
+When auditing is disabled, no audit write is attempted. Cache invalidation and
+successful mutation events still occur.
 
 ### 10.4 Direct relationship mutation
 
@@ -961,7 +994,7 @@ Every successful managed mutation returns a `MutationResult` containing:
 ```text
 resource
 outcome
-audit identifier, when an audit record was created
+nullable audit identifier
 ```
 
 Initial outcomes are:
@@ -977,6 +1010,12 @@ Unchanged
 
 An idempotent no-op returns `Unchanged` and does not write a duplicate audit
 record, invalidate cache, or dispatch a duplicate mutation event.
+
+The audit identifier is null when auditing is disabled, a non-strict audit
+write fails, a non-strict audit is pending after a caller-owned transaction,
+or the mutation outcome is `Unchanged`. Exact result and failure semantics are
+defined by
+[ADR 0008](docs/decisions/0008-audit-snapshot-and-failure-modes.md).
 
 ## 11. Permission resolver
 
@@ -1251,7 +1290,45 @@ permission.revoked_from_role
 - Audit pruning is not enabled by default.
 - Consumer retention policies must be explicit.
 
-### 13.3 Sensitive data
+### 13.3 Snapshot contract
+
+Every managed event uses audit document `schema_version` 1.
+
+Definition snapshots contain:
+
+```text
+id
+name
+guard_name
+description
+deleted_at
+```
+
+Assignment snapshots contain all security-relevant assignment identity,
+period, assignment-actor, assignment-reason, revocation-actor, and
+revocation-reason fields defined in section 8.
+
+Event shapes are:
+
+- create, assign, and grant: null `before`, full `after`;
+- update, deactivate, restore, and revoke: full `before`, full `after`;
+- idempotent `Unchanged`: no audit record.
+
+Every managed audit context contains:
+
+```text
+schema_version
+guard_name
+applicable role_name and/or permission_name
+metadata
+```
+
+`metadata` is always an object and is empty when the consumer supplies none.
+Snapshot identifiers use canonical strings, and timestamps use UTC ISO 8601
+with microseconds. Exact event keys and serialization rules are defined by
+[ADR 0008](docs/decisions/0008-audit-snapshot-and-failure-modes.md).
+
+### 13.4 Sensitive data
 
 Audit snapshots and context must exclude:
 
@@ -1262,12 +1339,28 @@ Audit snapshots and context must exclude:
 - raw request bodies;
 - fields configured as sensitive.
 
-### 13.4 Request metadata
+Snapshots contain package-owned fields only. Consumer metadata is a
+string-keyed associative array stored only under `context.metadata`; nested
+lists remain valid. An empty PHP array becomes an empty JSON object. A redacted
+value uses the reserved `__gatetrail_redacted__` marker so it remains
+distinguishable from an absent key. Configured sensitive paths may also redact
+descriptions and mutation, assignment, or revocation reasons.
+
+Metadata must contain JSON-safe values. The secure defaults are a maximum
+normalized encoded size of 16 KiB and a maximum nesting depth of 8. Limits
+remain configurable but finite. Invalid metadata throws
+`InvalidAuditMetadata` before mutation persistence; it is never silently
+truncated or discarded.
+
+### 13.5 Request metadata
 
 IP address, user agent, and request ID are captured when available. Their
 absence in CLI or queue execution does not invalidate the audit event.
 
-### 13.5 Strict mode
+GateTrail captures request metadata through explicit resolvers. It does not copy
+raw request bodies or all request headers into audit context.
+
+### 13.6 Audit modes
 
 Strict audit mode is enabled by default:
 
@@ -1277,6 +1370,22 @@ Strict audit mode is enabled by default:
     'strict' => true,
 ],
 ```
+
+Mode behavior:
+
+| Enabled | Strict | Behavior |
+|---:|---:|---|
+| `true` | `true` | Mutation and audit share one transaction; audit failure rolls back and throws `AuditWriteFailed` |
+| `true` | `false` | Mutation commits first; audit uses a separate transaction; failure is logged safely, dispatches `AuditPersistenceFailed`, and returns a null audit identifier |
+| `false` | Either | Audit is skipped and the mutation returns a null audit identifier |
+
+When non-strict auditing joins a caller-owned transaction, audit persistence
+waits for its outermost commit and the immediate mutation result contains no
+audit identifier.
+
+Non-strict and disabled auditing weaken the package's history guarantee and
+must be explicit consumer choices. GateTrail never changes modes automatically
+after a failure.
 
 ## 14. Cache behavior
 
@@ -1339,6 +1448,8 @@ GuardMismatch
 InvalidSubject
 InvalidActor
 ReasonRequired
+InvalidAuditMetadata
+UnsupportedAuditBoundary
 AuditWriteFailed
 UnauthorizedMutation
 ```
@@ -1357,6 +1468,11 @@ Rules:
 - event payloads include identifiers and safe context;
 - events do not replace persistent audit records;
 - consumers may use events for notifications or integrations.
+
+`AuditPersistenceFailed` is a separate operational event used only when a
+non-strict post-commit audit write fails. It is not a successful mutation
+domain event and contains safe identifiers rather than snapshots, raw
+metadata, or exception messages.
 
 ## 17. Configuration
 
@@ -1380,12 +1496,36 @@ return [
         ],
     ],
     'assignments' => [],
-    'audit' => [],
+    'audit' => [
+        'enabled' => true,
+        'strict' => true,
+        'metadata' => [
+            'max_bytes' => 16384,
+            'max_depth' => 8,
+        ],
+        'request' => [
+            'resolvers' => [],
+        ],
+    ],
     'cache' => [],
     'middleware' => [],
     'sensitive_fields' => [],
 ];
 ```
+
+The `audit` section configures:
+
+```text
+enabled
+strict
+metadata maximum bytes
+metadata maximum depth
+request metadata resolvers
+```
+
+The `sensitive_fields` section configures redaction paths. Metadata limits must
+remain finite. Configuration cannot disable the required snapshot schema or
+permit prohibited sensitive data.
 
 Configuration is publishable as:
 
@@ -1472,6 +1612,8 @@ GateTrail must:
 - public input resolution rules;
 - assignment-period value objects;
 - mutation outcomes.
+- canonical audit snapshot serialization;
+- metadata normalization, size, depth, and redaction rules.
 
 ### 20.2 Integration tests
 
@@ -1484,6 +1626,9 @@ GateTrail must:
 - assignment coordination-row locking;
 - assignment scheduling with overlapping and adjacent periods;
 - audit persistence;
+- exact event-by-event version 1 before, after, and context documents;
+- strict, non-strict, and disabled audit modes;
+- non-strict `AuditPersistenceFailed` logging and event behavior;
 - Laravel Gate;
 - `Gate::forUser`;
 - subject method, property, class-config, package-default, and Laravel-default
@@ -1524,6 +1669,14 @@ GateTrail must:
 - coordination hash mismatch;
 - bounded concurrency retry exhaustion;
 - strict audit rollback;
+- non-strict audit failure preserving the committed mutation;
+- non-strict audit waiting for a caller-owned outer commit and skipping writes
+  after an outer rollback;
+- unsupported non-strict after-commit boundaries rejected before mutation;
+- application-model attributes excluded from audit documents;
+- malformed, oversized, deeply nested, recursive, non-UTF-8, and non-finite
+  metadata rejected before mutation;
+- sensitive audit values redacted without conflating absent values;
 - unsafe input handling.
 
 ### 20.4 CI matrix
@@ -1616,12 +1769,14 @@ finalized:
 
 1. cache store, TTL, and role-change fan-out strategy;
 2. whether UUID/ULID subject migration variants are required before `1.0.0`;
-3. minimum audit snapshot content;
-4. package behavior when direct database mutation is detected;
-5. whether role convenience directives belong in the core package.
+3. package behavior when direct database mutation is detected;
+4. whether role convenience directives belong in the core package.
 
 Persisted actor representation is accepted in
 [ADR 0005](docs/decisions/0005-actor-identity-representation.md).
+
+Minimum audit snapshot content and audit failure modes are accepted in
+[ADR 0008](docs/decisions/0008-audit-snapshot-and-failure-modes.md).
 
 Architecture decisions will be stored under:
 

@@ -57,7 +57,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 |---|---:|---|
 | Overall roadmap by primary phases | Approximately 24% | Phase-weighted progress across Phases 0–13 |
 | Deliverable tracker | 9 of 32, approximately 28% | Completed concrete package deliverables |
-| Planning and specification | Approximately 90% | Charter, specification, seven accepted ADRs, and the provisioning contract |
+| Planning and specification | Approximately 92% | Charter, independent review, eight accepted ADRs, and remediation in progress |
 | First sprint | 9 of 10, 90% | Repository-and-specification sprint tasks |
 
 These percentages measure different things and must not be combined.
@@ -70,7 +70,7 @@ automated testing, security hardening, a pilot, and release validation.
 | Phase | Name | Progress | Status |
 |---:|---|---:|---|
 | 0 | Ownership and product decisions | 100% | Complete |
-| 1 | Package specification | 80% | In progress |
+| 1 | Package specification | 85% | In progress |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 70% | In progress |
 | 4 | Mutation services | 0% | Not started |
@@ -110,6 +110,7 @@ Completed documents:
 - `docs/decisions/0005-actor-identity-representation.md`
 - `docs/decisions/0006-oracle-generated-key-strategy.md`
 - `docs/decisions/0007-laravel-gate-hook-boundary.md`
+- `docs/decisions/0008-audit-snapshot-and-failure-modes.md`
 
 Accepted architecture decisions:
 
@@ -122,6 +123,7 @@ Accepted architecture decisions:
 | 0005 | Store human and system actor identities as portable strings | Accepted |
 | 0006 | Support explicit Oracle identity and sequence-trigger generated-key strategies | Accepted |
 | 0007 | Bound the Laravel Gate hook to argument-free abilities | Accepted |
+| 0008 | Version audit snapshots and separate audit failure modes | Accepted |
 
 ## 5. Roadmap adherence
 
@@ -183,8 +185,9 @@ Completed in the current tooling increment:
 
 Next:
 
-1. Obtain one independent developer review of the charter and specification.
-2. Obtain minimum-version evidence before declaring Oracle fully verified.
+1. Resolve or explicitly defer the remaining independent-review findings.
+2. Record direct database mutation and diagnostic behavior.
+3. Obtain minimum-version evidence before declaring Oracle fully verified.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
 
@@ -235,6 +238,7 @@ to match one consumer application.
 - [x] Middleware any/all syntax accepted.
 - [x] Laravel Gate hook and resource-policy boundary accepted.
 - [x] Persisted human and system actor identity accepted.
+- [x] Audit snapshot, metadata, and failure-mode contract accepted.
 - [x] Database compatibility targets recorded.
 - [x] Identifier and 30-character database-name rules recorded.
 - [x] Initial feature scope and non-goals recorded.
@@ -246,16 +250,14 @@ The following decisions remain open in `PACKAGE_SPEC.md`:
 
 - [ ] Cache store, TTL, and role-change fan-out strategy.
 - [ ] Whether first-class UUID/ULID migrations are required before `1.0.0`.
-- [ ] Minimum audit snapshot content.
 - [ ] Behavior when direct database mutation is detected.
 - [ ] Whether role convenience directives belong in the core package.
 
 Not all decisions block repository tooling.
 
-Before the first vertical slice, prioritize:
-
-1. minimum audit snapshot content;
-2. direct database mutation behavior.
+No remaining open architecture decision currently blocks the first vertical
+slice. Direct database mutation behavior is the next review-remediation
+decision but does not block the managed-mutation vertical slice.
 
 Cache strategy should wait until the uncached resolver exists and is measured.
 
@@ -551,7 +553,7 @@ Implement every state-changing operation through the accepted public managers.
 - [ ] Mutation results and outcomes.
 - [ ] After-commit cache and event hooks.
 
-### Required flow
+### Required strict-audit flow
 
 ```text
 Validate
@@ -565,6 +567,11 @@ Validate
 → Dispatch event
 ```
 
+Non-strict auditing commits the mutation before attempting audit persistence
+in a separate transaction. When joining a caller-owned transaction, it waits
+for the outermost commit as defined by ADR 0008. Disabled auditing skips the
+audit write.
+
 ### Required tests
 
 - actor and reason rules;
@@ -572,6 +579,8 @@ Validate
 - typed exceptions;
 - transaction rollback;
 - audit rollback in strict mode;
+- non-strict audit success, failure, and caller-owned transaction behavior;
+- disabled audit behavior;
 - after-commit event behavior;
 - bounded concurrency retry;
 - no public `attach()` or `detach()` mutation path.
