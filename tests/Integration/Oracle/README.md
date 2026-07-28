@@ -15,6 +15,17 @@ Install the isolated integration runtime:
 composer install --working-dir=tools/oracle-integration
 ```
 
+The committed lock file is the current Laravel 13 reference lane. The
+integration manifest also permits the matching Laravel 12 combination:
+
+```text
+Laravel 12 + Testbench 10 + Laravel-OCI8 12
+Laravel 13 + Testbench 11 + Laravel-OCI8 13
+```
+
+Resolve compatibility lanes in a clean checkout so the committed reference
+lock is not rewritten. Do not mix Laravel, Testbench, and Laravel-OCI8 majors.
+
 Start Oracle and wait for it to become healthy:
 
 ```bash

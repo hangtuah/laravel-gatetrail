@@ -175,7 +175,7 @@ Completed in the current tooling increment:
   generated-key strategies.
 - [x] Verify both Oracle generated-key strategies in package-managed and
   DBA-managed modes against a live disposable Oracle Free 23.26.1 endpoint on
-  Laravel 13.
+  Laravel 12 and Laravel 13.
 
 Next:
 
@@ -473,8 +473,9 @@ acl_access_audits
 - The isolated Oracle integration runtime keeps OCI8 and Laravel-OCI8 outside
   the package's normal dependency graph. A local disposable Oracle Free
   23.26.1 endpoint passes package-managed and DBA-managed provisioning for both
-  Laravel 13/Testbench 11 generated-key strategies with 5 tests and 107
-  assertions.
+  generated-key strategies on Laravel 12/Testbench 10/Laravel-OCI8 12 and
+  Laravel 13/Testbench 11/Laravel-OCI8 13. Each major lane passes 5 tests and
+  107 assertions.
 - Live Oracle evidence covers release `0001` artifact installation, read-only
   inspection, identity- and trigger-generated IDs, preservation of explicit
   IDs, transaction rollback, non-repairing missing-index detection, Laravel
@@ -501,9 +502,9 @@ acl_access_audits
 Production database adapters are not marked verified until their integration
 suites pass. The MySQL minimum and current 8.0 endpoints are verified locally
 and in the remote CI matrix. All four Oracle provisioning and generated-key
-combinations now have current-version local evidence, but the supported-major
-CI matrix and minimum Oracle version remain open. The remaining Tier 1
-compilers and inspectors also remain open.
+combinations now have current-version local evidence across both supported
+Laravel majors, but the remote Oracle CI matrix and minimum Oracle version
+remain open. The remaining Tier 1 compilers and inspectors also remain open.
 
 ADR 0006 fixes the Oracle generated-key contract before adapter implementation:
 one selected strategy per schema, `sequence_trigger` as the initial default,
