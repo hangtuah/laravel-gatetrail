@@ -56,9 +56,9 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 | Measurement | Current value | Interpretation |
 |---|---:|---|
 | Overall roadmap by primary phases | Approximately 20% | Phase-weighted progress across Phases 0–13 |
-| Deliverable tracker | 7 of 32, approximately 22% | Completed concrete package deliverables |
+| Deliverable tracker | 8 of 32, 25% | Completed concrete package deliverables |
 | Planning and specification | Approximately 80% | Charter, specification, and four accepted ADRs |
-| First sprint | 9 of 10, 90% | Repository-and-specification sprint tasks |
+| First sprint | 8 of 10, 80% | Repository-and-specification sprint tasks |
 
 These percentages measure different things and must not be combined.
 
@@ -71,7 +71,7 @@ automated testing, security hardening, a pilot, and release validation.
 |---:|---|---:|---|
 | 0 | Ownership and product decisions | 100% | Complete |
 | 1 | Package specification | 80% | In progress |
-| 2 | Repository and development tooling | 90% | In progress |
+| 2 | Repository and development tooling | 95% | In progress |
 | 3 | Database and assignment lifecycle | 0% | Not started |
 | 4 | Mutation services | 0% | Not started |
 | 5 | Effective permission resolver | 0% | Not started |
@@ -149,9 +149,8 @@ Completed in the current tooling increment:
 Next:
 
 1. Confirm the initial remote CI run.
-2. Complete the remaining Testbench support scaffold.
-3. Draw the initial ERD from the accepted schema.
-4. Obtain one independent developer review of the charter and specification.
+2. Draw the initial ERD from the accepted schema.
+3. Obtain one independent developer review of the charter and specification.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
 
@@ -358,12 +357,14 @@ and passes.
 - The CI matrix covers Laravel 12/Testbench 10 and Laravel 13/Testbench 11.
 - Composer validation does not require a lock file because GateTrail is a
   library package.
+- A reusable Eloquent test subject persists through the isolated SQLite
+  connection.
+- Package provisioning registers GateTrail migrations, while DBA provisioning
+  leaves the package migration path unregistered.
 
 Remaining before Phase 2 closes:
 
-- confirm the first remote CI run;
-- add the reusable test subject required by later integration tests;
-- add the package-migration loading hook when the first migration exists.
+- confirm the first remote CI run.
 
 ### Exit criteria
 
@@ -805,12 +806,12 @@ The first sprint proves that the repository and specification are solid.
 - [x] Write `PACKAGE_SPEC.md`.
 - [x] Set up Composer and namespace.
 - [x] Set up Orchestra Testbench.
-- [ ] Set up CI.
+- [x] Set up CI.
 - [x] Add service-provider smoke test.
 - [ ] Draw initial ERD.
 - [ ] Obtain one independent developer review.
 
-Current result: **7 of 10 tasks, 70%**
+Current result: **8 of 10 tasks, 80%**
 
 ### First sprint deliverable
 
@@ -871,11 +872,11 @@ discussion.
 - [x] Repository
 - [x] Composer
 - [x] Testbench
-- [ ] CI
-- [ ] Code style
-- [ ] Static analysis
+- [x] CI
+- [x] Code style
+- [x] Static analysis
 
-Progress: **5 of 8**
+Progress: **8 of 8**
 
 ### Core implementation
 
@@ -919,9 +920,9 @@ Progress: **0 of 8**
 ### Total
 
 ```text
-Completed: 5
+Completed: 8
 Total:     32
-Progress:  15.625%, reported as approximately 16%
+Progress:  25%
 ```
 
 ## 25. Progress update rules

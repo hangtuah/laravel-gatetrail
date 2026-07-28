@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace HangTuah\GateTrail\Tests;
 
 use HangTuah\GateTrail\GateTrailServiceProvider;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
@@ -27,5 +29,13 @@ abstract class TestCase extends Orchestra
             'database' => ':memory:',
             'prefix' => '',
         ]);
+    }
+
+    protected function defineDatabaseMigrations(): void
+    {
+        Schema::create('test_subjects', function (Blueprint $table): void {
+            $table->id();
+            $table->string('name');
+        });
     }
 }

@@ -25,5 +25,13 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__.'/../config/gatetrail.php' => config_path('gatetrail.php'),
         ], 'gatetrail-config');
+
+        if (config('gatetrail.database.provisioning') !== 'package') {
+            return;
+        }
+
+        $this->loadMigrationsFrom(
+            __DIR__.'/../database/migrations',
+        );
     }
 }
