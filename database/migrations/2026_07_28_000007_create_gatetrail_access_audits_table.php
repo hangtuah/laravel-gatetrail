@@ -30,12 +30,12 @@ return new class extends GateTrailMigration
                 $table->unsignedBigInteger('subject_id')->nullable();
                 $this->stringColumn($table, 'target_type', $collation);
                 $table->unsignedBigInteger('target_id');
-                $table->text('before')->nullable();
-                $table->text('after')->nullable();
-                $table->text('reason')->nullable();
-                $table->text('context')->nullable();
+                $table->longText('before')->nullable();
+                $table->longText('after')->nullable();
+                $table->longText('reason')->nullable();
+                $table->longText('context')->nullable();
                 $table->string('ip_address', 45)->nullable();
-                $table->text('user_agent')->nullable();
+                $table->longText('user_agent')->nullable();
                 $table->string('request_id', 191)->nullable();
                 $table->dateTime('created_at');
 
@@ -140,7 +140,9 @@ return new class extends GateTrailMigration
 
     private function subjectExpression(): string
     {
-        return '(subject_type IS NULL AND subject_id IS NULL) '
-            .'OR (subject_type IS NOT NULL AND subject_id IS NOT NULL)';
+        return '((subject_type IS NULL) '
+            .'AND (subject_id IS NULL)) '
+            .'OR ((subject_type IS NOT NULL) '
+            .'AND (subject_id IS NOT NULL))';
     }
 };

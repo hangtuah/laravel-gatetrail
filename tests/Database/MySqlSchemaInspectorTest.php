@@ -257,6 +257,10 @@ final class MySqlSchemaInspectorTest extends TestCase
         [$dataType, $columnType] = match ($column->type) {
             ColumnType::BigInteger => ['bigint', 'bigint unsigned'],
             ColumnType::DateTime => ['datetime', 'datetime'],
+            ColumnType::FixedString => [
+                'char',
+                sprintf('char(%d)', $column->length ?? 1),
+            ],
             ColumnType::String => [
                 'varchar',
                 sprintf('varchar(%d)', $column->length ?? 191),
@@ -270,11 +274,19 @@ final class MySqlSchemaInspectorTest extends TestCase
             dataType: $dataType,
             columnType: $columnType,
             nullable: $column->nullable,
-            length: $column->type === ColumnType::String
+            length: in_array(
+                $column->type,
+                [ColumnType::FixedString, ColumnType::String],
+                true,
+            )
                 ? $column->length
                 : null,
             extra: $column->generated ? 'auto_increment' : '',
-            collation: $column->type === ColumnType::String
+            collation: in_array(
+                $column->type,
+                [ColumnType::FixedString, ColumnType::String],
+                true,
+            )
                 ? ($column->exactComparison
                     ? 'utf8mb4_bin'
                     : 'utf8mb4_unicode_ci')

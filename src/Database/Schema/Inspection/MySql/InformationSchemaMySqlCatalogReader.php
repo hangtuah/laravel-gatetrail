@@ -277,7 +277,15 @@ final readonly class InformationSchemaMySqlCatalogReader implements MySqlCatalog
         object $row,
         string $key,
     ): int|string|null {
-        $value = ((array) $row)[$key] ?? null;
+        $value = null;
+
+        foreach ((array) $row as $column => $candidate) {
+            if (strcasecmp($column, $key) === 0) {
+                $value = $candidate;
+
+                break;
+            }
+        }
 
         if (is_int($value) || is_string($value)) {
             return $value;

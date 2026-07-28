@@ -29,7 +29,7 @@ CREATE TABLE `acl_permissions` (
 
 CREATE TABLE `acl_assignment_locks` (
     `assignment_kind` VARCHAR(32) COLLATE utf8mb4_bin NOT NULL,
-    `scope_hash` VARCHAR(64) COLLATE utf8mb4_bin NOT NULL,
+    `scope_hash` CHAR(64) COLLATE utf8mb4_bin NOT NULL,
     `scope_key` LONGTEXT NOT NULL,
     `created_at` DATETIME NOT NULL,
     `updated_at` DATETIME NOT NULL,
@@ -55,8 +55,8 @@ CREATE TABLE `acl_role_assignments` (
     `updated_at` DATETIME NOT NULL,
     PRIMARY KEY (`id`),
     CONSTRAINT `acl_ra_role_fk` FOREIGN KEY (`role_id`) REFERENCES `acl_roles` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-    CONSTRAINT `acl_ra_period_ck` CHECK (expires_at IS NULL OR expires_at > COALESCE(starts_at, assigned_at)),
-    CONSTRAINT `acl_ra_revoke_ck` CHECK ((revoked_at IS NULL AND revoked_by_type IS NULL AND revoked_by_id IS NULL) OR (revoked_at IS NOT NULL AND revoked_by_type IS NOT NULL AND revoked_by_id IS NOT NULL)),
+    CONSTRAINT `acl_ra_period_ck` CHECK ((expires_at IS NULL) OR (expires_at > COALESCE(starts_at, assigned_at))),
+    CONSTRAINT `acl_ra_revoke_ck` CHECK (((revoked_at IS NULL) AND (revoked_by_type IS NULL) AND (revoked_by_id IS NULL)) OR ((revoked_at IS NOT NULL) AND (revoked_by_type IS NOT NULL) AND (revoked_by_id IS NOT NULL))),
     INDEX `acl_ra_subject_ix` (`subject_type`, `subject_id`, `revoked_at`, `starts_at`, `expires_at`),
     INDEX `acl_ra_scope_ix` (`subject_type`, `subject_id`, `role_id`, `revoked_at`, `starts_at`, `expires_at`),
     INDEX `acl_ra_role_ix` (`role_id`)
@@ -81,8 +81,8 @@ CREATE TABLE `acl_permission_assignments` (
     `updated_at` DATETIME NOT NULL,
     PRIMARY KEY (`id`),
     CONSTRAINT `acl_pa_perm_fk` FOREIGN KEY (`permission_id`) REFERENCES `acl_permissions` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-    CONSTRAINT `acl_pa_period_ck` CHECK (expires_at IS NULL OR expires_at > COALESCE(starts_at, assigned_at)),
-    CONSTRAINT `acl_pa_revoke_ck` CHECK ((revoked_at IS NULL AND revoked_by_type IS NULL AND revoked_by_id IS NULL) OR (revoked_at IS NOT NULL AND revoked_by_type IS NOT NULL AND revoked_by_id IS NOT NULL)),
+    CONSTRAINT `acl_pa_period_ck` CHECK ((expires_at IS NULL) OR (expires_at > COALESCE(starts_at, assigned_at))),
+    CONSTRAINT `acl_pa_revoke_ck` CHECK (((revoked_at IS NULL) AND (revoked_by_type IS NULL) AND (revoked_by_id IS NULL)) OR ((revoked_at IS NOT NULL) AND (revoked_by_type IS NOT NULL) AND (revoked_by_id IS NOT NULL))),
     INDEX `acl_pa_subject_ix` (`subject_type`, `subject_id`, `revoked_at`, `starts_at`, `expires_at`),
     INDEX `acl_pa_scope_ix` (`subject_type`, `subject_id`, `permission_id`, `revoked_at`, `starts_at`, `expires_at`),
     INDEX `acl_pa_perm_ix` (`permission_id`)
@@ -107,8 +107,8 @@ CREATE TABLE `acl_role_permissions` (
     PRIMARY KEY (`id`),
     CONSTRAINT `acl_rp_role_fk` FOREIGN KEY (`role_id`) REFERENCES `acl_roles` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT `acl_rp_perm_fk` FOREIGN KEY (`permission_id`) REFERENCES `acl_permissions` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-    CONSTRAINT `acl_rp_period_ck` CHECK (expires_at IS NULL OR expires_at > COALESCE(starts_at, assigned_at)),
-    CONSTRAINT `acl_rp_revoke_ck` CHECK ((revoked_at IS NULL AND revoked_by_type IS NULL AND revoked_by_id IS NULL) OR (revoked_at IS NOT NULL AND revoked_by_type IS NOT NULL AND revoked_by_id IS NOT NULL)),
+    CONSTRAINT `acl_rp_period_ck` CHECK ((expires_at IS NULL) OR (expires_at > COALESCE(starts_at, assigned_at))),
+    CONSTRAINT `acl_rp_revoke_ck` CHECK (((revoked_at IS NULL) AND (revoked_by_type IS NULL) AND (revoked_by_id IS NULL)) OR ((revoked_at IS NOT NULL) AND (revoked_by_type IS NOT NULL) AND (revoked_by_id IS NOT NULL))),
     INDEX `acl_rp_role_ix` (`role_id`, `revoked_at`, `starts_at`, `expires_at`, `permission_id`),
     INDEX `acl_rp_scope_ix` (`role_id`, `permission_id`, `revoked_at`, `starts_at`, `expires_at`),
     INDEX `acl_rp_perm_ix` (`permission_id`)
@@ -132,7 +132,7 @@ CREATE TABLE `acl_access_audits` (
     `request_id` VARCHAR(191) NULL,
     `created_at` DATETIME NOT NULL,
     PRIMARY KEY (`id`),
-    CONSTRAINT `acl_audit_subject_ck` CHECK ((subject_type IS NULL AND subject_id IS NULL) OR (subject_type IS NOT NULL AND subject_id IS NOT NULL)),
+    CONSTRAINT `acl_audit_subject_ck` CHECK (((subject_type IS NULL) AND (subject_id IS NULL)) OR ((subject_type IS NOT NULL) AND (subject_id IS NOT NULL))),
     INDEX `acl_audit_actor_ix` (`actor_type`, `actor_id`, `created_at`),
     INDEX `acl_audit_subject_ix` (`subject_type`, `subject_id`, `created_at`),
     INDEX `acl_audit_target_ix` (`target_type`, `target_id`, `created_at`),

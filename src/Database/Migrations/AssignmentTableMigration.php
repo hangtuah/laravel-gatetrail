@@ -65,13 +65,13 @@ abstract class AssignmentTableMigration extends GateTrailMigration
                 $table->dateTime('assigned_at');
                 $this->actorTypeColumn($table, 'assigned_by_type', $collation);
                 $this->actorIdColumn($table, 'assigned_by_id', $collation);
-                $table->text('assignment_reason')->nullable();
+                $table->longText('assignment_reason')->nullable();
                 $table->dateTime('starts_at')->nullable();
                 $table->dateTime('expires_at')->nullable();
                 $table->dateTime('revoked_at')->nullable();
                 $this->actorTypeColumn($table, 'revoked_by_type', $collation, true);
                 $this->actorIdColumn($table, 'revoked_by_id', $collation, true);
-                $table->text('revocation_reason')->nullable();
+                $table->longText('revocation_reason')->nullable();
                 $table->dateTime('created_at');
                 $table->dateTime('updated_at');
 
@@ -206,12 +206,17 @@ abstract class AssignmentTableMigration extends GateTrailMigration
 
     private function periodExpression(): string
     {
-        return 'expires_at IS NULL OR expires_at > COALESCE(starts_at, assigned_at)';
+        return '(expires_at IS NULL) '
+            .'OR (expires_at > COALESCE(starts_at, assigned_at))';
     }
 
     private function revokeExpression(): string
     {
-        return '(revoked_at IS NULL AND revoked_by_type IS NULL AND revoked_by_id IS NULL) '
-            .'OR (revoked_at IS NOT NULL AND revoked_by_type IS NOT NULL AND revoked_by_id IS NOT NULL)';
+        return '((revoked_at IS NULL) '
+            .'AND (revoked_by_type IS NULL) '
+            .'AND (revoked_by_id IS NULL)) '
+            .'OR ((revoked_at IS NOT NULL) '
+            .'AND (revoked_by_type IS NOT NULL) '
+            .'AND (revoked_by_id IS NOT NULL))';
     }
 }

@@ -83,7 +83,14 @@ final class MySqlDdlCompiler implements DdlCompiler
             $this->columnType($column),
         ];
 
-        if ($column->exactComparison && $column->type === ColumnType::String) {
+        if (
+            $column->exactComparison
+            && in_array(
+                $column->type,
+                [ColumnType::FixedString, ColumnType::String],
+                true,
+            )
+        ) {
             $definition[] = 'COLLATE utf8mb4_bin';
         }
 
@@ -101,6 +108,10 @@ final class MySqlDdlCompiler implements DdlCompiler
         return match ($column->type) {
             ColumnType::BigInteger => 'BIGINT UNSIGNED',
             ColumnType::DateTime => 'DATETIME',
+            ColumnType::FixedString => sprintf(
+                'CHAR(%d)',
+                $column->length ?? 1,
+            ),
             ColumnType::String => sprintf('VARCHAR(%d)', $column->length ?? 191),
             ColumnType::Text => 'LONGTEXT',
         };

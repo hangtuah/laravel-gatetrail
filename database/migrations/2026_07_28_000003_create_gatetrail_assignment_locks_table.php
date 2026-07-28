@@ -24,7 +24,7 @@ return new class extends GateTrailMigration
                     $hash->collation($collation);
                 }
 
-                $table->text('scope_key');
+                $table->longText('scope_key');
                 $table->dateTime('created_at');
                 $table->dateTime('updated_at');
                 $table->primary(

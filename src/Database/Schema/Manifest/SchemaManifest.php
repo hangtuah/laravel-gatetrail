@@ -107,7 +107,7 @@ final readonly class SchemaManifest
             migration: '2026_07_28_000003_create_gatetrail_assignment_locks_table.php',
             columns: [
                 self::string('assignment_kind', 32, exact: true),
-                self::string('scope_hash', 64, exact: true),
+                self::fixedString('scope_hash', 64, exact: true),
                 self::text('scope_key'),
                 self::dateTime('created_at'),
                 self::dateTime('updated_at'),
@@ -252,8 +252,10 @@ final readonly class SchemaManifest
                     name: 'acl_audit_subject_ck',
                     type: ConstraintType::Check,
                     columns: ['subject_type', 'subject_id'],
-                    expression: '(subject_type IS NULL AND subject_id IS NULL) '
-                        .'OR (subject_type IS NOT NULL AND subject_id IS NOT NULL)',
+                    expression: '((subject_type IS NULL) '
+                        .'AND (subject_id IS NULL)) '
+                        .'OR ((subject_type IS NOT NULL) '
+                        .'AND (subject_id IS NOT NULL))',
                 ),
             ],
             indexes: [
@@ -347,6 +349,21 @@ final readonly class SchemaManifest
         );
     }
 
+    private static function fixedString(
+        string $name,
+        int $length,
+        bool $nullable = false,
+        bool $exact = false,
+    ): ColumnDefinition {
+        return new ColumnDefinition(
+            name: $name,
+            type: ColumnType::FixedString,
+            nullable: $nullable,
+            length: $length,
+            exactComparison: $exact,
+        );
+    }
+
     private static function text(
         string $name,
         bool $nullable = false,
@@ -412,8 +429,8 @@ final readonly class SchemaManifest
             name: $name,
             type: ConstraintType::Check,
             columns: ['assigned_at', 'starts_at', 'expires_at'],
-            expression: 'expires_at IS NULL '
-                .'OR expires_at > COALESCE(starts_at, assigned_at)',
+            expression: '(expires_at IS NULL) '
+                .'OR (expires_at > COALESCE(starts_at, assigned_at))',
         );
     }
 
@@ -427,12 +444,12 @@ final readonly class SchemaManifest
                 'revoked_by_type',
                 'revoked_by_id',
             ],
-            expression: '(revoked_at IS NULL '
-                .'AND revoked_by_type IS NULL '
-                .'AND revoked_by_id IS NULL) '
-                .'OR (revoked_at IS NOT NULL '
-                .'AND revoked_by_type IS NOT NULL '
-                .'AND revoked_by_id IS NOT NULL)',
+            expression: '((revoked_at IS NULL) '
+                .'AND (revoked_by_type IS NULL) '
+                .'AND (revoked_by_id IS NULL)) '
+                .'OR ((revoked_at IS NOT NULL) '
+                .'AND (revoked_by_type IS NOT NULL) '
+                .'AND (revoked_by_id IS NOT NULL))',
         );
     }
 }

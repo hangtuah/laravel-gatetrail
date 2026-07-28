@@ -25,7 +25,7 @@ return new class extends GateTrailMigration
                     $guard->collation($collation);
                 }
 
-                $table->text('description')->nullable();
+                $table->longText('description')->nullable();
                 $table->dateTime('created_at');
                 $table->dateTime('updated_at');
                 $table->dateTime('deleted_at')->nullable();

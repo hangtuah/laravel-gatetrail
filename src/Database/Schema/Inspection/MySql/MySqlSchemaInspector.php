@@ -146,7 +146,11 @@ final readonly class MySqlSchemaInspector implements SchemaInspector
         }
 
         if (
-            $expected->type === ColumnType::String
+            in_array(
+                $expected->type,
+                [ColumnType::FixedString, ColumnType::String],
+                true,
+            )
             && $actual->length !== $expected->length
         ) {
             $issues[] = new SchemaIssue(
@@ -369,6 +373,7 @@ final readonly class MySqlSchemaInspector implements SchemaInspector
             ColumnType::BigInteger => $actual->dataType === 'bigint'
                 && str_contains($actual->columnType, 'unsigned'),
             ColumnType::DateTime => $actual->dataType === 'datetime',
+            ColumnType::FixedString => $actual->dataType === 'char',
             ColumnType::String => $actual->dataType === 'varchar',
             ColumnType::Text => $actual->dataType === 'longtext',
         };
@@ -379,6 +384,10 @@ final readonly class MySqlSchemaInspector implements SchemaInspector
         return match ($expected->type) {
             ColumnType::BigInteger => 'bigint unsigned',
             ColumnType::DateTime => 'datetime',
+            ColumnType::FixedString => sprintf(
+                'char(%d)',
+                $expected->length ?? 1,
+            ),
             ColumnType::String => sprintf(
                 'varchar(%d)',
                 $expected->length ?? 191,
