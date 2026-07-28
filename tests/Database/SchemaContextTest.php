@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace HangTuah\GateTrail\Tests\Database;
 
 use HangTuah\GateTrail\Database\Schema\IdentifierValidator;
+use HangTuah\GateTrail\Database\Schema\Manifest\SchemaManifest;
 use HangTuah\GateTrail\Database\Schema\SchemaContext;
 use HangTuah\GateTrail\Exceptions\InvalidDatabaseIdentifier;
 use PHPUnit\Framework\TestCase;
@@ -19,6 +20,7 @@ final class SchemaContextTest extends TestCase
                 'prefix' => 'app_',
             ]),
             new IdentifierValidator,
+            SchemaManifest::gateTrail(),
         );
 
         $this->assertSame(
@@ -32,7 +34,11 @@ final class SchemaContextTest extends TestCase
         $config = $this->config();
         $config['tables']['role_assignments'] = str_repeat('a', 31);
 
-        $context = new SchemaContext($config, new IdentifierValidator);
+        $context = new SchemaContext(
+            $config,
+            new IdentifierValidator,
+            SchemaManifest::gateTrail(),
+        );
 
         $this->expectException(InvalidDatabaseIdentifier::class);
         $this->expectExceptionMessage('table [role_assignments]');

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail\Database\Schema;
 
+use HangTuah\GateTrail\Database\Schema\Manifest\SchemaManifest;
 use InvalidArgumentException;
 
 final class SchemaContext
@@ -14,6 +15,7 @@ final class SchemaContext
     public function __construct(
         private readonly array $config,
         private readonly IdentifierValidator $identifiers,
+        private readonly SchemaManifest $manifest,
     ) {}
 
     public function connectionName(): ?string
@@ -86,15 +88,7 @@ final class SchemaContext
 
     public function validateAll(): void
     {
-        foreach ([
-            'roles',
-            'permissions',
-            'role_assignments',
-            'permission_assignments',
-            'role_permissions',
-            'assignment_locks',
-            'access_audits',
-        ] as $key) {
+        foreach ($this->manifest->creationOrder() as $key) {
             $this->tableName($key);
         }
 
