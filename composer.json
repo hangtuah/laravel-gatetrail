@@ -27,6 +27,8 @@
         "illuminate/support": "^12.0 || ^13.0"
     },
     "require-dev": {
+        "larastan/larastan": "^3.10",
+        "laravel/pint": "^1.29",
         "orchestra/testbench": "^10.0 || ^11.0",
         "phpunit/phpunit": "^11.5.50"
     },
@@ -48,10 +50,15 @@
         }
     },
     "scripts": {
+        "analyse": "phpstan analyse --memory-limit=1G",
         "check": [
-            "@composer validate --strict",
+            "@composer validate --strict --no-check-lock",
+            "@format:test",
+            "@analyse",
             "@test"
         ],
+        "format": "pint",
+        "format:test": "pint --test",
         "test": "phpunit"
     },
     "minimum-stability": "stable",
