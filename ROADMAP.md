@@ -73,7 +73,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 10% | In progress |
+| 4 | Mutation services | 15% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -629,6 +629,11 @@ audit write.
   outcome, and a nullable audit identifier. Unchanged results reject audit
   identifiers and report no state change. Duplicate active assignments have a
   typed exception containing only safe hashed scope context.
+- Human and system actors normalize to immutable portable string identities
+  without implicit authentication lookup. Numeric, UUID, ULID, reserved-alias,
+  missing-key, and system-name boundaries are covered. Assignment reasons are
+  trimmed and enforce the secure-by-default configurable requirement before a
+  mutation transaction begins.
 
 ### Exit criteria
 

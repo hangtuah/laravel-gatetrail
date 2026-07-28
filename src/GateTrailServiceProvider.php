@@ -13,6 +13,8 @@ use HangTuah\GateTrail\Database\Schema\Inspection\SchemaInspectorFactory;
 use HangTuah\GateTrail\Database\Schema\Manifest\SchemaManifest;
 use HangTuah\GateTrail\Database\Schema\SchemaAdapterFactory;
 use HangTuah\GateTrail\Database\Schema\SchemaContext;
+use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
+use HangTuah\GateTrail\Mutations\MutationReasonValidator;
 use HangTuah\GateTrail\Support\ModelRegistry;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
@@ -30,6 +32,24 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(AssignmentConflictQuery::class);
         $this->app->singleton(AssignmentDecisionMaker::class);
         $this->app->singleton(AssignmentLockStore::class);
+        $this->app->singleton(ActorIdentityResolver::class);
+        $this->app->singleton(
+            MutationReasonValidator::class,
+            static function (Application $app): MutationReasonValidator {
+                $required = $app->make('config')->get(
+                    'gatetrail.assignments.require_reason',
+                    true,
+                );
+
+                if (! is_bool($required)) {
+                    throw new \InvalidArgumentException(
+                        'GateTrail assignments.require_reason must be a boolean.',
+                    );
+                }
+
+                return new MutationReasonValidator($required);
+            },
+        );
         $this->app->singleton(DdlCompilerFactory::class);
         $this->app->singleton(SchemaInspectorFactory::class);
         $this->app->singleton(SchemaAdapterFactory::class);
