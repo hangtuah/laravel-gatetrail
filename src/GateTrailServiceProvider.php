@@ -7,6 +7,7 @@ namespace HangTuah\GateTrail;
 use HangTuah\GateTrail\Assignments\AssignmentConflictQuery;
 use HangTuah\GateTrail\Assignments\AssignmentDecisionMaker;
 use HangTuah\GateTrail\Assignments\AssignmentLockStore;
+use HangTuah\GateTrail\Audit\AccessAuditWriter;
 use HangTuah\GateTrail\Audit\MetadataNormalizer;
 use HangTuah\GateTrail\Audit\SensitiveMetadataRedactor;
 use HangTuah\GateTrail\Database\Schema\Ddl\DdlCompilerFactory;
@@ -19,6 +20,7 @@ use HangTuah\GateTrail\Guards\SubjectGuardResolver;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
 use HangTuah\GateTrail\Mutations\RoleInputResolver;
+use HangTuah\GateTrail\Mutations\StrictMutationTransaction;
 use HangTuah\GateTrail\Support\ModelRegistry;
 use HangTuah\GateTrail\Time\SystemClock;
 use Illuminate\Contracts\Foundation\Application;
@@ -35,6 +37,7 @@ final class GateTrailServiceProvider extends ServiceProvider
         );
 
         $this->app->singleton(IdentifierValidator::class);
+        $this->app->singleton(AccessAuditWriter::class);
         $this->app->singleton(MetadataNormalizer::class);
         $this->app->singleton(SensitiveMetadataRedactor::class);
         $this->app->singleton(AssignmentConflictQuery::class);
@@ -44,6 +47,7 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(ClockInterface::class, SystemClock::class);
         $this->app->singleton(SubjectGuardResolver::class);
         $this->app->singleton(RoleInputResolver::class);
+        $this->app->singleton(StrictMutationTransaction::class);
         $this->app->singleton(
             MutationReasonValidator::class,
             static function (Application $app): MutationReasonValidator {
