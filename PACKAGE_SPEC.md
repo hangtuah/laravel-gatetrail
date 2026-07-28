@@ -202,6 +202,24 @@ database/ddl/oracle/0001/sequence-trigger/rollback.sql
 Each artifact identifies its generated-key strategy in the header. Consumers
 must apply the artifact matching their configured strategy.
 
+Oracle schema inspection is read-only and uses catalog views describing objects
+accessible to the connected account. It validates:
+
+- canonical tables, columns, types, nullability, and character-length
+  semantics;
+- ordered indexes and their valid status;
+- named, enabled, and validated constraints;
+- restrictive foreign-key behavior and normalized check expressions;
+- `BY DEFAULT ON NULL` identity metadata for the `identity` strategy;
+- configured, non-cycling sequences and enabled, null-guarded
+  `BEFORE EACH ROW` insert triggers for the `sequence_trigger` strategy;
+- absence of mixed generated-key strategies.
+
+The inspector does not query `DBA_*` views and never creates, alters, enables,
+or repairs an Oracle object. Unquoted Oracle identifiers are expected to appear
+in uppercase catalog form; quoted lowercase or mixed-case lookalikes do not
+satisfy the portable identifier contract.
+
 Oracle integration tests must cover:
 
 - inserts where the selected strategy populates the primary key;

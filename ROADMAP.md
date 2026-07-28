@@ -171,12 +171,14 @@ Completed in the current tooling increment:
 - [x] Implement the Oracle compiler core for both generated-key strategies.
 - [x] Publish reproducible Oracle release `0001` artifacts for both
   generated-key strategies.
+- [x] Implement strict read-only Oracle catalog inspection for both
+  generated-key strategies.
 
 Next:
 
 1. Obtain one independent developer review of the charter and specification.
-2. Implement strict read-only Oracle catalog inspection for both generated-key
-   strategies without changing the canonical manifest.
+2. Validate Oracle package-managed and DBA-managed paths against a supported
+   live Oracle endpoint for both generated-key strategies.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
 
@@ -461,6 +463,10 @@ acl_access_audits
 - Oracle release `0001` publishes distinct identity and sequence-trigger
   install and rollback artifacts with byte-for-byte compiler conformance tests
   and DBA operational guidance.
+- The Oracle catalog reader uses accessible `ALL_*` views and performs only
+  read queries. Its strict inspector validates canonical relational metadata,
+  identity semantics, configured sequence-trigger objects, enabled object
+  state, and mixed-strategy drift without repairing the schema.
 - MySQL release `0001` provides committed install and rollback artifacts with
   byte-for-byte compiler conformance tests and DBA operational guidance.
 - The read-only inspection contract reports schema differences without mutating
