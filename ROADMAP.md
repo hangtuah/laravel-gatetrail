@@ -164,12 +164,12 @@ Completed in the current tooling increment:
 - [x] Verify the minimum MySQL 8.0.16 endpoint locally on Laravel 12 and
   Laravel 13.
 - [x] Add a four-lane MySQL 8.0.16/8.0.45 integration matrix to CI.
+- [x] Confirm remote CI run `#15` passes all MySQL and Laravel matrix lanes.
 
 Next:
 
 1. Obtain one independent developer review of the charter and specification.
-2. Confirm the first remote MySQL CI matrix run is green.
-3. Add the next Tier 1 compiler without changing the canonical manifest.
+2. Add the next Tier 1 compiler without changing the canonical manifest.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
 
@@ -455,16 +455,16 @@ acl_access_audits
   provisioning on Laravel 12/Testbench 10 and Laravel 13/Testbench 11.
 - MySQL 8.0.16 minimum-version integration passes on the same two Laravel
   lanes, including its legacy `ISNULL(column)` catalog representation.
-- GitHub Actions declares four MySQL integration lanes across versions 8.0.16
-  and 8.0.45 and both supported Laravel majors.
+- GitHub Actions run `#15` for commit `4a749d9` passes all four MySQL
+  integration lanes across versions 8.0.16 and 8.0.45 and both supported
+  Laravel majors.
 - Live drift tests confirm missing indexes, changed exact-name collation, and
   cascading foreign keys are reported without automatic repair.
 
 Production database adapters are not marked verified until their integration
-suites pass. The MySQL minimum and current 8.0 endpoints are locally verified;
-the first remote four-lane CI result remains open before release-level
-verification. The remaining Tier 1 compilers and inspectors, including Oracle
-sequence/trigger behavior, remain open.
+suites pass. The MySQL minimum and current 8.0 endpoints are verified locally
+and in the remote CI matrix. The remaining Tier 1 compilers and inspectors,
+including Oracle sequence/trigger behavior, remain open.
 
 ### Exit criteria
 
