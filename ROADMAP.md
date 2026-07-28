@@ -57,7 +57,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 |---|---:|---|
 | Overall roadmap by primary phases | Approximately 24% | Phase-weighted progress across Phases 0–13 |
 | Deliverable tracker | 9 of 32, approximately 28% | Completed concrete package deliverables |
-| Planning and specification | Approximately 90% | Charter, specification, six accepted ADRs, and the provisioning contract |
+| Planning and specification | Approximately 90% | Charter, specification, seven accepted ADRs, and the provisioning contract |
 | First sprint | 9 of 10, 90% | Repository-and-specification sprint tasks |
 
 These percentages measure different things and must not be combined.
@@ -109,6 +109,7 @@ Completed documents:
 - `docs/decisions/0004-middleware-any-all-syntax.md`
 - `docs/decisions/0005-actor-identity-representation.md`
 - `docs/decisions/0006-oracle-generated-key-strategy.md`
+- `docs/decisions/0007-laravel-gate-hook-boundary.md`
 
 Accepted architecture decisions:
 
@@ -120,6 +121,7 @@ Accepted architecture decisions:
 | 0004 | Use explicit middleware aliases for singular, any, and all checks | Accepted |
 | 0005 | Store human and system actor identities as portable strings | Accepted |
 | 0006 | Support explicit Oracle identity and sequence-trigger generated-key strategies | Accepted |
+| 0007 | Bound the Laravel Gate hook to argument-free abilities | Accepted |
 
 ## 5. Roadmap adherence
 
@@ -231,6 +233,7 @@ to match one consumer application.
 - [x] Public mutation API direction accepted.
 - [x] Subject guard behavior accepted.
 - [x] Middleware any/all syntax accepted.
+- [x] Laravel Gate hook and resource-policy boundary accepted.
 - [x] Persisted human and system actor identity accepted.
 - [x] Database compatibility targets recorded.
 - [x] Identifier and 30-character database-name rules recorded.

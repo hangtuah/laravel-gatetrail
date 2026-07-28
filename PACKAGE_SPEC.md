@@ -1084,17 +1084,30 @@ relationship methods.
 
 ### 12.3 Gate integration
 
-GateTrail integrates through a centralized Laravel Gate hook.
+GateTrail registers one centralized Laravel `Gate::before` hook. It does not
+register every database permission as an individual Gate ability.
 
 Rules:
 
-- when an ability matches an active GateTrail permission, return the resolver's
-  boolean decision;
-- when no GateTrail permission matches the ability, return `null`;
+- when the subject cannot be resolved as a GateTrail subject, return `null`;
+- when Laravel supplies one or more ability arguments, return `null` and allow
+  its normal resource Gate or policy to continue;
+- for an argument-free ability, look for an exact permission-name definition
+  in the subject's resolved guard, including deactivated definitions;
+- when no definition exists, return `null`;
+- when an active definition exists, return the resolver's boolean decision;
+- when a deactivated definition exists, return `false`;
 - returning `null` allows normal Laravel gates and policies to continue;
-- GateTrail must not register every database permission during service-provider
-  boot;
+- a non-null result is authoritative once GateTrail's callback is invoked;
 - GateTrail must not hide database or configuration failures.
+
+Laravel executes global `before` callbacks in registration order. A consumer
+callback registered earlier may pre-empt GateTrail by returning a non-null
+result. Such a callback is an application-owned global bypass; GateTrail does
+not provide or infer one.
+
+Laravel's inline `Gate::allowIf()` and `Gate::denyIf()` methods bypass global
+Gate hooks and therefore do not evaluate GateTrail permissions.
 
 Expected usage:
 
@@ -1103,6 +1116,18 @@ $user->can('documents.approve');
 Gate::forUser($user)->allows('documents.approve');
 Gate::authorize('documents.approve');
 ```
+
+Abilities with resource arguments remain application Gate or policy checks:
+
+```php
+$user->can('update', $document);
+Gate::forUser($user)->allows('create', Document::class);
+```
+
+An application policy may perform a separate argument-free GateTrail
+permission check as part of its resource decision. Definition matching,
+callback ordering, failure behavior, and policy coexistence are defined by
+[ADR 0007](docs/decisions/0007-laravel-gate-hook-boundary.md).
 
 ### 12.4 Policies
 
@@ -1484,6 +1509,15 @@ GateTrail must:
 - invalid authoritative guard without silent fallback;
 - global authentication state not affecting subject guard resolution;
 - middleware authentication and authorization exception behavior;
+- argument-bearing Gate checks continuing to application policies;
+- same-named application Gates not satisfying active but unassigned GateTrail
+  permissions;
+- deactivated GateTrail permissions denying without falling through to
+  same-named application Gates;
+- unsupported subjects and missing permission definitions returning `null`
+  from the GateTrail hook;
+- Gate integration surfacing invalid guard, database, and configuration
+  failures;
 - unrelated Laravel Gates not satisfying GateTrail middleware;
 - middleware denial responses not disclosing missing definitions;
 - duplicate concurrent assignment;

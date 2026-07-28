@@ -53,14 +53,12 @@ is not complete. The specification remains Draft.
 
 Before the first vertical slice, GateTrail must resolve:
 
-1. F-01, including the Gate hook mechanism and behavior for abilities with
-   arguments;
-2. F-02, because it is part of the same Gate matching boundary as F-01;
-3. O01, by accepting an audit snapshot contract.
+1. O01, by accepting an audit snapshot contract.
 
-F-02 was not marked as a vertical-slice blocker by the reviewer. The maintainer
-nevertheless groups it with F-01 because implementing an incomplete Gate
-matching boundary would preserve a known fallback ambiguity.
+F-01 and F-02 are resolved by ADR 0007 and the aligned Gate integration
+contract in `PACKAGE_SPEC.md`. F-02 was not marked as a vertical-slice blocker
+by the reviewer, but the maintainer resolved it with F-01 to avoid implementing
+an incomplete Gate matching boundary.
 
 ## Finding dispositions
 
@@ -71,8 +69,8 @@ matching boundary would preserve a known fallback ambiguity.
 | Severity | High |
 | Decision | Accepted |
 | Blocks first vertical slice | Yes |
-| Remediation status | Open |
-| Authoritative target | `PACKAGE_SPEC.md` section 12.3 and a new Gate integration ADR |
+| Remediation status | Resolved |
+| Authoritative target | `PACKAGE_SPEC.md` section 12.3 and ADR 0007 |
 
 The specification does not define hook registration, precedence, or matching
 when Laravel passes ability arguments. This creates an unsafe interpretation in
@@ -92,6 +90,11 @@ abilities with additional resource arguments. Consumer policies may call a
 specific GateTrail permission without resource arguments as one part of their
 policy decision.
 
+Resolved by
+[ADR 0007](../decisions/0007-laravel-gate-hook-boundary.md), which selects
+`Gate::before`, excludes argument-bearing abilities, defines callback ordering,
+and preserves application resource policies.
+
 ### F-02: Deactivated definitions and Gate fallback
 
 | Item | Disposition |
@@ -99,8 +102,8 @@ policy decision.
 | Severity | High |
 | Decision | Accepted |
 | Blocks first vertical slice | Yes, grouped with F-01 by the maintainer |
-| Remediation status | Open |
-| Authoritative target | `PACKAGE_SPEC.md` section 12.3 and the Gate integration ADR created for F-01 |
+| Remediation status | Resolved |
+| Authoritative target | `PACKAGE_SPEC.md` section 12.3 and ADR 0007 |
 
 Deactivation must suspend the GateTrail permission rather than hand the same
 ability name to an unrelated Laravel Gate through a `null` result.
@@ -113,6 +116,11 @@ The contract must distinguish:
 
 A security regression test must cover a deactivated GateTrail definition that
 shares its name with an unrelated Laravel Gate.
+
+Resolved by
+[ADR 0007](../decisions/0007-laravel-gate-hook-boundary.md), which makes an
+existing deactivated definition an authoritative `false` result and reserves
+`null` for an explicit non-match.
 
 ### F-03: Meaning of a null assignment start
 
@@ -363,7 +371,7 @@ not findings in the current remediation set:
 
 Work should proceed in this order:
 
-1. Decide the Gate integration contract and resolve F-01 and F-02.
+1. [Completed] Decide the Gate integration contract and resolve F-01 and F-02.
 2. Decide the audit snapshot and failure-mode contract, resolving O01, F-09,
    and F-11.
 3. Apply the remaining specification clarifications for F-03 through F-08 and
