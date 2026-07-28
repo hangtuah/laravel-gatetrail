@@ -70,7 +70,7 @@ final class MySqlDdlCompiler implements DdlCompiler
         ];
 
         return sprintf(
-            "CREATE TABLE %s (\n    %s\n) ENGINE=InnoDB;",
+            "CREATE TABLE %s (\n    %s\n) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;",
             $this->quoteQualified($context->table($table->key)),
             implode(",\n    ", $definitions),
         );
