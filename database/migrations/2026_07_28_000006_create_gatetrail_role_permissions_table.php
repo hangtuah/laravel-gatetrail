@@ -14,6 +14,10 @@ return new class extends AssignmentTableMigration
             'permissions',
         ]);
 
+        if ($this->installOracleTable('role_permissions')) {
+            return;
+        }
+
         $this->createAssignmentTable(
             tableKey: 'role_permissions',
             identityColumns: [
@@ -54,6 +58,10 @@ return new class extends AssignmentTableMigration
 
     public function down(): void
     {
+        if ($this->rollbackOracleTable('role_permissions')) {
+            return;
+        }
+
         $this->schema()->drop(
             $this->context()->table('role_permissions'),
         );

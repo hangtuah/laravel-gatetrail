@@ -11,6 +11,10 @@ return new class extends GateTrailMigration
     {
         $this->prepareSchema();
 
+        if ($this->installOracleTable('access_audits')) {
+            return;
+        }
+
         if ($this->adapter()->requiresInlineCheckConstraints()) {
             $this->createSQLiteTable();
 
@@ -50,6 +54,10 @@ return new class extends GateTrailMigration
 
     public function down(): void
     {
+        if ($this->rollbackOracleTable('access_audits')) {
+            return;
+        }
+
         $this->schema()->drop(
             $this->context()->table('access_audits'),
         );

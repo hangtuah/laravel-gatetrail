@@ -173,15 +173,14 @@ Completed in the current tooling increment:
   generated-key strategies.
 - [x] Implement strict read-only Oracle catalog inspection for both
   generated-key strategies.
-- [x] Verify both Oracle DBA-managed generated-key strategies against a live
-  disposable Oracle Free 23.26.1 endpoint on Laravel 13.
+- [x] Verify both Oracle generated-key strategies in package-managed and
+  DBA-managed modes against a live disposable Oracle Free 23.26.1 endpoint on
+  Laravel 13.
 
 Next:
 
 1. Obtain one independent developer review of the charter and specification.
-2. Validate the Oracle package-managed identity and sequence-trigger paths
-   against supported live Oracle endpoints.
-3. Add the supported Laravel/Oracle-driver CI matrix and obtain
+2. Add the supported Laravel/Oracle-driver CI matrix and obtain
    minimum-version evidence before declaring Oracle fully verified.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
@@ -473,12 +472,16 @@ acl_access_audits
   state, and mixed-strategy drift without repairing the schema.
 - The isolated Oracle integration runtime keeps OCI8 and Laravel-OCI8 outside
   the package's normal dependency graph. A local disposable Oracle Free
-  23.26.1 endpoint passes both Laravel 13/Testbench 11 DBA-managed
-  generated-key strategies with 3 tests and 59 assertions.
+  23.26.1 endpoint passes package-managed and DBA-managed provisioning for both
+  Laravel 13/Testbench 11 generated-key strategies with 5 tests and 107
+  assertions.
 - Live Oracle evidence covers release `0001` artifact installation, read-only
   inspection, identity- and trigger-generated IDs, preservation of explicit
-  IDs, transaction rollback, non-repairing missing-index detection, and
-  artifact rollback.
+  IDs, transaction rollback, non-repairing missing-index detection, Laravel
+  migration rollback, and artifact rollback.
+- Package-managed Oracle migrations retain Laravel migration tracking while
+  executing dependency-ordered, one-table slices of the canonical Oracle
+  compiler. Non-Oracle migrations retain their existing Schema Builder path.
 - MySQL release `0001` provides committed install and rollback artifacts with
   byte-for-byte compiler conformance tests and DBA operational guidance.
 - The read-only inspection contract reports schema differences without mutating
@@ -497,16 +500,16 @@ acl_access_audits
 
 Production database adapters are not marked verified until their integration
 suites pass. The MySQL minimum and current 8.0 endpoints are verified locally
-and in the remote CI matrix. Both Oracle DBA-managed generated-key strategies
-now have current-version local evidence, but the package-managed paths,
-supported-major CI matrix, and minimum Oracle version remain open. The
-remaining Tier 1 compilers and inspectors also remain open.
+and in the remote CI matrix. All four Oracle provisioning and generated-key
+combinations now have current-version local evidence, but the supported-major
+CI matrix and minimum Oracle version remain open. The remaining Tier 1
+compilers and inspectors also remain open.
 
 ADR 0006 fixes the Oracle generated-key contract before adapter implementation:
 one selected strategy per schema, `sequence_trigger` as the initial default,
 distinct versioned artifacts for both supported strategies, and fail-closed
-read-only inspection. Current live evidence verifies both DBA-managed
-strategies but does not yet establish complete Oracle support.
+read-only inspection. Current live evidence verifies both strategies in both
+provisioning modes but does not yet establish complete Oracle support.
 
 ### Exit criteria
 

@@ -274,9 +274,38 @@ final class OracleSchemaInspectorTest extends TestCase
         $this->assertContains('missing_trigger', $codes);
     }
 
+    public function test_sequence_trigger_accepts_its_configured_schema_and_rejects_another_owner(): void
+    {
+        $snapshot = $this->matchingSnapshot('sequence_trigger');
+        $qualified = $this->withRoleTriggerOwner($snapshot, 'GATETRAIL');
+
+        $this->assertTrue(
+            $this->inspect(
+                $qualified,
+                'sequence_trigger',
+                'GATETRAIL',
+            )->passes(),
+        );
+
+        $wrongOwner = $this->withRoleTriggerOwner(
+            $snapshot,
+            'OTHER_SCHEMA',
+        );
+        $codes = $this->codes(
+            $this->inspect(
+                $wrongOwner,
+                'sequence_trigger',
+                'GATETRAIL',
+            ),
+        );
+
+        $this->assertContains('trigger_definition_mismatch', $codes);
+    }
+
     private function inspect(
         OracleCatalogSnapshot $snapshot,
         string $strategy,
+        ?string $schema = null,
     ): SchemaInspection {
         $reader = new class($snapshot) implements OracleCatalogReader
         {
@@ -292,7 +321,41 @@ final class OracleSchemaInspectorTest extends TestCase
 
         return (new OracleSchemaInspector($reader))->inspect(
             $this->manifest(),
-            $this->context($strategy),
+            $this->context($strategy, $schema),
+        );
+    }
+
+    private function withRoleTriggerOwner(
+        OracleCatalogSnapshot $snapshot,
+        string $owner,
+    ): OracleCatalogSnapshot {
+        $triggers = array_map(
+            static fn (OracleTriggerMetadata $trigger): OracleTriggerMetadata => (
+                $trigger->name === 'ACL_ROLES_TRG'
+            ) ? new OracleTriggerMetadata(
+                name: $trigger->name,
+                table: $trigger->table,
+                type: $trigger->type,
+                event: $trigger->event,
+                status: $trigger->status,
+                body: str_replace(
+                    'ACL_ROLES_SEQ.NEXTVAL',
+                    strtoupper($owner).'.ACL_ROLES_SEQ.NEXTVAL',
+                    $trigger->body,
+                ),
+            ) : $trigger,
+            $snapshot->triggers,
+        );
+
+        return new OracleCatalogSnapshot(
+            $snapshot->owner,
+            $snapshot->tables,
+            $snapshot->columns,
+            $snapshot->indexes,
+            $snapshot->constraints,
+            $snapshot->identities,
+            $snapshot->sequences,
+            $triggers,
         );
     }
 
@@ -458,10 +521,13 @@ final class OracleSchemaInspectorTest extends TestCase
         );
     }
 
-    private function context(string $strategy): SchemaContext
-    {
+    private function context(
+        string $strategy,
+        ?string $schema = null,
+    ): SchemaContext {
         $config = require dirname(__DIR__, 2).'/config/gatetrail.php';
         $config['oracle']['generated_keys'] = $strategy;
+        $config['database']['schema'] = $schema;
 
         return new SchemaContext(
             $config,

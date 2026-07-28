@@ -105,6 +105,22 @@ abstract class GateTrailMigration extends Migration
         );
     }
 
+    protected function installOracleTable(string $tableKey): bool
+    {
+        return app(OracleMigrationExecutor::class)->installIfSupported(
+            $this->connection(),
+            $tableKey,
+        );
+    }
+
+    protected function rollbackOracleTable(string $tableKey): bool
+    {
+        return app(OracleMigrationExecutor::class)->rollbackIfSupported(
+            $this->connection(),
+            $tableKey,
+        );
+    }
+
     protected function adapter(): SchemaAdapter
     {
         return app(SchemaAdapterFactory::class)->forDriver(

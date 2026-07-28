@@ -10,6 +10,11 @@ return new class extends GateTrailMigration
     public function up(): void
     {
         $this->prepareSchema();
+
+        if ($this->installOracleTable('assignment_locks')) {
+            return;
+        }
+
         $collation = $this->adapter()->caseSensitiveCollation();
         $primary = $this->adapter()->physicalPrimaryKeyName('acl_asgn_locks_pk');
 
@@ -37,6 +42,10 @@ return new class extends GateTrailMigration
 
     public function down(): void
     {
+        if ($this->rollbackOracleTable('assignment_locks')) {
+            return;
+        }
+
         $this->schema()->drop(
             $this->context()->table('assignment_locks'),
         );

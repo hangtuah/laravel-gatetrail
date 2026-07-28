@@ -10,6 +10,11 @@ return new class extends GateTrailMigration
     public function up(): void
     {
         $this->prepareSchema();
+
+        if ($this->installOracleTable('permissions')) {
+            return;
+        }
+
         $collation = $this->adapter()->caseSensitiveCollation();
 
         $this->schema()->create(
@@ -43,6 +48,10 @@ return new class extends GateTrailMigration
             'permission_assignments',
             'role_permissions',
         ]);
+
+        if ($this->rollbackOracleTable('permissions')) {
+            return;
+        }
 
         $this->schema()->drop($this->context()->table('permissions'));
     }

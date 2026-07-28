@@ -11,6 +11,10 @@ return new class extends AssignmentTableMigration
         $this->prepareSchema();
         $this->requireParentTables('role_assignments', ['roles']);
 
+        if ($this->installOracleTable('role_assignments')) {
+            return;
+        }
+
         $this->createAssignmentTable(
             tableKey: 'role_assignments',
             identityColumns: [
@@ -49,6 +53,10 @@ return new class extends AssignmentTableMigration
 
     public function down(): void
     {
+        if ($this->rollbackOracleTable('role_assignments')) {
+            return;
+        }
+
         $this->schema()->drop(
             $this->context()->table('role_assignments'),
         );

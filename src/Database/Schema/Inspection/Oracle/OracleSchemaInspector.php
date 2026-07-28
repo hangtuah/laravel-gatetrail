@@ -441,6 +441,7 @@ final readonly class OracleSchemaInspector implements SchemaInspector
                 $table,
                 $columnName,
                 $sequenceName,
+                $context->schemaName(),
             )) {
                 $issues[] = new SchemaIssue(
                     code: 'trigger_definition_mismatch',
@@ -521,18 +522,34 @@ final readonly class OracleSchemaInspector implements SchemaInspector
         string $table,
         string $column,
         string $sequence,
+        ?string $schema,
     ): bool {
         $body = $this->normalizeTriggerBody($trigger->body);
+        $sequenceReferences = [$sequence];
+
+        if ($schema !== null) {
+            $sequenceReferences[] = $this->expected($schema).'.'.$sequence;
+        }
+
+        $validAssignment = false;
+
+        foreach ($sequenceReferences as $reference) {
+            if (str_contains(
+                $body,
+                sprintf(':NEW.%s:=%s.NEXTVAL;', $column, $reference),
+            )) {
+                $validAssignment = true;
+
+                break;
+            }
+        }
 
         return $trigger->table === $table
             && $trigger->type === 'BEFORE EACH ROW'
             && trim($trigger->event) === 'INSERT'
             && $trigger->status === 'ENABLED'
             && str_contains($body, sprintf('IF:NEW.%sISNULLTHEN', $column))
-            && str_contains(
-                $body,
-                sprintf(':NEW.%s:=%s.NEXTVAL;', $column, $sequence),
-            );
+            && $validAssignment;
     }
 
     /**

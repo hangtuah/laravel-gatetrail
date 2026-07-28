@@ -37,10 +37,16 @@ The default endpoint is deliberately restricted to `127.0.0.1:15211`, service
 `FREEPDB1`, and application schema `GATETRAIL`. The test guard rejects another
 host, service, schema, or privileged `SYS`/`SYSTEM` account.
 
-The Oracle suite covers DBA-managed release `0001` with both the `identity`
-and `sequence_trigger` generated-key strategies. It proves artifact
-installation, read-only inspection, generated and explicit IDs, transaction
-rollback, non-repairing drift detection, and artifact rollback.
+The Oracle suite covers both `package` and `dba` provisioning with the
+`identity` and `sequence_trigger` generated-key strategies. It proves migration
+and artifact installation, read-only inspection, generated and explicit IDs,
+transaction rollback, non-repairing drift detection, migration rollback, and
+artifact rollback.
+
+Package-managed Oracle keeps Laravel migration tracking while each GateTrail
+migration executes a one-table slice of the same canonical Oracle compiler used
+to generate DBA artifacts. Other database drivers retain their existing
+Laravel Schema Builder path.
 
 Each strategy runs against a clean schema. The safety cleanup removes both
 configured sequence-trigger objects and Oracle-owned identity objects through

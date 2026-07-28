@@ -74,7 +74,10 @@ abstract class OracleIntegrationTestCase extends TestCase
             self::CONNECTION,
         );
         $app['config']->set('gatetrail.database.schema', 'GATETRAIL');
-        $app['config']->set('gatetrail.database.provisioning', 'dba');
+        $app['config']->set(
+            'gatetrail.database.provisioning',
+            $this->provisioningMode(),
+        );
         $app['config']->set(
             'gatetrail.oracle.generated_keys',
             $this->generatedKeyStrategy(),
@@ -108,6 +111,11 @@ abstract class OracleIntegrationTestCase extends TestCase
     protected function generatedKeyStrategy(): string
     {
         return 'sequence_trigger';
+    }
+
+    protected function provisioningMode(): string
+    {
+        return 'dba';
     }
 
     protected function assertGateTrailTablesExist(bool $expected): void
