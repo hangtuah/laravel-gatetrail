@@ -72,7 +72,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 0 | Ownership and product decisions | 100% | Complete |
 | 1 | Package specification | 80% | In progress |
 | 2 | Repository and development tooling | 100% | Complete |
-| 3 | Database and assignment lifecycle | 65% | In progress |
+| 3 | Database and assignment lifecycle | 70% | In progress |
 | 4 | Mutation services | 0% | Not started |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
@@ -161,13 +161,15 @@ Completed in the current tooling increment:
   and Laravel 13.
 - [x] Validate catalog normalization and fail-closed drift detection against
   live MySQL metadata.
+- [x] Verify the minimum MySQL 8.0.16 endpoint locally on Laravel 12 and
+  Laravel 13.
+- [x] Add a four-lane MySQL 8.0.16/8.0.45 integration matrix to CI.
 
 Next:
 
 1. Obtain one independent developer review of the charter and specification.
-2. Add the MySQL integration suite to CI.
-3. Exercise the lowest advertised MySQL version before release verification.
-4. Add the next Tier 1 compiler without changing the canonical manifest.
+2. Confirm the first remote MySQL CI matrix run is green.
+3. Add the next Tier 1 compiler without changing the canonical manifest.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
 
@@ -451,14 +453,18 @@ acl_access_audits
   referential rules, and check expressions using read queries only.
 - MySQL 8.0.45 live integration passes for package-managed and DBA-managed
   provisioning on Laravel 12/Testbench 10 and Laravel 13/Testbench 11.
+- MySQL 8.0.16 minimum-version integration passes on the same two Laravel
+  lanes, including its legacy `ISNULL(column)` catalog representation.
+- GitHub Actions declares four MySQL integration lanes across versions 8.0.16
+  and 8.0.45 and both supported Laravel majors.
 - Live drift tests confirm missing indexes, changed exact-name collation, and
   cascading foreign keys are reported without automatic repair.
 
 Production database adapters are not marked verified until their integration
-suites pass. MySQL 8.0.45 is the verified live reference lane; the lowest
-advertised MySQL version and CI automation remain open before release-level
-range verification. The remaining Tier 1 compilers and inspectors, including
-Oracle sequence/trigger behavior, remain open.
+suites pass. The MySQL minimum and current 8.0 endpoints are locally verified;
+the first remote four-lane CI result remains open before release-level
+verification. The remaining Tier 1 compilers and inspectors, including Oracle
+sequence/trigger behavior, remain open.
 
 ### Exit criteria
 

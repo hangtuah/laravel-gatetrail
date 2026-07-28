@@ -1454,9 +1454,9 @@ Laravel 13 → yajra/laravel-oci8 13.x
 
 ### 20.5 Live database evidence
 
-MySQL 8.0.45 is the first live reference adapter. Its isolated integration
-suite runs against both Laravel 12/Testbench 10 and Laravel 13/Testbench 11 and
-covers:
+MySQL 8.0.16 and 8.0.45 are the first live database endpoints. The isolated
+integration suite runs each version against Laravel 12/Testbench 10 and Laravel
+13/Testbench 11 and covers:
 
 - package-managed install, strict catalog inspection, and rollback;
 - DBA-managed release `0001` install, strict catalog inspection, and rollback;
@@ -1465,9 +1465,10 @@ covers:
 - detection of missing indexes, changed exact-name collation, and cascading
   foreign keys without automatic repair.
 
-This evidence verifies the MySQL 8.0.45 reference lane. The complete advertised
-MySQL range is not considered release-verified until the automated matrix also
-covers the lowest supported version.
+This evidence verifies the minimum supported and current MySQL 8.0 reference
+endpoints locally. The GitHub Actions workflow declares the same four-lane
+matrix. Release-level CI evidence requires a successful remote workflow run;
+workflow configuration alone is not treated as a passing run.
 
 ## 21. Performance requirements
 
