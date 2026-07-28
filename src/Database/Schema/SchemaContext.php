@@ -95,7 +95,7 @@ final class SchemaContext
         $this->schemaName();
     }
 
-    private function schemaName(): ?string
+    public function schemaName(): ?string
     {
         $schema = $this->databaseValue('schema');
 
