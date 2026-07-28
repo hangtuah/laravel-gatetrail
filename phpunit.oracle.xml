@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/11.5/phpunit.xsd"
+         bootstrap="tools/oracle-integration/vendor/autoload.php"
+         colors="true"
+         cacheDirectory=".phpunit.cache/oracle"
+         beStrictAboutOutputDuringTests="true">
+    <testsuites>
+        <testsuite name="GateTrail Oracle Integration">
+            <directory suffix="Test.php">tests/Integration/Oracle</directory>
+        </testsuite>
+    </testsuites>
+
+    <source>
+        <include>
+            <directory suffix=".php">src</directory>
+        </include>
+    </source>
+
+    <php>
+        <env name="APP_ENV" value="testing" force="true"/>
+        <env name="GATETRAIL_ORACLE_HOST" value="127.0.0.1"/>
+        <env name="GATETRAIL_ORACLE_PORT" value="15211"/>
+        <env name="GATETRAIL_ORACLE_SERVICE" value="FREEPDB1"/>
+        <env name="GATETRAIL_ORACLE_USERNAME" value="gatetrail"/>
+        <env name="GATETRAIL_ORACLE_PASSWORD" value="gatetrail_test"/>
+    </php>
+</phpunit>

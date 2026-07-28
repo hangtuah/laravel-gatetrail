@@ -62,7 +62,8 @@
         "format": "pint",
         "format:test": "pint --test",
         "test": "phpunit",
-        "test:mysql": "phpunit -c phpunit.mysql.xml"
+        "test:mysql": "phpunit -c phpunit.mysql.xml",
+        "test:oracle": "tools/oracle-integration/vendor/bin/phpunit -c phpunit.oracle.xml"
     },
     "minimum-stability": "stable",
     "prefer-stable": true

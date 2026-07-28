@@ -1,0 +1,22 @@
+name: gatetrail-oracle
+
+services:
+  oracle:
+    image: gvenzl/oracle-free:${GATETRAIL_ORACLE_VERSION:-23.26.1-slim-faststart}
+    container_name: gatetrail-oracle
+    environment:
+      ORACLE_PASSWORD: ${GATETRAIL_ORACLE_SYSTEM_PASSWORD:-gatetrail_root_test}
+      APP_USER: ${GATETRAIL_ORACLE_USERNAME:-gatetrail}
+      APP_USER_PASSWORD: ${GATETRAIL_ORACLE_PASSWORD:-gatetrail_test}
+    ports:
+      - "127.0.0.1:${GATETRAIL_ORACLE_PORT:-15211}:1521"
+    shm_size: 1gb
+    healthcheck:
+      test:
+        - CMD
+        - healthcheck.sh
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 60s
+    restart: "no"

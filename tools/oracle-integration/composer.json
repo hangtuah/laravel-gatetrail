@@ -1,0 +1,37 @@
+{
+    "name": "hangtuah/gatetrail-oracle-integration",
+    "description": "Isolated Oracle integration runtime for GateTrail",
+    "license": "MIT",
+    "type": "project",
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../..",
+            "options": {
+                "reference": "none",
+                "symlink": true
+            }
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "ext-oci8": ">=3.0.1",
+        "hangtuah/laravel-gatetrail": "dev-main",
+        "orchestra/testbench": "^11.0",
+        "phpunit/phpunit": "^11.5.50",
+        "yajra/laravel-oci8": "^13.0"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "HangTuah\\GateTrail\\Tests\\": "../../tests/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "php-http/discovery": false
+        },
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

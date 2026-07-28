@@ -1,4 +1,5 @@
 /vendor/
+/tools/oracle-integration/vendor/
 /composer.lock
 /.phpunit.cache/
 /.phpunit.mysql.cache/
