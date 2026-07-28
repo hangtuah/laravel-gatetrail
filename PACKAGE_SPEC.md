@@ -319,24 +319,40 @@ Role names:
 
 ## 6. Guard behavior
 
-Roles and permissions are scoped by `guard_name`.
+Roles and permissions are scoped by `guard_name`. GateTrail treats this value as
+a stable authorization namespace. It is not inferred from whichever Laravel
+guard happens to authenticate the current request.
 
 - A role may only receive permissions from the same guard.
 - A subject may only receive roles and permissions compatible with its resolved
   guard.
 - Cross-guard assignment throws a domain exception.
 - Role and permission uniqueness is enforced by `(name, guard_name)`.
-- The default guard is resolved from package configuration when the subject
-  does not provide one.
+- One GateTrail guard is resolved for a subject during an operation.
 
-Initial guard resolution order:
+Guard resolution uses this exact order:
 
-1. a GateTrail-specific method on the subject;
-2. a GateTrail-specific property on the subject;
-3. package configuration;
-4. Laravel's default authentication guard.
+1. public subject method `gateTrailGuardName()`;
+2. declared subject property `$gateTrailGuardName`;
+3. exact subject-class entry in `gatetrail.guards.subjects`;
+4. package default `gatetrail.guards.default`;
+5. Laravel configuration value `auth.defaults.guard`.
 
-The exact method and property names will be finalized with the public API.
+The first defined source is authoritative. An invalid authoritative value throws
+`InvalidGuard` rather than silently falling through.
+
+Resolved values are strings, trimmed of surrounding whitespace, rejected when
+empty, and otherwise preserve case exactly. A guard name is not required to
+exist in `auth.guards`, allowing several authentication mechanisms to share one
+authorization namespace.
+
+GateTrail does not inspect `Auth::user()`, route authentication middleware, or
+mutable runtime authentication state during guard resolution. Per-call and
+multi-guard subject resolution are outside the initial public API.
+
+Exact override, configuration, mismatch, cache, and diagnostic behavior is
+defined by
+[ADR 0003](docs/decisions/0003-subject-guard-resolution.md).
 
 ## 7. Identifier strategy
 
@@ -872,6 +888,24 @@ class User extends Authenticatable
 The concern is a thin adapter. It delegates authorization to package services
 and does not contain an independent permission algorithm.
 
+Subjects may declare a stable guard through:
+
+```php
+protected string $gateTrailGuardName = 'admin';
+```
+
+or:
+
+```php
+public function gateTrailGuardName(): string
+{
+    return 'admin';
+}
+```
+
+The method wins when both are present. The property is a declared PHP property,
+not an Eloquent attribute or database column.
+
 ### 12.2 Subject API
 
 Proposed methods:
@@ -1047,6 +1081,10 @@ subject type
 subject identifier
 ```
 
+Changing a subject guard override or guard configuration is a deployment
+change. It does not migrate assignments and requires GateTrail caches to be
+cleared.
+
 ### 14.4 Invalidation
 
 Affected subject caches are invalidated after:
@@ -1074,6 +1112,7 @@ DuplicatePermission
 DuplicateActiveAssignment
 AssignmentNotActive
 InvalidAssignmentPeriod
+InvalidGuard
 GuardMismatch
 InvalidSubject
 InvalidActor
@@ -1108,7 +1147,12 @@ return [
     'tables' => [],
     'columns' => [],
     'oracle' => [],
-    'guards' => [],
+    'guards' => [
+        'default' => null,
+        'subjects' => [
+            // App\Models\Admin::class => 'admin',
+        ],
+    ],
     'assignments' => [],
     'audit' => [],
     'cache' => [],
@@ -1155,6 +1199,10 @@ the equivalent service operation requires one.
 missing or malformed coordination rows and overlapping equivalent assignments
 without modifying them.
 
+It must also report assignments whose referenced definition guard no longer
+matches the subject's currently resolved guard. It must not migrate, revoke, or
+rewrite those assignments.
+
 ## 19. Security requirements
 
 GateTrail must:
@@ -1166,6 +1214,7 @@ GateTrail must:
 - prevent duplicate active assignments under concurrency;
 - prevent revoked, expired, future, or deactivated sources from granting access;
 - avoid global authenticated-user substitution;
+- resolve subject guards independently of global authentication state;
 - keep authorization mutation and strict audit writes transactional;
 - prevent consumer input from selecting an arbitrary audit actor;
 - avoid silent super-administrator behavior;
@@ -1182,11 +1231,12 @@ GateTrail must:
 - role permission resolution;
 - multiple-source resolution;
 - guard matching;
+- subject guard precedence and normalization;
 - exception behavior;
 - cache-key generation;
-- time abstraction.
+- time abstraction;
 - canonical assignment scope keys and hashes;
-- half-open assignment-period overlap rules.
+- half-open assignment-period overlap rules;
 - public input resolution rules;
 - assignment-period value objects;
 - mutation outcomes.
@@ -1204,6 +1254,9 @@ GateTrail must:
 - audit persistence;
 - Laravel Gate;
 - `Gate::forUser`;
+- subject method, property, class-config, package-default, and Laravel-default
+  guard resolution;
+- guard resolution in HTTP, queue, CLI, and test contexts;
 - middleware;
 - Blade through Gate;
 - cache invalidation;
@@ -1219,6 +1272,8 @@ GateTrail must:
 - deactivated permissions;
 - cross-subject evaluation;
 - cross-guard isolation;
+- invalid authoritative guard without silent fallback;
+- global authentication state not affecting subject guard resolution;
 - duplicate concurrent assignment;
 - coordination hash mismatch;
 - bounded concurrency retry exhaustion;
@@ -1295,14 +1350,13 @@ The initial release does not include:
 The following decisions must be recorded before their implementation is
 finalized:
 
-1. subject guard method/property names;
-2. permission middleware any/all syntax;
-3. cache store, TTL, and role-change fan-out strategy;
-4. persisted actor representation and identifiers for automated processes;
-5. whether UUID/ULID migration variants are required before `1.0.0`;
-6. minimum audit snapshot content;
-7. package behavior when direct database mutation is detected;
-8. whether role convenience directives belong in the core package.
+1. permission middleware any/all syntax;
+2. cache store, TTL, and role-change fan-out strategy;
+3. persisted actor representation and identifiers for automated processes;
+4. whether UUID/ULID migration variants are required before `1.0.0`;
+5. minimum audit snapshot content;
+6. package behavior when direct database mutation is detected;
+7. whether role convenience directives belong in the core package.
 
 Architecture decisions will be stored under:
 
