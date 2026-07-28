@@ -190,6 +190,18 @@ validates the configured sequence and trigger objects. Full strategy,
 ownership, inspection, and rollback rules are defined by
 [ADR 0006](docs/decisions/0006-oracle-generated-key-strategy.md).
 
+Oracle schema release `0001` publishes canonical artifacts at:
+
+```text
+database/ddl/oracle/0001/identity/install.sql
+database/ddl/oracle/0001/identity/rollback.sql
+database/ddl/oracle/0001/sequence-trigger/install.sql
+database/ddl/oracle/0001/sequence-trigger/rollback.sql
+```
+
+Each artifact identifies its generated-key strategy in the header. Consumers
+must apply the artifact matching their configured strategy.
+
 Oracle integration tests must cover:
 
 - inserts where the selected strategy populates the primary key;

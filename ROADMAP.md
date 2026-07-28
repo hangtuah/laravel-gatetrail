@@ -169,12 +169,14 @@ Completed in the current tooling increment:
 - [x] Confirm remote CI run `#15` passes all MySQL and Laravel matrix lanes.
 - [x] Accept the Oracle generated-key strategy and ownership contract.
 - [x] Implement the Oracle compiler core for both generated-key strategies.
+- [x] Publish reproducible Oracle release `0001` artifacts for both
+  generated-key strategies.
 
 Next:
 
 1. Obtain one independent developer review of the charter and specification.
-2. Review generated Oracle SQL, then publish versioned identity and
-   sequence-trigger DBA artifacts without changing the canonical manifest.
+2. Implement strict read-only Oracle catalog inspection for both generated-key
+   strategies without changing the canonical manifest.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
 
@@ -456,6 +458,9 @@ acl_access_audits
 - Oracle install compilation creates parent tables before children and emits
   indexes as separate Oracle statements. Sequence-trigger rollback removes
   triggers before reverse-ordered tables and sequences.
+- Oracle release `0001` publishes distinct identity and sequence-trigger
+  install and rollback artifacts with byte-for-byte compiler conformance tests
+  and DBA operational guidance.
 - MySQL release `0001` provides committed install and rollback artifacts with
   byte-for-byte compiler conformance tests and DBA operational guidance.
 - The read-only inspection contract reports schema differences without mutating

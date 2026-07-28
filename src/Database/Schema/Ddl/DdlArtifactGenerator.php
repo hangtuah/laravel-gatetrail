@@ -19,6 +19,7 @@ final readonly class DdlArtifactGenerator
         string $driver,
         SchemaManifest $manifest,
         SchemaContext $context,
+        ?string $strategy = null,
     ): string {
         return $this->render(
             $driver,
@@ -26,6 +27,7 @@ final readonly class DdlArtifactGenerator
             $this->compilers
                 ->forDriver($driver)
                 ->compileInstall($manifest, $context),
+            $strategy,
         );
     }
 
@@ -33,6 +35,7 @@ final readonly class DdlArtifactGenerator
         string $driver,
         SchemaManifest $manifest,
         SchemaContext $context,
+        ?string $strategy = null,
     ): string {
         return $this->render(
             $driver,
@@ -40,6 +43,7 @@ final readonly class DdlArtifactGenerator
             $this->compilers
                 ->forDriver($driver)
                 ->compileRollback($manifest, $context),
+            $strategy,
         );
     }
 
@@ -50,17 +54,26 @@ final readonly class DdlArtifactGenerator
         string $driver,
         string $direction,
         array $statements,
+        ?string $strategy,
     ): string {
-        $header = sprintf(
-            "-- GateTrail schema release %s\n"
-            ."-- Database driver: %s\n"
-            ."-- Direction: %s\n"
-            .'-- Generated from the canonical schema manifest; do not edit manually.',
-            self::SCHEMA_RELEASE,
-            $driver,
-            $direction,
-        );
+        $header = [
+            sprintf(
+                '-- GateTrail schema release %s',
+                self::SCHEMA_RELEASE,
+            ),
+            sprintf('-- Database driver: %s', $driver),
+        ];
 
-        return $header."\n\n".implode("\n\n", $statements)."\n";
+        if ($strategy !== null) {
+            $header[] = sprintf('-- Generated-key strategy: %s', $strategy);
+        }
+
+        $header[] = sprintf('-- Direction: %s', $direction);
+        $header[] = '-- Generated from the canonical schema manifest; do not edit manually.';
+
+        return implode("\n", $header)
+            ."\n\n"
+            .implode("\n\n", $statements)
+            ."\n";
     }
 }
