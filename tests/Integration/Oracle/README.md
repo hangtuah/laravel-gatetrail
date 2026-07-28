@@ -37,10 +37,14 @@ The default endpoint is deliberately restricted to `127.0.0.1:15211`, service
 `FREEPDB1`, and application schema `GATETRAIL`. The test guard rejects another
 host, service, schema, or privileged `SYS`/`SYSTEM` account.
 
-The first Oracle lane covers DBA-managed release `0001` with the
-`sequence_trigger` generated-key strategy. It proves artifact installation,
-read-only inspection, generated and explicit IDs, transaction rollback,
-non-repairing drift detection, and artifact rollback.
+The Oracle suite covers DBA-managed release `0001` with both the `identity`
+and `sequence_trigger` generated-key strategies. It proves artifact
+installation, read-only inspection, generated and explicit IDs, transaction
+rollback, non-repairing drift detection, and artifact rollback.
+
+Each strategy runs against a clean schema. The safety cleanup removes both
+configured sequence-trigger objects and Oracle-owned identity objects through
+their owning tables, preventing one strategy from contaminating another.
 
 Oracle Free 23 integration is current-version evidence. It does not by itself
 prove GateTrail's declared Oracle 12c Release 2 minimum.

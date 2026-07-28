@@ -77,7 +77,7 @@ abstract class OracleIntegrationTestCase extends TestCase
         $app['config']->set('gatetrail.database.provisioning', 'dba');
         $app['config']->set(
             'gatetrail.oracle.generated_keys',
-            'sequence_trigger',
+            $this->generatedKeyStrategy(),
         );
     }
 
@@ -103,6 +103,11 @@ abstract class OracleIntegrationTestCase extends TestCase
     protected function connection(): Connection
     {
         return $this->app['db']->connection(self::CONNECTION);
+    }
+
+    protected function generatedKeyStrategy(): string
+    {
+        return 'sequence_trigger';
     }
 
     protected function assertGateTrailTablesExist(bool $expected): void
@@ -167,7 +172,8 @@ abstract class OracleIntegrationTestCase extends TestCase
     protected function executeArtifact(string $direction): void
     {
         $path = dirname(__DIR__, 3)
-            .'/database/ddl/oracle/0001/sequence-trigger/'
+            .'/database/ddl/oracle/0001/'
+            .$this->artifactVariant().'/'
             .$direction.'.sql';
         $sql = file_get_contents($path);
 
@@ -197,6 +203,61 @@ abstract class OracleIntegrationTestCase extends TestCase
         );
 
         return (int) $this->rowValue($result, 'aggregate') > 0;
+    }
+
+    protected function assertRoleGeneratedKeysWork(): void
+    {
+        $this->connection()->beginTransaction();
+
+        try {
+            $this->insertRole('generated-role');
+
+            $generatedId = $this->connection()
+                ->table('acl_roles')
+                ->where('name', 'generated-role')
+                ->value('id');
+
+            $this->assertIsNumeric($generatedId);
+            $this->assertGreaterThan(0, (int) $generatedId);
+        } finally {
+            $this->connection()->rollBack();
+        }
+
+        $this->assertFalse(
+            $this->connection()
+                ->table('acl_roles')
+                ->where('name', 'generated-role')
+                ->exists(),
+        );
+
+        $this->connection()->beginTransaction();
+
+        try {
+            $this->insertRole('explicit-role', 9001);
+
+            $explicitId = $this->connection()
+                ->table('acl_roles')
+                ->where('name', 'explicit-role')
+                ->value('id');
+
+            $this->assertSame(9001, (int) $explicitId);
+        } finally {
+            $this->connection()->rollBack();
+        }
+    }
+
+    private function artifactVariant(): string
+    {
+        return match ($this->generatedKeyStrategy()) {
+            'identity' => 'identity',
+            'sequence_trigger' => 'sequence-trigger',
+            default => throw new RuntimeException(
+                sprintf(
+                    'Unsupported Oracle integration generated-key strategy [%s].',
+                    $this->generatedKeyStrategy(),
+                ),
+            ),
+        };
     }
 
     private function assertSafeTarget(): void
@@ -444,5 +505,23 @@ abstract class OracleIntegrationTestCase extends TestCase
         return is_string($value) && $value !== ''
             ? $value
             : $default;
+    }
+
+    private function insertRole(string $name, ?int $id = null): void
+    {
+        $values = [
+            'name' => $name,
+            'guard_name' => 'web',
+            'description' => null,
+            'created_at' => $this->connection()->raw('SYSTIMESTAMP'),
+            'updated_at' => $this->connection()->raw('SYSTIMESTAMP'),
+            'deleted_at' => null,
+        ];
+
+        if ($id !== null) {
+            $values['id'] = $id;
+        }
+
+        $this->connection()->table('acl_roles')->insert($values);
     }
 }
