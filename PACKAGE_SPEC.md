@@ -237,6 +237,19 @@ direct or role-based source.
 An operation that creates, changes, assigns, grants, revokes, deactivates, or
 restores RBAC data.
 
+### Revoke and deactivate terminology
+
+GateTrail uses these terms consistently:
+
+- **revoke** applies only to an assignment;
+- **deactivate** applies only to a role or permission definition;
+- **restore** applies only to a deactivated role or permission definition.
+
+Therefore, GateTrail revokes a subject-role, subject-permission, or
+role-permission relationship. It deactivates the role or permission itself.
+Public APIs and documentation must not use `deactivate` for assignments or
+`revoke` for role and permission definitions.
+
 ## 5. Core authorization rules
 
 ### 5.1 Effective-permission formula
@@ -597,9 +610,20 @@ Roles and permissions use Laravel soft deletion.
 
 - Deactivated roles do not grant permissions.
 - Deactivated permissions cannot be granted or allowed.
+- Deactivation does not revoke or rewrite existing assignments.
+- An assignment that remains otherwise active may become effective again when
+  its role or permission is restored.
 - Restoring a role or permission does not silently restore previously revoked
   assignments.
 - Deactivation and restoration are mutations and must be audited.
+
+Lifecycle comparison:
+
+| Operation | Target | Scope of effect | Assignment history |
+|---|---|---|---|
+| Revoke | One assignment | Stops that subject-role, subject-permission, or role-permission relationship | Assignment remains permanently revoked |
+| Deactivate | One role or permission definition | Suspends every effective permission path that depends on the definition | Assignments are preserved and not rewritten |
+| Restore | One deactivated role or permission definition | Makes preserved, otherwise-active assignment paths eligible again | Previously revoked assignments remain revoked |
 
 ### 9.2 Assignment lifecycle
 
@@ -712,6 +736,74 @@ should make unsafe mutation paths difficult where practical.
 - Repeating role or permission creation with an existing name throws a
   duplicate exception.
 - Mutation results must be deterministic and tested under concurrency.
+
+### 10.6 Public mutation managers
+
+GateTrail exposes three injectable public contracts:
+
+```text
+RoleManager
+PermissionManager
+AssignmentManager
+```
+
+The primary consumer API uses direct typed methods with named parameters.
+Consumers do not construct public mutation commands or mutation-context objects
+for ordinary operations:
+
+```php
+$assignments->assignRole(
+    subject: $user,
+    role: 'reviewer',
+    actor: $admin,
+    reason: 'Assigned by administrator',
+);
+```
+
+Default manager implementations are thin adapters. They may translate public
+arguments into immutable internal commands and delegate each operation to an
+internal use-case handler. Internal commands and handlers are not public API and
+must not contain a second consumer-facing mutation path.
+
+Input resolution follows fixed rules:
+
+- a role or permission model contract uses that model;
+- a string role or permission is a name, including numeric-looking strings;
+- an integer role or permission is a primary key;
+- UUID, ULID, string, or otherwise ambiguous IDs use an explicit reference;
+- assignment inputs are assignment models, explicit references, or IDs.
+
+Scheduled operations use an optional immutable `AssignmentPeriod`. Update
+operations may use purpose-specific change objects where nullable patch
+semantics would otherwise be ambiguous. Automated processes use an explicit
+`SystemActor`.
+
+Exact public signatures and internal-boundary rules are defined by
+[ADR 0002](docs/decisions/0002-public-mutation-api.md).
+
+### 10.7 Mutation results
+
+Every successful managed mutation returns a `MutationResult` containing:
+
+```text
+resource
+outcome
+audit identifier, when an audit record was created
+```
+
+Initial outcomes are:
+
+```text
+Created
+Updated
+Deactivated
+Restored
+Revoked
+Unchanged
+```
+
+An idempotent no-op returns `Unchanged` and does not write a duplicate audit
+record, invalidate cache, or dispatch a duplicate mutation event.
 
 ## 11. Permission resolver
 
@@ -1095,11 +1187,17 @@ GateTrail must:
 - time abstraction.
 - canonical assignment scope keys and hashes;
 - half-open assignment-period overlap rules.
+- public input resolution rules;
+- assignment-period value objects;
+- mutation outcomes.
 
 ### 20.2 Integration tests
 
 - migrations;
 - Eloquent relationships;
+- manager contract container bindings;
+- direct public mutation methods;
+- public-argument to internal-command translation;
 - mutation transactions;
 - assignment coordination-row locking;
 - assignment scheduling with overlapping and adjacent periods;
@@ -1167,6 +1265,10 @@ No performance claim may be published without a reproducible benchmark.
 - Internal classes should be marked and documented as internal where possible.
 - Consumers should depend on contracts rather than concrete services when an
   extension point is intended.
+- Public manager signatures, named parameters, reference interpretation,
+  mutation results, and documented value objects are compatibility surface.
+- Internal commands, handlers, repositories, adapters, and orchestration
+  services are not public API.
 - Breaking changes require changelog entries and an upgrade guide.
 
 ## 23. Explicit non-goals
@@ -1193,15 +1295,14 @@ The initial release does not include:
 The following decisions must be recorded before their implementation is
 finalized:
 
-1. exact public mutation service names and signatures;
-2. subject guard method/property names;
-3. permission middleware any/all syntax;
-4. cache store, TTL, and role-change fan-out strategy;
-5. actor representation for automated processes;
-6. whether UUID/ULID migration variants are required before `1.0.0`;
-7. minimum audit snapshot content;
-8. package behavior when direct database mutation is detected;
-9. whether role convenience directives belong in the core package.
+1. subject guard method/property names;
+2. permission middleware any/all syntax;
+3. cache store, TTL, and role-change fan-out strategy;
+4. persisted actor representation and identifiers for automated processes;
+5. whether UUID/ULID migration variants are required before `1.0.0`;
+6. minimum audit snapshot content;
+7. package behavior when direct database mutation is detected;
+8. whether role convenience directives belong in the core package.
 
 Architecture decisions will be stored under:
 
