@@ -65,3 +65,17 @@ their owning tables, preventing one strategy from contaminating another.
 
 Oracle Free 23 integration is current-version evidence. It does not by itself
 prove GateTrail's declared Oracle 12c Release 2 minimum.
+
+## GitHub Actions policy
+
+The `Oracle compatibility` workflow runs both supported Laravel/OCI8 major
+lanes sequentially against one Oracle service container. This avoids pulling
+and starting the Oracle image once per major.
+
+The workflow runs manually and on `main` pushes that change Oracle integration,
+schema, migration, or dependency inputs. It has no scheduled trigger. Repeated
+runs for the same Git reference cancel an older in-progress run.
+
+The Laravel 13 lane installs the committed reference lock. The Laravel 12 lane
+uses a temporary clean checkout and resolves its matching dependencies without
+rewriting the reference workspace.

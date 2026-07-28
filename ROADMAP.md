@@ -176,12 +176,14 @@ Completed in the current tooling increment:
 - [x] Verify both Oracle generated-key strategies in package-managed and
   DBA-managed modes against a live disposable Oracle Free 23.26.1 endpoint on
   Laravel 12 and Laravel 13.
+- [x] Add a cost-controlled Oracle compatibility workflow that runs both
+  supported Laravel/OCI8 major lanes against one service container.
 
 Next:
 
 1. Obtain one independent developer review of the charter and specification.
-2. Add the supported Laravel/Oracle-driver CI matrix and obtain
-   minimum-version evidence before declaring Oracle fully verified.
+2. Confirm the first remote Oracle compatibility run.
+3. Obtain minimum-version evidence before declaring Oracle fully verified.
 
 Do not begin the first vertical slice until the Phase 2 exit criteria are met.
 
@@ -483,6 +485,10 @@ acl_access_audits
 - Package-managed Oracle migrations retain Laravel migration tracking while
   executing dependency-ordered, one-table slices of the canonical Oracle
   compiler. Non-Oracle migrations retain their existing Schema Builder path.
+- The dedicated Oracle compatibility workflow runs the Laravel 13 reference
+  lock and a temporary Laravel 12 compatibility checkout sequentially against
+  one Oracle service container. Remote run evidence remains pending until the
+  first workflow completes successfully.
 - MySQL release `0001` provides committed install and rollback artifacts with
   byte-for-byte compiler conformance tests and DBA operational guidance.
 - The read-only inspection contract reports schema differences without mutating

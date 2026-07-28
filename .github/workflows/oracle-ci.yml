@@ -1,0 +1,98 @@
+name: Oracle compatibility
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/oracle-ci.yml'
+      - 'composer.json'
+      - 'config/gatetrail.php'
+      - 'database/ddl/oracle/**'
+      - 'database/migrations/**'
+      - 'phpunit.oracle.xml'
+      - 'src/Database/Migrations/**'
+      - 'src/Database/Schema/**'
+      - 'tests/Database/Oracle*.php'
+      - 'tests/Integration/Oracle/**/*.php'
+      - 'tools/oracle-integration/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oracle-compatibility-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  oracle-compatibility:
+    name: Laravel 12 and 13 / Oracle Free 23.26.1
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      GATETRAIL_ORACLE_HOST: 127.0.0.1
+      GATETRAIL_ORACLE_PORT: 1521
+      GATETRAIL_ORACLE_SERVICE: FREEPDB1
+      GATETRAIL_ORACLE_USERNAME: gatetrail
+      GATETRAIL_ORACLE_PASSWORD: gatetrail_test
+
+    services:
+      oracle:
+        image: gvenzl/oracle-free:23.26.1-slim-faststart
+        env:
+          ORACLE_PASSWORD: gatetrail_root_test
+          APP_USER: gatetrail
+          APP_USER_PASSWORD: gatetrail_test
+        ports:
+          - 1521:1521
+        options: >-
+          --health-cmd=healthcheck.sh
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=60
+          --health-start-period=60s
+          --shm-size=1g
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up PHP with OCI8
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: oci8
+          coverage: none
+        env:
+          fail-fast: true
+
+      - name: Confirm OCI8
+        run: php --ri oci8
+
+      - name: Install Laravel 13 reference dependencies
+        run: >
+          composer install
+          --working-dir=tools/oracle-integration
+          --no-interaction
+          --no-progress
+
+      - name: Run Laravel 13 Oracle integration
+        run: composer test:oracle
+
+      - name: Prepare Laravel 12 compatibility checkout
+        run: |
+          git clone --no-hardlinks "$GITHUB_WORKSPACE" \
+            "$RUNNER_TEMP/gatetrail-laravel-12"
+          composer require \
+            --working-dir="$RUNNER_TEMP/gatetrail-laravel-12/tools/oracle-integration" \
+            "orchestra/testbench:^10.0" \
+            "yajra/laravel-oci8:^12.0" \
+            --with-all-dependencies \
+            --no-interaction \
+            --no-progress
+
+      - name: Run Laravel 12 Oracle integration
+        working-directory: ${{ runner.temp }}/gatetrail-laravel-12
+        run: composer test:oracle
