@@ -1,0 +1,49 @@
+<?php
+
+declare(strict_types=1);
+
+use HangTuah\GateTrail\Database\Migrations\GateTrailMigration;
+use Illuminate\Database\Schema\Blueprint;
+
+return new class extends GateTrailMigration
+{
+    public function up(): void
+    {
+        $this->prepareSchema();
+        $collation = $this->adapter()->caseSensitiveCollation();
+
+        $this->schema()->create(
+            $this->context()->table('permissions'),
+            static function (Blueprint $table) use ($collation): void {
+                $table->id();
+
+                $name = $table->string('name', 191);
+                $guard = $table->string('guard_name', 191);
+
+                if ($collation !== null) {
+                    $name->collation($collation);
+                    $guard->collation($collation);
+                }
+
+                $table->text('description')->nullable();
+                $table->dateTime('created_at');
+                $table->dateTime('updated_at');
+                $table->dateTime('deleted_at')->nullable();
+                $table->unique(
+                    ['name', 'guard_name'],
+                    'acl_perm_name_guard_uq',
+                );
+            },
+        );
+    }
+
+    public function down(): void
+    {
+        $this->requireChildTablesAbsent('permissions', [
+            'permission_assignments',
+            'role_permissions',
+        ]);
+
+        $this->schema()->drop($this->context()->table('permissions'));
+    }
+};
