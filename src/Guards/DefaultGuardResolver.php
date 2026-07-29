@@ -13,7 +13,11 @@ final readonly class DefaultGuardResolver
         private Repository $config,
     ) {}
 
-    public function resolve(): string
+    /**
+     * @param  string  $context  Safe diagnostic label supplied by the caller
+     *                           and reported when no valid default guard exists.
+     */
+    public function resolve(string $context): string
     {
         $packageDefault = $this->config->get(
             'gatetrail.guards.default',
@@ -23,22 +27,24 @@ final readonly class DefaultGuardResolver
             return $this->normalize(
                 $packageDefault,
                 'package default',
+                $context,
             );
         }
 
         return $this->normalize(
             $this->config->get('auth.defaults.guard'),
             'Laravel default',
+            $context,
         );
     }
 
-    private function normalize(mixed $value, string $source): string
-    {
+    private function normalize(
+        mixed $value,
+        string $source,
+        string $context,
+    ): string {
         if (! is_string($value) || trim($value) === '') {
-            throw InvalidGuard::forSubject(
-                'role-permission assignment',
-                $source,
-            );
+            throw InvalidGuard::forContext($context, $source);
         }
 
         return trim($value);

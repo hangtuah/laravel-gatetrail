@@ -9,15 +9,20 @@ use RuntimeException;
 final class RoleNotFound extends RuntimeException
 {
     private function __construct(
-        public readonly string $guard,
+        public readonly ?string $guard,
         public readonly string $referenceType,
     ) {
         parent::__construct(
-            sprintf(
-                'GateTrail role was not found for guard [%s] using [%s] input.',
-                $guard,
-                $referenceType,
-            ),
+            $guard === null
+                ? sprintf(
+                    'GateTrail role was not found using [%s] input.',
+                    $referenceType,
+                )
+                : sprintf(
+                    'GateTrail role was not found for guard [%s] using [%s] input.',
+                    $guard,
+                    $referenceType,
+                ),
         );
     }
 
@@ -26,5 +31,15 @@ final class RoleNotFound extends RuntimeException
         string $referenceType,
     ): self {
         return new self($guard, $referenceType);
+    }
+
+    /**
+     * Reports an explicit model, identifier, or reference that resolved to no
+     * row, so no persisted guard exists and no default guard may be consulted
+     * merely to describe the failure.
+     */
+    public static function forReference(string $referenceType): self
+    {
+        return new self(null, $referenceType);
     }
 }

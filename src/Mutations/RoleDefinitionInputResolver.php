@@ -16,6 +16,8 @@ use ReflectionMethod;
 
 final readonly class RoleDefinitionInputResolver
 {
+    private const CONTEXT = 'role definition';
+
     public function __construct(
         private ModelRegistry $models,
         private DefaultGuardResolver $guards,
@@ -23,9 +25,11 @@ final readonly class RoleDefinitionInputResolver
     ) {}
 
     /**
-     * Resolves and row-locks one active role definition. String inputs are
-     * role names resolved in GateTrail's default guard; model, integer-ID and
-     * explicit-reference inputs resolve the identified definition directly.
+     * Resolves and row-locks one active role definition.
+     *
+     * Only a string input is a name, and only that path consults the default
+     * guard. Model, integer-ID, and explicit-reference inputs resolve directly
+     * by primary key and derive their guard from the persisted row.
      */
     public function resolve(
         RoleContract|RoleReference|string|int $input,
@@ -39,59 +43,70 @@ final readonly class RoleDefinitionInputResolver
             );
         }
 
-        $guard = $this->guards->resolve();
-        $role = is_string($input)
-            ? $this->byName($input, $guard)
-            : $this->byKey($input, $guard, $instance);
-
-        if (! $role instanceof RoleContract || $this->isDeactivated($role)) {
-            throw RoleNotFound::forGuard(
-                $guard,
-                $this->referenceType($input),
+        if (is_string($input)) {
+            return $this->byName(
+                $input,
+                $this->guards->resolve(self::CONTEXT),
             );
         }
 
-        return $role;
+        return $this->byKey($input, $instance);
     }
 
-    private function byName(string $name, string $guard): ?Model
-    {
+    private function byName(
+        string $name,
+        string $guard,
+    ): Model&RoleContract {
         $class = $this->models->role();
-
-        return $class::query()
+        $role = $class::query()
             ->withTrashed()
             ->where('name', $name)
             ->where('guard_name', $guard)
             ->lockForUpdate()
             ->first();
+
+        if (! $role instanceof RoleContract || $this->isDeactivated($role)) {
+            throw RoleNotFound::forGuard($guard, 'name');
+        }
+
+        return $role;
     }
 
     private function byKey(
         RoleContract|RoleReference|int $input,
-        string $guard,
         Model $instance,
-    ): ?Model {
+    ): Model&RoleContract {
         $class = $this->models->role();
-        $id = $this->identifier($input, $guard);
-        $key = $this->identifiers->normalize($instance, $id);
+        $referenceType = $input instanceof RoleContract ? 'model' : 'ID';
+        $key = $this->identifiers->normalize(
+            $instance,
+            $this->identifier($input, $referenceType),
+        );
 
         if ($key === null) {
-            throw RoleNotFound::forGuard(
-                $guard,
-                $this->referenceType($input),
-            );
+            throw RoleNotFound::forReference($referenceType);
         }
 
-        return $class::query()
+        $role = $class::query()
             ->withTrashed()
             ->whereKey($key)
             ->lockForUpdate()
             ->first();
+
+        if (! $role instanceof RoleContract) {
+            throw RoleNotFound::forReference($referenceType);
+        }
+
+        if ($this->isDeactivated($role)) {
+            throw $this->deactivated($role, $referenceType);
+        }
+
+        return $role;
     }
 
     private function identifier(
         RoleContract|RoleReference|int $input,
-        string $guard,
+        string $referenceType,
     ): int|string {
         if ($input instanceof RoleReference) {
             return $input->id;
@@ -102,26 +117,27 @@ final readonly class RoleDefinitionInputResolver
         }
 
         if (! $input instanceof Model || ! $input->exists) {
-            throw RoleNotFound::forGuard($guard, 'model');
+            throw RoleNotFound::forReference($referenceType);
         }
 
         $id = $input->getKey();
 
         if (! is_int($id) && ! is_string($id)) {
-            throw RoleNotFound::forGuard($guard, 'model');
+            throw RoleNotFound::forReference($referenceType);
         }
 
         return $id;
     }
 
-    private function referenceType(
-        RoleContract|RoleReference|string|int $input,
-    ): string {
-        if (is_string($input)) {
-            return 'name';
-        }
+    private function deactivated(
+        Model $role,
+        string $referenceType,
+    ): RoleNotFound {
+        $guard = $role->getAttribute('guard_name');
 
-        return $input instanceof RoleContract ? 'model' : 'ID';
+        return is_string($guard) && trim($guard) !== ''
+            ? RoleNotFound::forGuard(trim($guard), $referenceType)
+            : RoleNotFound::forReference($referenceType);
     }
 
     private function isDeactivated(Model $role): bool

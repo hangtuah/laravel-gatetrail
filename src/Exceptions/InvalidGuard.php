@@ -28,6 +28,17 @@ final class InvalidGuard extends InvalidArgumentException
         return new self($subjectType, $source);
     }
 
+    /**
+     * Reports a default-guard failure using the calling context's own safe
+     * label rather than a hardcoded one.
+     */
+    public static function forContext(
+        string $contextType,
+        string $source,
+    ): self {
+        return new self($contextType, $source);
+    }
+
     public static function forTarget(string $targetType): self
     {
         return new self($targetType, 'persisted target');

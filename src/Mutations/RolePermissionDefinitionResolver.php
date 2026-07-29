@@ -21,6 +21,8 @@ use ReflectionMethod;
 
 final readonly class RolePermissionDefinitionResolver
 {
+    private const CONTEXT = 'role-permission assignment';
+
     public function __construct(
         private ModelRegistry $models,
         private DefaultGuardResolver $guards,
@@ -40,7 +42,7 @@ final readonly class RolePermissionDefinitionResolver
         $this->assertTransaction();
 
         if (is_string($roleInput) && is_string($permissionInput)) {
-            $guard = $this->guards->resolve();
+            $guard = $this->guards->resolve(self::CONTEXT);
             $role = $this->resolveRole($roleInput, $guard);
             $permission = $this->resolvePermission(
                 $permissionInput,
@@ -106,7 +108,7 @@ final readonly class RolePermissionDefinitionResolver
         if ($input instanceof RoleContract) {
             if (! $input instanceof Model || ! $input->exists) {
                 throw RoleNotFound::forGuard(
-                    $guard ?? $this->guards->resolve(),
+                    $guard ?? $this->guards->resolve(self::CONTEXT),
                     'model',
                 );
             }
@@ -132,7 +134,7 @@ final readonly class RolePermissionDefinitionResolver
 
         if (! $role instanceof Model || $this->isDeactivated($role)) {
             throw RoleNotFound::forGuard(
-                $guard ?? $this->guards->resolve(),
+                $guard ?? $this->guards->resolve(self::CONTEXT),
                 is_string($input) ? 'name' : 'ID',
             );
         }
@@ -162,7 +164,7 @@ final readonly class RolePermissionDefinitionResolver
         if ($input instanceof PermissionContract) {
             if (! $input instanceof Model || ! $input->exists) {
                 throw PermissionNotFound::forGuard(
-                    $guard ?? $this->guards->resolve(),
+                    $guard ?? $this->guards->resolve(self::CONTEXT),
                     'model',
                 );
             }
@@ -189,7 +191,7 @@ final readonly class RolePermissionDefinitionResolver
         if (! $permission instanceof Model
             || $this->isDeactivated($permission)) {
             throw PermissionNotFound::forGuard(
-                $guard ?? $this->guards->resolve(),
+                $guard ?? $this->guards->resolve(self::CONTEXT),
                 is_string($input) ? 'name' : 'ID',
             );
         }

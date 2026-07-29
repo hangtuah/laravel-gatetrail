@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail\Tests\Mutation;
 
+use HangTuah\GateTrail\Exceptions\InvalidGuard;
 use HangTuah\GateTrail\Exceptions\RoleNotFound;
 use HangTuah\GateTrail\Models\Role;
 use HangTuah\GateTrail\Mutations\DefinitionIdentifierNormalizer;
@@ -176,6 +177,142 @@ final class RoleDefinitionInputResolverTest extends TestCase
 
                 $this->fail('A missing ID should be rejected.');
             } catch (RoleNotFound $exception) {
+                $this->assertSame('ID', $exception->referenceType);
+                $this->assertNull($exception->guard);
+            }
+        });
+    }
+
+    public function test_explicit_inputs_ignore_an_invalid_package_default_guard(): void
+    {
+        $apiRole = Role::query()->create([
+            'name' => 'auditor',
+            'guard_name' => 'api',
+            'description' => null,
+        ]);
+        config()->set('gatetrail.guards.default', ' ');
+
+        $this->transaction(function () use ($apiRole): void {
+            $resolver = app(RoleDefinitionInputResolver::class);
+
+            foreach ([
+                $apiRole,
+                $apiRole->getKey(),
+                RoleReference::id($apiRole->getKey()),
+            ] as $input) {
+                $this->assertSame(
+                    $apiRole->getKey(),
+                    $resolver->resolve($input)->getKey(),
+                );
+            }
+        });
+    }
+
+    public function test_explicit_inputs_ignore_an_invalid_laravel_default_guard(): void
+    {
+        $apiRole = Role::query()->create([
+            'name' => 'auditor',
+            'guard_name' => 'api',
+            'description' => null,
+        ]);
+        config()->set('gatetrail.guards.default');
+        config()->set('auth.defaults.guard', '');
+
+        $this->transaction(function () use ($apiRole): void {
+            $resolver = app(RoleDefinitionInputResolver::class);
+
+            foreach ([
+                $apiRole,
+                $apiRole->getKey(),
+                RoleReference::id($apiRole->getKey()),
+            ] as $input) {
+                $this->assertSame(
+                    $apiRole->getKey(),
+                    $resolver->resolve($input)->getKey(),
+                );
+            }
+        });
+    }
+
+    public function test_missing_explicit_reference_reports_role_not_found_without_a_guard(): void
+    {
+        config()->set('gatetrail.guards.default', ' ');
+
+        $this->transaction(function (): void {
+            $resolver = app(RoleDefinitionInputResolver::class);
+
+            foreach ([4242, RoleReference::id(4242)] as $input) {
+                try {
+                    $resolver->resolve($input);
+
+                    $this->fail('A missing reference should be rejected.');
+                } catch (RoleNotFound $exception) {
+                    $this->assertNull($exception->guard);
+                    $this->assertSame('ID', $exception->referenceType);
+                }
+            }
+        });
+    }
+
+    public function test_malformed_reference_is_rejected_without_resolving_a_guard(): void
+    {
+        config()->set('gatetrail.guards.default', ' ');
+
+        $this->transaction(function (): void {
+            try {
+                app(RoleDefinitionInputResolver::class)
+                    ->resolve(RoleReference::id('not-an-integer'));
+
+                $this->fail('A malformed reference should be rejected.');
+            } catch (RoleNotFound $exception) {
+                $this->assertNull($exception->guard);
+                $this->assertSame('ID', $exception->referenceType);
+                $this->assertStringNotContainsString(
+                    'not-an-integer',
+                    $exception->getMessage(),
+                );
+            }
+        });
+    }
+
+    public function test_string_name_input_requires_a_valid_default_guard(): void
+    {
+        config()->set('gatetrail.guards.default', ' ');
+
+        $this->transaction(function (): void {
+            try {
+                app(RoleDefinitionInputResolver::class)
+                    ->resolve('reviewer');
+
+                $this->fail('An invalid default guard should be rejected.');
+            } catch (InvalidGuard $exception) {
+                $this->assertSame(
+                    'role definition',
+                    $exception->contextType,
+                );
+                $this->assertSame('package default', $exception->source);
+            }
+        });
+    }
+
+    public function test_soft_deleted_explicit_reference_reports_persisted_guard(): void
+    {
+        $apiRole = Role::query()->create([
+            'name' => 'auditor',
+            'guard_name' => 'api',
+            'description' => null,
+        ]);
+        $apiRole->delete();
+        config()->set('gatetrail.guards.default', ' ');
+
+        $this->transaction(function () use ($apiRole): void {
+            try {
+                app(RoleDefinitionInputResolver::class)
+                    ->resolve(RoleReference::id($apiRole->getKey()));
+
+                $this->fail('A deactivated role should be rejected.');
+            } catch (RoleNotFound $exception) {
+                $this->assertSame('api', $exception->guard);
                 $this->assertSame('ID', $exception->referenceType);
             }
         });
