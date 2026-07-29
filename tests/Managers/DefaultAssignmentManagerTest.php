@@ -10,6 +10,7 @@ use HangTuah\GateTrail\AssignmentReference;
 use HangTuah\GateTrail\Contracts\AssignmentManager;
 use HangTuah\GateTrail\Exceptions\AssignmentNotActive;
 use HangTuah\GateTrail\Managers\DefaultAssignmentManager;
+use HangTuah\GateTrail\Models\Permission;
 use HangTuah\GateTrail\Models\Role;
 use HangTuah\GateTrail\MutationOutcome;
 use HangTuah\GateTrail\SystemActor;
@@ -219,6 +220,32 @@ final class DefaultAssignmentManagerTest extends TestCase
             ),
         ));
 
-        $this->assertSame(['assignRole', 'revokeRole'], $methods);
+        $this->assertSame(['assignRole', 'revokeRole', 'grantDirectPermission', 'revokeDirectPermission'], $methods);
+    }
+
+    public function test_public_direct_permission_grant_and_revoke(): void
+    {
+        Permission::query()->create([
+            'name' => 'documents.approve',
+            'guard_name' => 'web',
+        ]);
+        $manager = app(AssignmentManager::class);
+        $granted = $manager->grantDirectPermission(
+            $this->subject,
+            'documents.approve',
+            SystemActor::named('security-suite'),
+            'Grant direct permission',
+        );
+        $revoked = $manager->revokeDirectPermission(
+            $granted->resource,
+            SystemActor::named('security-suite'),
+            'Revoke direct permission',
+        );
+
+        $this->assertSame(MutationOutcome::Created, $granted->outcome);
+        $this->assertSame(MutationOutcome::Revoked, $revoked->outcome);
+        $this->assertDatabaseHas('acl_access_audits', [
+            'event' => 'permission.revoked_from_subject',
+        ]);
     }
 }

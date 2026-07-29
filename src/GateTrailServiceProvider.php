@@ -27,8 +27,10 @@ use HangTuah\GateTrail\Managers\DefaultAssignmentManager;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\Handlers\AssignRoleHandler;
 use HangTuah\GateTrail\Mutations\Handlers\GrantDirectPermissionHandler;
+use HangTuah\GateTrail\Mutations\Handlers\RevokeDirectPermissionHandler;
 use HangTuah\GateTrail\Mutations\Handlers\RevokeRoleHandler;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
+use HangTuah\GateTrail\Mutations\PermissionAssignmentInputResolver;
 use HangTuah\GateTrail\Mutations\PermissionInputResolver;
 use HangTuah\GateTrail\Mutations\RoleAssignmentInputResolver;
 use HangTuah\GateTrail\Mutations\RoleInputResolver;
@@ -72,6 +74,8 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(SubjectGuardResolver::class);
         $this->app->singleton(RoleInputResolver::class);
         $this->app->singleton(PermissionInputResolver::class);
+        $this->app->singleton(PermissionAssignmentInputResolver::class);
+        $this->app->singleton(RevokeDirectPermissionHandler::class);
         $this->app->singleton(RoleAssignmentInputResolver::class);
         $this->app->singleton(StrictMutationTransaction::class);
         $this->app->singleton(
