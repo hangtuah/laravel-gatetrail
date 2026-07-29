@@ -36,4 +36,17 @@ final class GuardMismatch extends RuntimeException
             $roleId,
         );
     }
+
+    public static function forPermission(
+        string $subjectGuard,
+        string $permissionGuard,
+        int|string|null $permissionId,
+    ): self {
+        return new self(
+            $subjectGuard,
+            $permissionGuard,
+            'permission',
+            $permissionId,
+        );
+    }
 }
