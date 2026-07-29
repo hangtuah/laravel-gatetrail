@@ -1422,6 +1422,18 @@ Snapshot identifiers use canonical strings, and timestamps use UTC ISO 8601
 with microseconds. Exact event keys and serialization rules are defined by
 [ADR 0008](docs/decisions/0008-audit-snapshot-and-failure-modes.md).
 
+Managed audit `target_type` values are stable logical aliases:
+
+| Event group | `target_type` |
+|---|---|
+| Role definition events | `role` |
+| Permission definition events | `permission` |
+| Role assignment events | `role_assignment` |
+| Direct permission assignment events | `permission_assignment` |
+| Role-permission assignment events | `role_permission` |
+
+`target_id` identifies the persisted row represented by the event snapshots.
+
 ### 13.4 Sensitive data
 
 Audit snapshots and context must exclude:

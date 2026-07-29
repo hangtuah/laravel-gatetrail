@@ -111,6 +111,19 @@ event time
 
 Those values are not copied into context merely for convenience.
 
+Managed audit targets use stable logical aliases rather than PHP class names:
+
+| Event group | `target_type` |
+|---|---|
+| Role definition events | `role` |
+| Permission definition events | `permission` |
+| Role assignment events | `role_assignment` |
+| Direct permission assignment events | `permission_assignment` |
+| Role-permission assignment events | `role_permission` |
+
+The audit row's `target_id` identifies the persisted row represented by the
+event's `before` and `after` snapshots.
+
 ## Definition snapshot version 1
 
 Role and permission definition snapshots use:

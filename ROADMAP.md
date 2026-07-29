@@ -73,7 +73,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 40% | In progress |
+| 4 | Mutation services | 50% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -659,6 +659,12 @@ audit write.
   decimal strings, and normalize timestamps to UTC with microseconds. The
   role-assignment context builder preserves its required key order, embeds
   normalized metadata as an object, and retains JSON value types.
+- The first strict `AssignRoleHandler` validates inputs before opening its
+  transaction, resolves guarded roles, coordinates equivalent scopes, returns
+  idempotent immediate replays unchanged, rejects scheduled overlap, persists
+  role assignments and canonical `role.assigned` audits atomically, and
+  redacts configured assignment and dedicated audit reasons. Stable logical
+  audit-target aliases now replace PHP class names in public audit data.
 
 ### Exit criteria
 

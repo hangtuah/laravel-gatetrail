@@ -15,6 +15,7 @@ final readonly class RoleAssignmentSnapshotBuilder
 {
     public function __construct(
         private CanonicalAuditJson $json,
+        private SensitiveAuditValueRedactor $redactor,
     ) {}
 
     public function build(
@@ -51,9 +52,12 @@ final readonly class RoleAssignmentSnapshotBuilder
                 $persisted,
                 'assigned_by_id',
             ),
-            'assignment_reason' => $this->nullableString(
-                $persisted,
-                'assignment_reason',
+            'assignment_reason' => $this->redactor->assignmentReason(
+                $this->nullableString(
+                    $persisted,
+                    'assignment_reason',
+                ),
+                'after',
             ),
             'starts_at' => $this->nullableTimestamp(
                 $persisted,
