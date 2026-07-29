@@ -986,7 +986,9 @@ defined by
 ### 10.5 Idempotency
 
 - Repeating an active assignment request does not create a duplicate.
-- Revoking a non-active assignment throws a domain exception by default.
+- Revoking a missing, expired, or already-revoked assignment throws
+  `AssignmentNotActive` by default. An unrevoked scheduled assignment remains
+  revocable before its start time so consumers can cancel future access.
 - Repeating role or permission creation with an existing `(name, guard_name)`
   throws `DuplicateRole` or `DuplicatePermission`, including when the existing
   definition is deactivated.

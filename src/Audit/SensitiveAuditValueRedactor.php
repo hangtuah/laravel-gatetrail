@@ -38,6 +38,20 @@ final readonly class SensitiveAuditValueRedactor
         ]);
     }
 
+    public function revocationReason(
+        ?string $value,
+        string $snapshot,
+    ): ?string {
+        if (! in_array($snapshot, ['before', 'after'], true)) {
+            throw InvalidAuditMetadata::invalidSensitivePath();
+        }
+
+        return $this->redact($value, [
+            'revocation_reason',
+            $snapshot.'.revocation_reason',
+        ]);
+    }
+
     /**
      * @param  list<string>  $acceptedPaths
      */

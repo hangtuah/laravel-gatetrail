@@ -20,7 +20,14 @@ final readonly class RoleAssignmentSnapshotBuilder
 
     public function build(
         Model&RoleAssignmentContract $assignment,
+        string $snapshot = 'after',
     ): string {
+        if (! in_array($snapshot, ['before', 'after'], true)) {
+            throw new InvalidArgumentException(
+                'GateTrail assignment snapshot side must be before or after.',
+            );
+        }
+
         if (! $assignment->exists) {
             throw new InvalidArgumentException(
                 'GateTrail cannot snapshot an unpersisted role assignment.',
@@ -57,7 +64,7 @@ final readonly class RoleAssignmentSnapshotBuilder
                     $persisted,
                     'assignment_reason',
                 ),
-                'after',
+                $snapshot,
             ),
             'starts_at' => $this->nullableTimestamp(
                 $persisted,
@@ -79,9 +86,12 @@ final readonly class RoleAssignmentSnapshotBuilder
                 $persisted,
                 'revoked_by_id',
             ),
-            'revocation_reason' => $this->nullableString(
-                $persisted,
-                'revocation_reason',
+            'revocation_reason' => $this->redactor->revocationReason(
+                $this->nullableString(
+                    $persisted,
+                    'revocation_reason',
+                ),
+                $snapshot,
             ),
             'subject_type' => $this->requiredString(
                 $persisted,
