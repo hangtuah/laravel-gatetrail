@@ -1,6 +1,6 @@
 # GateTrail Roadmap and Implementation Guide
 
-Last updated: 2026-07-28
+Last updated: 2026-07-29
 
 ## 1. Purpose
 
@@ -73,7 +73,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 90% | In progress |
+| 4 | Mutation services | 93% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -578,7 +578,7 @@ Implement every state-changing operation through the accepted public managers.
 
 - [ ] `RoleManager`.
 - [ ] `PermissionManager`.
-- [ ] `AssignmentManager`.
+- [x] `AssignmentManager`.
 - [ ] Thin default manager adapters.
 - [ ] Internal immutable commands.
 - [ ] One internal handler per mutation use case.
@@ -685,20 +685,23 @@ audit write.
 - Direct-permission revocation now locks the target assignment, rejects
   non-active rows, persists canonical before/after audit evidence, and is
   exposed together with direct grants through the thin public manager.
+- Role-permission revocation now completes the six accepted assignment
+  mutations. It locks the target role-permission row, rejects missing,
+  expired, and already-revoked assignments, persists the complete revocation
+  tuple, and records canonical `permission.revoked_from_role` before/after
+  evidence atomically through the thin public manager.
 
 ### Pre-v1 assignment-manager contract gate
 
 The current source contract is intentionally incremental while GateTrail
 remains unreleased:
 
-- role assignment/revocation and direct-permission grant/revocation are the
-  four currently exposed assignment mutations;
-- role-permission grant and revocation remain required by ADR 0002;
-- adding those methods may break consumer-provided implementations before the
-  public API freeze;
+- all six assignment mutations accepted by ADR 0002 are now implemented,
+  bound, and tested;
+- the contract may still change before the public API freeze;
 - custom `AssignmentManager` implementations are therefore not stable yet;
-- the API freeze and `v1.0.0` release are blocked until all six accepted
-  methods are implemented, bound, documented, and tested.
+- the API freeze and `v1.0.0` release remain blocked until the accepted
+  methods are documented for consumers.
 
 ### Exit criteria
 

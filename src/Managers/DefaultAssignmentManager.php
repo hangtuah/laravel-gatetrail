@@ -14,16 +14,19 @@ use HangTuah\GateTrail\Contracts\RoleContract;
 use HangTuah\GateTrail\Contracts\RolePermissionContract;
 use HangTuah\GateTrail\Models\PermissionAssignment;
 use HangTuah\GateTrail\Models\RoleAssignment;
+use HangTuah\GateTrail\Models\RolePermission;
 use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\Commands\AssignRoleCommand;
 use HangTuah\GateTrail\Mutations\Commands\GrantDirectPermissionCommand;
 use HangTuah\GateTrail\Mutations\Commands\GrantPermissionToRoleCommand;
 use HangTuah\GateTrail\Mutations\Commands\RevokeDirectPermissionCommand;
+use HangTuah\GateTrail\Mutations\Commands\RevokePermissionFromRoleCommand;
 use HangTuah\GateTrail\Mutations\Commands\RevokeRoleCommand;
 use HangTuah\GateTrail\Mutations\Handlers\AssignRoleHandler;
 use HangTuah\GateTrail\Mutations\Handlers\GrantDirectPermissionHandler;
 use HangTuah\GateTrail\Mutations\Handlers\GrantPermissionToRoleHandler;
 use HangTuah\GateTrail\Mutations\Handlers\RevokeDirectPermissionHandler;
+use HangTuah\GateTrail\Mutations\Handlers\RevokePermissionFromRoleHandler;
 use HangTuah\GateTrail\Mutations\Handlers\RevokeRoleHandler;
 use HangTuah\GateTrail\PermissionReference;
 use HangTuah\GateTrail\RoleReference;
@@ -39,6 +42,7 @@ final readonly class DefaultAssignmentManager implements AssignmentManager
         private GrantDirectPermissionHandler $grantDirectPermission,
         private RevokeDirectPermissionHandler $revokeDirectPermission,
         private GrantPermissionToRoleHandler $grantPermissionToRole,
+        private RevokePermissionFromRoleHandler $revokePermissionFromRole,
         private ClockInterface $clock,
     ) {}
 
@@ -121,6 +125,27 @@ final readonly class DefaultAssignmentManager implements AssignmentManager
                 actor: $actor,
                 reason: $reason,
                 period: $period ?? AssignmentPeriod::immediate(),
+                metadata: $metadata,
+                clock: $this->clock,
+            ),
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     * @return MutationResult<RolePermission>
+     */
+    public function revokePermissionFromRole(
+        RolePermissionContract|AssignmentReference|string|int $assignment,
+        Model|SystemActor $actor,
+        string $reason,
+        array $metadata = [],
+    ): MutationResult {
+        return $this->revokePermissionFromRole->handle(
+            RevokePermissionFromRoleCommand::capture(
+                assignment: $assignment,
+                actor: $actor,
+                reason: $reason,
                 metadata: $metadata,
                 clock: $this->clock,
             ),

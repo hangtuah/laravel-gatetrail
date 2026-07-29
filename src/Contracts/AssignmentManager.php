@@ -8,6 +8,7 @@ use HangTuah\GateTrail\AssignmentPeriod;
 use HangTuah\GateTrail\AssignmentReference;
 use HangTuah\GateTrail\Models\PermissionAssignment;
 use HangTuah\GateTrail\Models\RoleAssignment;
+use HangTuah\GateTrail\Models\RolePermission;
 use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\PermissionReference;
 use HangTuah\GateTrail\RoleReference;
@@ -58,6 +59,17 @@ interface AssignmentManager
         Model|SystemActor $actor,
         string $reason,
         ?AssignmentPeriod $period = null,
+        array $metadata = [],
+    ): MutationResult;
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     * @return MutationResult<RolePermission>
+     */
+    public function revokePermissionFromRole(
+        RolePermissionContract|AssignmentReference|string|int $assignment,
+        Model|SystemActor $actor,
+        string $reason,
         array $metadata = [],
     ): MutationResult;
 }

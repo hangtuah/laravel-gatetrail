@@ -227,9 +227,20 @@ final class DefaultAssignmentManagerTest extends TestCase
                 'grantDirectPermission',
                 'revokeDirectPermission',
                 'grantPermissionToRole',
+                'revokePermissionFromRole',
             ],
             $methods,
         );
+
+        foreach ($methods as $method) {
+            $this->assertTrue(
+                (new ReflectionMethod(
+                    DefaultAssignmentManager::class,
+                    $method,
+                ))->getDeclaringClass()->getName()
+                    === DefaultAssignmentManager::class,
+            );
+        }
     }
 
     public function test_public_direct_permission_grant_and_revoke(): void
@@ -281,5 +292,84 @@ final class DefaultAssignmentManagerTest extends TestCase
             'target_type' => 'role_permission',
             'target_id' => $result->resource->getKey(),
         ]);
+    }
+
+    public function test_public_api_revokes_permission_from_role(): void
+    {
+        Permission::query()->create([
+            'name' => 'documents.approve',
+            'guard_name' => 'web',
+        ]);
+        $manager = app(AssignmentManager::class);
+        $granted = $manager->grantPermissionToRole(
+            'reviewer',
+            'documents.approve',
+            SystemActor::named('security-suite'),
+            'Reviewer may approve documents',
+        );
+
+        $revoked = $manager->revokePermissionFromRole(
+            assignment: $granted->resource,
+            actor: SystemActor::named('security-suite'),
+            reason: 'Reviewer approval retired',
+            metadata: ['ticket' => 'SEC-42'],
+        );
+        $audit = $this->app['db']
+            ->table('acl_access_audits')
+            ->where('id', $revoked->auditId)
+            ->first();
+
+        $this->assertSame(MutationOutcome::Revoked, $revoked->outcome);
+        $this->assertSame(
+            'Reviewer approval retired',
+            $revoked->resource->getAttribute('revocation_reason'),
+        );
+        $this->assertNotNull($audit);
+        $this->assertSame(
+            'permission.revoked_from_role',
+            $audit->event,
+        );
+        $this->assertSame('role_permission', $audit->target_type);
+        $this->assertNull($audit->subject_type);
+        $this->assertNull($audit->subject_id);
+        $this->assertSame(
+            ['ticket' => 'SEC-42'],
+            json_decode(
+                $audit->context,
+                true,
+                flags: JSON_THROW_ON_ERROR,
+            )['metadata'],
+        );
+    }
+
+    public function test_public_revoke_from_role_rejects_replayed_reference(): void
+    {
+        Permission::query()->create([
+            'name' => 'documents.approve',
+            'guard_name' => 'web',
+        ]);
+        $manager = app(AssignmentManager::class);
+        $granted = $manager->grantPermissionToRole(
+            'reviewer',
+            'documents.approve',
+            SystemActor::named('security-suite'),
+            'Reviewer may approve documents',
+        );
+
+        $manager->revokePermissionFromRole(
+            AssignmentReference::id(
+                (string) $granted->resource->getKey(),
+            ),
+            SystemActor::named('security-suite'),
+            'First revocation',
+        );
+
+        $this->expectException(AssignmentNotActive::class);
+
+        $manager->revokePermissionFromRole(
+            (string) $granted->resource->getKey(),
+            SystemActor::named('security-suite'),
+            'Repeated revocation',
+        );
     }
 }

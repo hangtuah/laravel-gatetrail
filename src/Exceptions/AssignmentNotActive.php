@@ -33,4 +33,12 @@ final class AssignmentNotActive extends RuntimeException
     {
         return new self('permission', hash('sha256', (string) $reference));
     }
+
+    public static function forRolePermission(int|string $reference): self
+    {
+        return new self(
+            'role_permission',
+            hash('sha256', (string) $reference),
+        );
+    }
 }
