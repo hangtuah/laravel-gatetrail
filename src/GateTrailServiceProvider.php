@@ -14,6 +14,7 @@ use HangTuah\GateTrail\Audit\MetadataNormalizer;
 use HangTuah\GateTrail\Audit\RoleAssignmentSnapshotBuilder;
 use HangTuah\GateTrail\Audit\SensitiveAuditValueRedactor;
 use HangTuah\GateTrail\Audit\SensitiveMetadataRedactor;
+use HangTuah\GateTrail\Contracts\AssignmentManager;
 use HangTuah\GateTrail\Database\Schema\Ddl\DdlCompilerFactory;
 use HangTuah\GateTrail\Database\Schema\IdentifierValidator;
 use HangTuah\GateTrail\Database\Schema\Inspection\SchemaInspectorFactory;
@@ -21,6 +22,7 @@ use HangTuah\GateTrail\Database\Schema\Manifest\SchemaManifest;
 use HangTuah\GateTrail\Database\Schema\SchemaAdapterFactory;
 use HangTuah\GateTrail\Database\Schema\SchemaContext;
 use HangTuah\GateTrail\Guards\SubjectGuardResolver;
+use HangTuah\GateTrail\Managers\DefaultAssignmentManager;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\Handlers\AssignRoleHandler;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
@@ -42,6 +44,10 @@ final class GateTrailServiceProvider extends ServiceProvider
         );
 
         $this->app->singleton(IdentifierValidator::class);
+        $this->app->singleton(
+            AssignmentManager::class,
+            DefaultAssignmentManager::class,
+        );
         $this->app->singleton(AccessAuditWriter::class);
         $this->app->singleton(AuditContextBuilder::class);
         $this->app->singleton(CanonicalAuditJson::class);

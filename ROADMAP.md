@@ -73,7 +73,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 50% | In progress |
+| 4 | Mutation services | 55% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -665,6 +665,25 @@ audit write.
   role assignments and canonical `role.assigned` audits atomically, and
   redacts configured assignment and dedicated audit reasons. Stable logical
   audit-target aliases now replace PHP class names in public audit data.
+- The container-bound public `AssignmentManager` now exposes the implemented
+  `assignRole` slice through a thin default adapter. It supplies the immediate
+  period default, captures the package clock once, delegates all behavior to
+  the internal handler, and exposes no placeholder methods.
+
+### Pre-v1 assignment-manager contract gate
+
+The current source contract is intentionally incremental while GateTrail
+remains unreleased:
+
+- `assignRole` is the only exposed assignment mutation until the corresponding
+  handlers for the other accepted methods exist;
+- `revokeRole`, direct-permission grant and revocation, and role-permission
+  grant and revocation remain required by ADR 0002;
+- adding those methods may break consumer-provided implementations before the
+  public API freeze;
+- custom `AssignmentManager` implementations are therefore not stable yet;
+- the API freeze and `v1.0.0` release are blocked until all six accepted
+  methods are implemented, bound, documented, and tested.
 
 ### Exit criteria
 
