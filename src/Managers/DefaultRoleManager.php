@@ -1,0 +1,47 @@
+<?php
+
+declare(strict_types=1);
+
+namespace HangTuah\GateTrail\Managers;
+
+use HangTuah\GateTrail\Contracts\RoleManager;
+use HangTuah\GateTrail\Models\Role;
+use HangTuah\GateTrail\MutationResult;
+use HangTuah\GateTrail\Mutations\Commands\CreateRoleCommand;
+use HangTuah\GateTrail\Mutations\Handlers\CreateRoleHandler;
+use HangTuah\GateTrail\SystemActor;
+use Illuminate\Database\Eloquent\Model;
+use Psr\Clock\ClockInterface;
+
+final readonly class DefaultRoleManager implements RoleManager
+{
+    public function __construct(
+        private CreateRoleHandler $createRole,
+        private ClockInterface $clock,
+    ) {}
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     * @return MutationResult<Role>
+     */
+    public function create(
+        string $name,
+        string $guard,
+        Model|SystemActor $actor,
+        ?string $reason = null,
+        ?string $description = null,
+        array $metadata = [],
+    ): MutationResult {
+        return $this->createRole->handle(
+            CreateRoleCommand::capture(
+                name: $name,
+                guard: $guard,
+                actor: $actor,
+                reason: $reason,
+                description: $description,
+                metadata: $metadata,
+                clock: $this->clock,
+            ),
+        );
+    }
+}

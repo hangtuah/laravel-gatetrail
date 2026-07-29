@@ -15,6 +15,22 @@ final readonly class AuditContextBuilder
         private CanonicalAuditJson $json,
     ) {}
 
+    public function roleDefinition(
+        string $guardName,
+        string $roleName,
+        NormalizedMetadata $metadata,
+    ): string {
+        $this->assertName($guardName, 'guard name');
+        $this->assertName($roleName, 'role name');
+
+        return $this->json->object([
+            'schema_version' => 1,
+            'guard_name' => $guardName,
+            'role_name' => $roleName,
+            'metadata' => $metadata->value,
+        ]);
+    }
+
     public function roleAssignment(
         string $guardName,
         string $roleName,

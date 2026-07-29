@@ -14,21 +14,27 @@ use HangTuah\GateTrail\Audit\MetadataNormalizer;
 use HangTuah\GateTrail\Audit\PermissionAssignmentSnapshotBuilder;
 use HangTuah\GateTrail\Audit\RoleAssignmentSnapshotBuilder;
 use HangTuah\GateTrail\Audit\RolePermissionSnapshotBuilder;
+use HangTuah\GateTrail\Audit\RoleSnapshotBuilder;
 use HangTuah\GateTrail\Audit\SensitiveAuditValueRedactor;
 use HangTuah\GateTrail\Audit\SensitiveMetadataRedactor;
 use HangTuah\GateTrail\Contracts\AssignmentManager;
+use HangTuah\GateTrail\Contracts\RoleManager;
 use HangTuah\GateTrail\Database\Schema\Ddl\DdlCompilerFactory;
 use HangTuah\GateTrail\Database\Schema\IdentifierValidator;
 use HangTuah\GateTrail\Database\Schema\Inspection\SchemaInspectorFactory;
 use HangTuah\GateTrail\Database\Schema\Manifest\SchemaManifest;
 use HangTuah\GateTrail\Database\Schema\SchemaAdapterFactory;
 use HangTuah\GateTrail\Database\Schema\SchemaContext;
+use HangTuah\GateTrail\Database\UniqueConstraintViolationClassifier;
 use HangTuah\GateTrail\Guards\DefaultGuardResolver;
 use HangTuah\GateTrail\Guards\SubjectGuardResolver;
 use HangTuah\GateTrail\Managers\DefaultAssignmentManager;
+use HangTuah\GateTrail\Managers\DefaultRoleManager;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\AssignmentIdentifierNormalizer;
+use HangTuah\GateTrail\Mutations\DefinitionInputValidator;
 use HangTuah\GateTrail\Mutations\Handlers\AssignRoleHandler;
+use HangTuah\GateTrail\Mutations\Handlers\CreateRoleHandler;
 use HangTuah\GateTrail\Mutations\Handlers\GrantDirectPermissionHandler;
 use HangTuah\GateTrail\Mutations\Handlers\GrantPermissionToRoleHandler;
 use HangTuah\GateTrail\Mutations\Handlers\RevokeDirectPermissionHandler;
@@ -62,6 +68,10 @@ final class GateTrailServiceProvider extends ServiceProvider
             AssignmentManager::class,
             DefaultAssignmentManager::class,
         );
+        $this->app->singleton(
+            RoleManager::class,
+            DefaultRoleManager::class,
+        );
         $this->app->singleton(AccessAuditWriter::class);
         $this->app->singleton(AuditContextBuilder::class);
         $this->app->singleton(CanonicalAuditJson::class);
@@ -69,6 +79,7 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(PermissionAssignmentSnapshotBuilder::class);
         $this->app->singleton(RoleAssignmentSnapshotBuilder::class);
         $this->app->singleton(RolePermissionSnapshotBuilder::class);
+        $this->app->singleton(RoleSnapshotBuilder::class);
         $this->app->singleton(SensitiveAuditValueRedactor::class);
         $this->app->singleton(SensitiveMetadataRedactor::class);
         $this->app->singleton(AssignmentConflictQuery::class);
@@ -76,7 +87,10 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(AssignmentLockStore::class);
         $this->app->singleton(ActorIdentityResolver::class);
         $this->app->singleton(AssignmentIdentifierNormalizer::class);
+        $this->app->singleton(DefinitionInputValidator::class);
+        $this->app->singleton(UniqueConstraintViolationClassifier::class);
         $this->app->singleton(AssignRoleHandler::class);
+        $this->app->singleton(CreateRoleHandler::class);
         $this->app->singleton(GrantDirectPermissionHandler::class);
         $this->app->singleton(GrantPermissionToRoleHandler::class);
         $this->app->singleton(RevokeRoleHandler::class);
@@ -95,18 +109,32 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(
             MutationReasonValidator::class,
             static function (Application $app): MutationReasonValidator {
-                $required = $app->make('config')->get(
+                $config = $app->make('config');
+                $assignment = $config->get(
                     'gatetrail.assignments.require_reason',
                     true,
                 );
+                $definition = $config->get(
+                    'gatetrail.definitions.require_reason',
+                    false,
+                );
 
-                if (! is_bool($required)) {
+                if (! is_bool($assignment)) {
                     throw new \InvalidArgumentException(
                         'GateTrail assignments.require_reason must be a boolean.',
                     );
                 }
 
-                return new MutationReasonValidator($required);
+                if (! is_bool($definition)) {
+                    throw new \InvalidArgumentException(
+                        'GateTrail definitions.require_reason must be a boolean.',
+                    );
+                }
+
+                return new MutationReasonValidator(
+                    $assignment,
+                    $definition,
+                );
             },
         );
         $this->app->singleton(DdlCompilerFactory::class);

@@ -14,4 +14,11 @@ final class ReasonRequired extends InvalidArgumentException
             'A non-empty reason is required for a GateTrail assignment mutation.',
         );
     }
+
+    public static function forDefinition(): self
+    {
+        return new self(
+            'A non-empty reason is required for a GateTrail definition mutation.',
+        );
+    }
 }

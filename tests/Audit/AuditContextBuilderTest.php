@@ -61,6 +61,36 @@ final class AuditContextBuilderTest extends TestCase
         );
     }
 
+    public function test_role_definition_context_has_exact_version_one_shape(): void
+    {
+        $context = app(AuditContextBuilder::class)->roleDefinition(
+            'web',
+            'reviewer',
+            app(MetadataNormalizer::class)->normalize([
+                'ticket' => 'SEC-42',
+            ]),
+        );
+
+        $this->assertSame(
+            '{"schema_version":1,"guard_name":"web",'
+            .'"role_name":"reviewer",'
+            .'"metadata":{"ticket":"SEC-42"}}',
+            $context,
+        );
+    }
+
+    public function test_empty_role_definition_name_is_rejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('role name cannot be empty');
+
+        app(AuditContextBuilder::class)->roleDefinition(
+            'web',
+            '',
+            app(MetadataNormalizer::class)->normalize([]),
+        );
+    }
+
     public function test_role_permission_context_has_both_natural_names(): void
     {
         $context = app(AuditContextBuilder::class)

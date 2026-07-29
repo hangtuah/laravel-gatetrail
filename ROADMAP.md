@@ -691,6 +691,15 @@ audit write.
   expired, and already-revoked assignments, persists the complete revocation
   tuple, and records canonical `permission.revoked_from_role` before/after
   evidence atomically through the thin public manager.
+- The first role-definition slice exposes strict `RoleManager::create()`
+  through a thin public adapter. It validates trimmed, bounded UTF-8 names
+  and guards before the transaction, honors the configurable definition
+  reason requirement, rejects active and deactivated `(name, guard_name)`
+  collisions as `DuplicateRole`, translates concurrent unique-constraint
+  races through a narrow portable classifier, and persists canonical
+  `role.created` audit evidence atomically. Update, deactivate, and restore
+  remain unimplemented, so the incremental `RoleManager` contract currently
+  exposes `create()` only.
 
 ### Pre-v1 assignment-manager contract gate
 

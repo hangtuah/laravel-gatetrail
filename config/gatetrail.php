@@ -68,6 +68,10 @@ return [
         'concurrency_attempts' => 3,
     ],
 
+    'definitions' => [
+        'require_reason' => false,
+    ],
+
     'audit' => [
         'enabled' => true,
         'strict' => true,

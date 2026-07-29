@@ -53,4 +53,46 @@ final class MutationReasonValidatorTest extends TestCase
             app(MutationReasonValidator::class)->assignment('   '),
         );
     }
+
+    public function test_definition_reason_is_optional_by_default(): void
+    {
+        $validator = new MutationReasonValidator(true);
+
+        $this->assertNull($validator->definition(null));
+        $this->assertNull($validator->definition('   '));
+        $this->assertSame(
+            'Initial provisioning',
+            $validator->definition('  Initial provisioning  '),
+        );
+    }
+
+    public function test_required_definition_reason_rejects_null_and_whitespace(): void
+    {
+        $validator = new MutationReasonValidator(true, true);
+
+        try {
+            $validator->definition(null);
+
+            $this->fail('A null definition reason should be rejected.');
+        } catch (ReasonRequired $exception) {
+            $this->assertStringContainsString(
+                'definition mutation',
+                $exception->getMessage(),
+            );
+        }
+
+        $this->expectException(ReasonRequired::class);
+
+        $validator->definition('   ');
+    }
+
+    public function test_container_binding_honors_required_definition_reason(): void
+    {
+        config()->set('gatetrail.definitions.require_reason', true);
+        app()->forgetInstance(MutationReasonValidator::class);
+
+        $this->expectException(ReasonRequired::class);
+
+        app(MutationReasonValidator::class)->definition(null);
+    }
 }
