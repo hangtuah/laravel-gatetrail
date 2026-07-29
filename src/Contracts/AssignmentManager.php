@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace HangTuah\GateTrail\Contracts;
 
 use HangTuah\GateTrail\AssignmentPeriod;
+use HangTuah\GateTrail\AssignmentReference;
+use HangTuah\GateTrail\Models\RoleAssignment;
 use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\RoleReference;
 use HangTuah\GateTrail\SystemActor;
@@ -22,6 +24,17 @@ interface AssignmentManager
         Model|SystemActor $actor,
         string $reason,
         ?AssignmentPeriod $period = null,
+        array $metadata = [],
+    ): MutationResult;
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     * @return MutationResult<RoleAssignment>
+     */
+    public function revokeRole(
+        RoleAssignmentContract|AssignmentReference|string|int $assignment,
+        Model|SystemActor $actor,
+        string $reason,
         array $metadata = [],
     ): MutationResult;
 }

@@ -6,7 +6,9 @@ namespace HangTuah\GateTrail\Tests\Managers;
 
 use DateTimeImmutable;
 use HangTuah\GateTrail\AssignmentPeriod;
+use HangTuah\GateTrail\AssignmentReference;
 use HangTuah\GateTrail\Contracts\AssignmentManager;
+use HangTuah\GateTrail\Exceptions\AssignmentNotActive;
 use HangTuah\GateTrail\Managers\DefaultAssignmentManager;
 use HangTuah\GateTrail\Models\Role;
 use HangTuah\GateTrail\MutationOutcome;
@@ -138,6 +140,72 @@ final class DefaultAssignmentManagerTest extends TestCase
         $this->assertDatabaseCount('acl_access_audits', 1);
     }
 
+    public function test_public_api_revokes_role_with_reason_and_metadata(): void
+    {
+        $manager = app(AssignmentManager::class);
+        $assigned = $manager->assignRole(
+            $this->subject,
+            'reviewer',
+            SystemActor::named('test-suite'),
+            'Initial assignment',
+        );
+
+        $revoked = $manager->revokeRole(
+            assignment: $assigned->resource,
+            actor: SystemActor::named('security-suite'),
+            reason: 'Transferred to another unit',
+            metadata: ['ticket' => 'SEC-42'],
+        );
+        $audit = $this->app['db']
+            ->table('acl_access_audits')
+            ->where('id', $revoked->auditId)
+            ->first();
+
+        $this->assertSame(MutationOutcome::Revoked, $revoked->outcome);
+        $this->assertSame(
+            'Transferred to another unit',
+            $revoked->resource->getAttribute('revocation_reason'),
+        );
+        $this->assertNotNull($audit);
+        $this->assertSame('role.revoked', $audit->event);
+        $this->assertSame(
+            ['ticket' => 'SEC-42'],
+            json_decode(
+                $audit->context,
+                true,
+                flags: JSON_THROW_ON_ERROR,
+            )['metadata'],
+        );
+    }
+
+    public function test_public_revoke_accepts_reference_and_rejects_replay(): void
+    {
+        $manager = app(AssignmentManager::class);
+        $assigned = $manager->assignRole(
+            $this->subject,
+            'reviewer',
+            SystemActor::named('test-suite'),
+            'Initial assignment',
+        );
+        $reference = AssignmentReference::id(
+            (string) $assigned->resource->getKey(),
+        );
+
+        $manager->revokeRole(
+            $reference,
+            SystemActor::named('security-suite'),
+            'First revocation',
+        );
+
+        $this->expectException(AssignmentNotActive::class);
+
+        $manager->revokeRole(
+            (string) $assigned->resource->getKey(),
+            SystemActor::named('security-suite'),
+            'Repeated revocation',
+        );
+    }
+
     public function test_current_public_contract_exposes_no_stub_mutations(): void
     {
         $methods = array_values(array_map(
@@ -151,6 +219,6 @@ final class DefaultAssignmentManagerTest extends TestCase
             ),
         ));
 
-        $this->assertSame(['assignRole'], $methods);
+        $this->assertSame(['assignRole', 'revokeRole'], $methods);
     }
 }

@@ -73,7 +73,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 65% | In progress |
+| 4 | Mutation services | 68% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -674,16 +674,19 @@ audit write.
   scheduled access, rejects missing, expired, and already-revoked assignments,
   persists the complete revocation tuple, and records canonical redacted
   `role.revoked` before/after snapshots atomically.
+- The public `AssignmentManager` now exposes both implemented role-assignment
+  mutations. Its thin default `revokeRole` adapter captures the package clock,
+  preserves explicit assignment references, actor, reason, and metadata, and
+  delegates entirely to the strict internal revocation handler.
 
 ### Pre-v1 assignment-manager contract gate
 
 The current source contract is intentionally incremental while GateTrail
 remains unreleased:
 
-- `assignRole` is the only exposed assignment mutation until the corresponding
-  handlers for the other accepted methods exist;
-- `revokeRole`, direct-permission grant and revocation, and role-permission
-  grant and revocation remain required by ADR 0002;
+- `assignRole` and `revokeRole` are the currently exposed assignment mutations;
+- direct-permission grant and revocation, and role-permission grant and
+  revocation remain required by ADR 0002;
 - adding those methods may break consumer-provided implementations before the
   public API freeze;
 - custom `AssignmentManager` implementations are therefore not stable yet;
