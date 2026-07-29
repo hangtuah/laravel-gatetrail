@@ -279,6 +279,18 @@ Assignment inputs are assignment models, explicit assignment references, or
 their IDs. Assignment names do not exist, so a string assignment input is
 treated as an ID.
 
+A string definition input resolves by name in GateTrail's configured default
+guard, falling back to Laravel's default guard when GateTrail has none. This
+resolution never inspects runtime authentication state, the current
+authenticated user, or the active request guard.
+
+Model, integer-ID, and explicit-reference inputs resolve the identified
+definition directly and retain its persisted guard. Consumers therefore use a
+model, an integer ID, or `RoleReference::id()` to mutate a definition that
+lives outside the default guard.
+
+Numeric-looking strings remain names under these rules.
+
 References are resolved inside the mutation transaction.
 
 ## Actor and metadata

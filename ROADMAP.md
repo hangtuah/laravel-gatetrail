@@ -98,7 +98,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 38% | In progress |
+| 4 | Mutation services | 43% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -618,7 +618,7 @@ additional progress items.
 #### Role-definition mutations
 
 - [x] `RoleManager::create()`.
-- [ ] `RoleManager::update()`.
+- [x] `RoleManager::update()`.
 - [ ] `RoleManager::deactivate()`.
 - [ ] `RoleManager::restore()`.
 
@@ -640,9 +640,9 @@ additional progress items.
 - [ ] Consumer documentation and pre-v1 API freeze.
 
 ```text
-Completed: 8
+Completed: 9
 Total:     21
-Progress:  38.095%, reported as 38%
+Progress:  42.857%, reported as 43%
 ```
 
 ### Required strict-audit flow
@@ -758,6 +758,17 @@ audit write.
   `role.created` audit evidence atomically. Update, deactivate, and restore
   remain unimplemented, so the incremental `RoleManager` contract currently
   exposes `create()` only.
+- Strict `RoleManager::update()` now applies immutable `RoleChanges`
+  description edits. Its transaction-bound definition resolver reloads and
+  locks the active role from model, integer-ID, explicit-reference, and
+  default-guard name inputs, keeps numeric-looking strings as names, rejects
+  deactivated definitions and malformed identifiers before any driver
+  binding, and never inspects authentication state. Identical descriptions
+  return `Unchanged` without an audit record or an `updated_at` change, while
+  real edits persist description only and record canonical `role.updated`
+  before/after snapshots proving name, guard, and deletion state are
+  unchanged. Deactivate and restore remain unimplemented, so `RoleManager`
+  currently exposes `create()` and `update()` only.
 
 ### Pre-v1 assignment-manager contract gate
 
