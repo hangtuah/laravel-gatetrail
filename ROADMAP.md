@@ -56,12 +56,36 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | Approximately 28% | Phase-weighted progress across Phases 0–13 |
-| Deliverable tracker | 11 of 32, approximately 34% | Completed concrete package deliverables |
+| Overall roadmap by primary phases | Approximately 30% | Equal-phase progress across Phases 0–13 |
+| Deliverable tracker | 10 of 32, approximately 31% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
 
 These percentages measure different things and must not be combined.
+
+Phase percentages use an explicit atomic completion checklist. Every atomic
+item is binary:
+
+```text
+0%   = acceptance criteria are not yet satisfied
+100% = acceptance criteria and implementation evidence are complete
+```
+
+Shared infrastructure is included in the acceptance criteria of the mutation
+or capability that uses it and is not counted again as separate progress.
+This prevents commands, handlers, tests, and audit plumbing for one use case
+from inflating the phase percentage through repeated counting.
+
+The overall roadmap gives each primary phase from Phase 0 through Phase 13
+equal weight:
+
+```text
+Overall progress = sum of Phase 0–13 percentages / 14
+```
+
+Phase 14 is optional and excluded. Summary percentages are rounded to the
+nearest whole number. The deliverable tracker remains a separate artifact
+count and does not contribute to phase or overall percentages.
 
 The overall percentage remains low because most work consists of implementation,
 automated testing, security hardening, a pilot, and release validation.
@@ -74,7 +98,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 93% | In progress |
+| 4 | Mutation services | 38% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -575,17 +599,51 @@ Status: **In progress**
 
 Implement every state-changing operation through the accepted public managers.
 
-### Deliverables
+### Atomic completion checklist
 
-- [ ] `RoleManager`.
-- [ ] `PermissionManager`.
-- [x] `AssignmentManager`.
-- [ ] Thin default manager adapters.
-- [ ] Internal immutable commands.
-- [ ] One internal handler per mutation use case.
-- [ ] Typed domain exceptions.
-- [x] Mutation results and outcomes.
-- [ ] After-commit cache and event hooks.
+Each mutation item includes its public manager method, thin adapter, immutable
+command, single-use-case handler, typed exceptions, audit evidence, and
+automated tests. Those internal components are acceptance criteria rather than
+additional progress items.
+
+#### Assignment mutations
+
+- [x] `AssignmentManager::assignRole()`.
+- [x] `AssignmentManager::revokeRole()`.
+- [x] `AssignmentManager::grantDirectPermission()`.
+- [x] `AssignmentManager::revokeDirectPermission()`.
+- [x] `AssignmentManager::grantPermissionToRole()`.
+- [x] `AssignmentManager::revokePermissionFromRole()`.
+
+#### Role-definition mutations
+
+- [x] `RoleManager::create()`.
+- [ ] `RoleManager::update()`.
+- [ ] `RoleManager::deactivate()`.
+- [ ] `RoleManager::restore()`.
+
+#### Permission-definition mutations
+
+- [ ] `PermissionManager::create()`.
+- [ ] `PermissionManager::update()`.
+- [ ] `PermissionManager::deactivate()`.
+- [ ] `PermissionManager::restore()`.
+
+#### Cross-cutting mutation behavior
+
+- [x] Strict audit behavior.
+- [ ] Non-strict audit behavior.
+- [ ] Disabled audit behavior.
+- [ ] After-commit cache invalidation.
+- [ ] After-commit event dispatch.
+- [ ] Bounded concurrency retry.
+- [ ] Consumer documentation and pre-v1 API freeze.
+
+```text
+Completed: 8
+Total:     21
+Progress:  38.095%, reported as 38%
+```
 
 ### Required strict-audit flow
 
@@ -1139,7 +1197,7 @@ Progress: **8 of 8**
 - [ ] Audit trail
 - [ ] Cache invalidation
 
-Progress: **3 of 10**
+Progress: **2 of 10**
 
 ### Quality
 
@@ -1168,21 +1226,26 @@ Progress: **0 of 8**
 ### Total
 
 ```text
-Completed: 11
+Completed: 10
 Total:     32
-Progress:  34.375%, reported as approximately 34%
+Progress:  31.250%, reported as approximately 31%
 ```
 
 ## 25. Progress update rules
 
 When work is completed:
 
-1. update the relevant checklist;
+1. update the relevant atomic checklist only when its acceptance criteria and
+   implementation evidence are complete;
 2. add evidence such as a commit, test, CI run, or release tag;
-3. recalculate the affected phase;
-4. recalculate the first sprint or deliverable tracker when applicable;
-5. update the `Last updated` date;
-6. do not mark design-only work as implemented.
+3. recalculate the affected phase from completed atomic items;
+4. recalculate the equal-phase overall percentage;
+5. recalculate the first sprint or deliverable tracker when applicable,
+   without combining those measurements with phase progress;
+6. do not count shared infrastructure again when its consuming use case is
+   already an atomic progress item;
+7. update the `Last updated` date;
+8. do not mark design-only work as implemented.
 
 A phase reaches 100% only when its exit criteria are satisfied.
 
