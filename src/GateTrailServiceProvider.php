@@ -8,7 +8,10 @@ use HangTuah\GateTrail\Assignments\AssignmentConflictQuery;
 use HangTuah\GateTrail\Assignments\AssignmentDecisionMaker;
 use HangTuah\GateTrail\Assignments\AssignmentLockStore;
 use HangTuah\GateTrail\Audit\AccessAuditWriter;
+use HangTuah\GateTrail\Audit\AuditContextBuilder;
+use HangTuah\GateTrail\Audit\CanonicalAuditJson;
 use HangTuah\GateTrail\Audit\MetadataNormalizer;
+use HangTuah\GateTrail\Audit\RoleAssignmentSnapshotBuilder;
 use HangTuah\GateTrail\Audit\SensitiveMetadataRedactor;
 use HangTuah\GateTrail\Database\Schema\Ddl\DdlCompilerFactory;
 use HangTuah\GateTrail\Database\Schema\IdentifierValidator;
@@ -38,7 +41,10 @@ final class GateTrailServiceProvider extends ServiceProvider
 
         $this->app->singleton(IdentifierValidator::class);
         $this->app->singleton(AccessAuditWriter::class);
+        $this->app->singleton(AuditContextBuilder::class);
+        $this->app->singleton(CanonicalAuditJson::class);
         $this->app->singleton(MetadataNormalizer::class);
+        $this->app->singleton(RoleAssignmentSnapshotBuilder::class);
         $this->app->singleton(SensitiveMetadataRedactor::class);
         $this->app->singleton(AssignmentConflictQuery::class);
         $this->app->singleton(AssignmentDecisionMaker::class);

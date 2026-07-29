@@ -73,7 +73,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 36% | In progress |
+| 4 | Mutation services | 40% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -654,6 +654,11 @@ audit write.
   identifier, wraps persistence failures safely, and proves that an audit
   failure or caller-owned outer rollback removes both mutation and audit
   writes.
+- Canonical role-assignment snapshots reload normalized persisted values,
+  preserve the complete version 1 key order, serialize numeric identifiers as
+  decimal strings, and normalize timestamps to UTC with microseconds. The
+  role-assignment context builder preserves its required key order, embeds
+  normalized metadata as an object, and retains JSON value types.
 
 ### Exit criteria
 
