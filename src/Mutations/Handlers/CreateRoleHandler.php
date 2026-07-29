@@ -32,6 +32,10 @@ use LogicException;
  */
 final readonly class CreateRoleHandler
 {
+    private const NAMESPACE_CONSTRAINT = 'acl_role_name_guard_uq';
+
+    private const NAMESPACE_COLUMNS = ['name', 'guard_name'];
+
     public function __construct(
         private Repository $config,
         private DefinitionInputValidator $definitions,
@@ -98,8 +102,11 @@ final readonly class CreateRoleHandler
                     $role->save();
                 } catch (QueryException $exception) {
                     if (
-                        $this->uniqueViolations->isUniqueViolation(
+                        $this->uniqueViolations->matchesConstraint(
                             $exception,
+                            self::NAMESPACE_CONSTRAINT,
+                            $role->getTable(),
+                            self::NAMESPACE_COLUMNS,
                         )
                     ) {
                         throw DuplicateRole::forNamespace($name, $guard);

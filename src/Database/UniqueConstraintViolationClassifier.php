@@ -12,7 +12,36 @@ use Illuminate\Database\UniqueConstraintViolationException;
  */
 final readonly class UniqueConstraintViolationClassifier
 {
-    public function isUniqueViolation(QueryException $exception): bool
+    /**
+     * Confirms that the exception is a unique-constraint violation of one
+     * specific named constraint. SQLite reports violated columns instead of
+     * the constraint name, so the exact table/column identity is matched
+     * there. Every other integrity failure is left untranslated.
+     *
+     * @param  list<string>  $columns
+     */
+    public function matchesConstraint(
+        QueryException $exception,
+        string $constraint,
+        string $table,
+        array $columns,
+    ): bool {
+        if (! $this->isUniqueViolation($exception)) {
+            return false;
+        }
+
+        if ($this->mentionsConstraint($exception, $constraint)) {
+            return true;
+        }
+
+        return $this->matchesReportedColumns(
+            $exception,
+            $table,
+            $columns,
+        );
+    }
+
+    private function isUniqueViolation(QueryException $exception): bool
     {
         if ($exception instanceof UniqueConstraintViolationException) {
             return true;
@@ -45,6 +74,50 @@ final readonly class UniqueConstraintViolationClassifier
 
         return $driverCode === 1
             && str_contains($exception->getMessage(), 'ORA-00001');
+    }
+
+    private function mentionsConstraint(
+        QueryException $exception,
+        string $constraint,
+    ): bool {
+        $pattern = sprintf(
+            '/(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])/i',
+            preg_quote($constraint, '/'),
+        );
+
+        return preg_match($pattern, $exception->getMessage()) === 1;
+    }
+
+    /**
+     * @param  list<string>  $columns
+     */
+    private function matchesReportedColumns(
+        QueryException $exception,
+        string $table,
+        array $columns,
+    ): bool {
+        $listed = preg_match(
+            '/UNIQUE constraint failed: ([\w".]+(?:,\s*[\w".]+)*)/',
+            $exception->getMessage(),
+            $matches,
+        );
+
+        if ($listed !== 1) {
+            return false;
+        }
+
+        $reported = array_map(
+            static fn (string $token): string => trim($token, ' "'),
+            explode(',', $matches[1]),
+        );
+        $expected = array_map(
+            static fn (string $column): string => $table.'.'.$column,
+            $columns,
+        );
+        sort($reported);
+        sort($expected);
+
+        return $reported === $expected;
     }
 
     private function sqlState(QueryException $exception): ?string
