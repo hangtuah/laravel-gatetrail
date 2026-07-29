@@ -16,6 +16,7 @@ final readonly class RolePermissionInputResolver
 {
     public function __construct(
         private ModelRegistry $models,
+        private AssignmentIdentifierNormalizer $identifiers,
     ) {}
 
     public function resolve(
@@ -31,8 +32,14 @@ final readonly class RolePermissionInputResolver
         }
 
         $id = $this->identifier($input);
+        $key = $this->identifiers->normalize($instance, $id);
+
+        if ($key === null) {
+            throw AssignmentNotActive::forRolePermission($id);
+        }
+
         $assignment = $class::query()
-            ->whereKey($id)
+            ->whereKey($key)
             ->lockForUpdate()
             ->first();
 

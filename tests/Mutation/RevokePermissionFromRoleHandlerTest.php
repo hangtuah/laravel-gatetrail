@@ -16,12 +16,16 @@ use HangTuah\GateTrail\MutationOutcome;
 use HangTuah\GateTrail\Mutations\Commands\RevokePermissionFromRoleCommand;
 use HangTuah\GateTrail\Mutations\Handlers\RevokePermissionFromRoleHandler;
 use HangTuah\GateTrail\SystemActor;
+use HangTuah\GateTrail\Tests\Fixtures\ForcedRollback;
 use HangTuah\GateTrail\Tests\Fixtures\FrozenClock;
 use HangTuah\GateTrail\Tests\TestCase;
-use RuntimeException;
 
 final class RevokePermissionFromRoleHandlerTest extends TestCase
 {
+    private Role $role;
+
+    private Permission $permission;
+
     private RolePermission $assignment;
 
     protected function setUp(): void
@@ -31,18 +35,18 @@ final class RevokePermissionFromRoleHandlerTest extends TestCase
         $this->artisan('migrate', [
             '--database' => 'testing',
         ])->assertExitCode(0);
-        $role = Role::query()->create([
+        $this->role = Role::query()->create([
             'name' => 'reviewer',
             'guard_name' => 'web',
             'description' => null,
         ]);
-        $permission = Permission::query()->create([
+        $this->permission = Permission::query()->create([
             'name' => 'documents.approve',
             'guard_name' => 'web',
         ]);
         $this->assignment = RolePermission::query()->create([
-            'role_id' => $role->getKey(),
-            'permission_id' => $permission->getKey(),
+            'role_id' => $this->role->getKey(),
+            'permission_id' => $this->permission->getKey(),
             'assigned_at' => '2026-07-29 10:00:00',
             'assigned_by_type' => 'gatetrail.system',
             'assigned_by_id' => 'assignment-suite',
@@ -193,18 +197,69 @@ final class RevokePermissionFromRoleHandlerTest extends TestCase
 
         try {
             $connection->transaction(function (): void {
-                app(RevokePermissionFromRoleHandler::class)->handle(
-                    $this->command($this->assignment),
-                );
+                $result = app(RevokePermissionFromRoleHandler::class)
+                    ->handle($this->command($this->assignment));
 
-                throw new RuntimeException('Roll back outer transaction.');
+                $this->assertSame(
+                    MutationOutcome::Revoked,
+                    $result->outcome,
+                );
+                $this->assertNotNull(
+                    $this->assignment->fresh()
+                        ?->getAttribute('revoked_at'),
+                );
+                $this->assertDatabaseCount('acl_access_audits', 1);
+
+                throw new ForcedRollback('Roll back outer transaction.');
             });
-        } catch (RuntimeException) {
+
+            $this->fail('The outer transaction should roll back.');
+        } catch (ForcedRollback) {
             $this->assertNull(
                 $this->assignment->fresh()?->getAttribute('revoked_at'),
             );
             $this->assertDatabaseCount('acl_access_audits', 0);
         }
+    }
+
+    public function test_soft_deleted_definitions_preserve_revocation_and_historical_names(): void
+    {
+        $this->role->delete();
+        $this->permission->delete();
+
+        $result = app(RevokePermissionFromRoleHandler::class)->handle(
+            $this->command($this->assignment),
+        );
+        $audit = $this->app['db']
+            ->table('acl_access_audits')
+            ->where('id', $result->auditId)
+            ->first();
+        $context = json_decode(
+            $audit->context,
+            true,
+            flags: JSON_THROW_ON_ERROR,
+        );
+
+        $this->assertSame(MutationOutcome::Revoked, $result->outcome);
+        $this->assertSame('web', $context['guard_name']);
+        $this->assertSame('reviewer', $context['role_name']);
+        $this->assertSame(
+            'documents.approve',
+            $context['permission_name'],
+        );
+    }
+
+    public function test_assignment_expiring_exactly_at_request_time_is_expired(): void
+    {
+        $this->assignment->forceFill([
+            'expires_at' => '2026-07-29 12:00:00',
+        ])->save();
+
+        $this->expectException(AssignmentNotActive::class);
+
+        app(RevokePermissionFromRoleHandler::class)->handle(
+            $this->command($this->assignment),
+        );
     }
 
     /**

@@ -14,10 +14,10 @@ use HangTuah\GateTrail\MutationOutcome;
 use HangTuah\GateTrail\Mutations\Commands\GrantDirectPermissionCommand;
 use HangTuah\GateTrail\Mutations\Handlers\GrantDirectPermissionHandler;
 use HangTuah\GateTrail\SystemActor;
+use HangTuah\GateTrail\Tests\Fixtures\ForcedRollback;
 use HangTuah\GateTrail\Tests\Fixtures\FrozenClock;
 use HangTuah\GateTrail\Tests\Fixtures\TestSubject;
 use HangTuah\GateTrail\Tests\TestCase;
-use RuntimeException;
 
 final class GrantDirectPermissionHandlerTest extends TestCase
 {
@@ -86,10 +86,14 @@ final class GrantDirectPermissionHandlerTest extends TestCase
     {
         try {
             $this->app['db']->connection('testing')->transaction(function (): void {
-                app(GrantDirectPermissionHandler::class)->handle($this->command());
-                throw new RuntimeException('Roll back outer transaction.');
+                $result = app(GrantDirectPermissionHandler::class)->handle($this->command());
+                $this->assertSame(MutationOutcome::Created, $result->outcome);
+                $this->assertDatabaseCount('acl_permission_assignments', 1);
+                $this->assertDatabaseCount('acl_access_audits', 1);
+                throw new ForcedRollback('Roll back outer transaction.');
             });
-        } catch (RuntimeException) {
+            $this->fail('The outer transaction should roll back.');
+        } catch (ForcedRollback) {
             $this->assertDatabaseCount('acl_assignment_locks', 0);
             $this->assertDatabaseCount('acl_permission_assignments', 0);
             $this->assertDatabaseCount('acl_access_audits', 0);

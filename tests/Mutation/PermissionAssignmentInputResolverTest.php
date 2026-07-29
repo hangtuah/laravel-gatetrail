@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail\Tests\Mutation;
 
+use HangTuah\GateTrail\Exceptions\AssignmentNotActive;
 use HangTuah\GateTrail\Models\Permission;
 use HangTuah\GateTrail\Models\PermissionAssignment;
 use HangTuah\GateTrail\Mutations\PermissionAssignmentInputResolver;
@@ -33,5 +34,21 @@ final class PermissionAssignmentInputResolverTest extends TestCase
     {
         $this->expectException(LogicException::class);
         app(PermissionAssignmentInputResolver::class)->resolve($this->assignment);
+    }
+
+    public function test_malformed_string_identifiers_are_rejected_before_querying(): void
+    {
+        $this->app['db']->connection('testing')->transaction(function (): void {
+            foreach ([' 1', '1 ', '+1', '-1', '1.0', '1e3', 'abc'] as $identifier) {
+                try {
+                    app(PermissionAssignmentInputResolver::class)->resolve($identifier);
+                    $this->fail(sprintf('Identifier [%s] should be rejected.', $identifier));
+                } catch (AssignmentNotActive $exception) {
+                    $this->assertSame('permission', $exception->assignmentKind);
+                    $this->assertSame(hash('sha256', $identifier), $exception->referenceHash);
+                    $this->assertStringNotContainsString($identifier, $exception->getMessage());
+                }
+            }
+        });
     }
 }

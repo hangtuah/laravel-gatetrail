@@ -17,10 +17,10 @@ use HangTuah\GateTrail\MutationOutcome;
 use HangTuah\GateTrail\Mutations\Commands\AssignRoleCommand;
 use HangTuah\GateTrail\Mutations\Handlers\AssignRoleHandler;
 use HangTuah\GateTrail\SystemActor;
+use HangTuah\GateTrail\Tests\Fixtures\ForcedRollback;
 use HangTuah\GateTrail\Tests\Fixtures\FrozenClock;
 use HangTuah\GateTrail\Tests\Fixtures\TestSubject;
 use HangTuah\GateTrail\Tests\TestCase;
-use RuntimeException;
 
 final class AssignRoleHandlerTest extends TestCase
 {
@@ -226,11 +226,21 @@ final class AssignRoleHandlerTest extends TestCase
 
         try {
             $connection->transaction(function (): void {
-                app(AssignRoleHandler::class)->handle($this->command());
+                $result = app(AssignRoleHandler::class)
+                    ->handle($this->command());
 
-                throw new RuntimeException('Roll back outer transaction.');
+                $this->assertSame(
+                    MutationOutcome::Created,
+                    $result->outcome,
+                );
+                $this->assertDatabaseCount('acl_role_assignments', 1);
+                $this->assertDatabaseCount('acl_access_audits', 1);
+
+                throw new ForcedRollback('Roll back outer transaction.');
             });
-        } catch (RuntimeException) {
+
+            $this->fail('The outer transaction should roll back.');
+        } catch (ForcedRollback) {
             $this->assertDatabaseCount('acl_assignment_locks', 0);
             $this->assertDatabaseCount('acl_role_assignments', 0);
             $this->assertDatabaseCount('acl_access_audits', 0);

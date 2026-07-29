@@ -42,7 +42,8 @@ Phase 0 — Complete
 Phase 1 — Complete
 Phase 2 — Complete
 Phase 3 — In progress
-Phase 4 onward — Not started
+Phase 4 — In progress
+Phase 5 onward — Not started
 ```
 
 The package specification is accepted for implementation. Repository tooling

@@ -15,9 +15,9 @@ use HangTuah\GateTrail\MutationOutcome;
 use HangTuah\GateTrail\Mutations\Commands\GrantPermissionToRoleCommand;
 use HangTuah\GateTrail\Mutations\Handlers\GrantPermissionToRoleHandler;
 use HangTuah\GateTrail\SystemActor;
+use HangTuah\GateTrail\Tests\Fixtures\ForcedRollback;
 use HangTuah\GateTrail\Tests\Fixtures\FrozenClock;
 use HangTuah\GateTrail\Tests\TestCase;
-use RuntimeException;
 
 final class GrantPermissionToRoleHandlerTest extends TestCase
 {
@@ -122,13 +122,23 @@ final class GrantPermissionToRoleHandlerTest extends TestCase
             $this->app['db']
                 ->connection('testing')
                 ->transaction(function (): void {
-                    app(GrantPermissionToRoleHandler::class)
+                    $result = app(GrantPermissionToRoleHandler::class)
                         ->handle($this->command());
-                    throw new RuntimeException(
+
+                    $this->assertSame(
+                        MutationOutcome::Created,
+                        $result->outcome,
+                    );
+                    $this->assertDatabaseCount('acl_role_permissions', 1);
+                    $this->assertDatabaseCount('acl_access_audits', 1);
+
+                    throw new ForcedRollback(
                         'Roll back outer transaction.',
                     );
                 });
-        } catch (RuntimeException) {
+
+            $this->fail('The outer transaction should roll back.');
+        } catch (ForcedRollback) {
             $this->assertDatabaseCount('acl_assignment_locks', 0);
             $this->assertDatabaseCount('acl_role_permissions', 0);
             $this->assertDatabaseCount('acl_access_audits', 0);

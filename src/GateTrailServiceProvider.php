@@ -27,6 +27,7 @@ use HangTuah\GateTrail\Guards\DefaultGuardResolver;
 use HangTuah\GateTrail\Guards\SubjectGuardResolver;
 use HangTuah\GateTrail\Managers\DefaultAssignmentManager;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
+use HangTuah\GateTrail\Mutations\AssignmentIdentifierNormalizer;
 use HangTuah\GateTrail\Mutations\Handlers\AssignRoleHandler;
 use HangTuah\GateTrail\Mutations\Handlers\GrantDirectPermissionHandler;
 use HangTuah\GateTrail\Mutations\Handlers\GrantPermissionToRoleHandler;
@@ -74,6 +75,7 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(AssignmentDecisionMaker::class);
         $this->app->singleton(AssignmentLockStore::class);
         $this->app->singleton(ActorIdentityResolver::class);
+        $this->app->singleton(AssignmentIdentifierNormalizer::class);
         $this->app->singleton(AssignRoleHandler::class);
         $this->app->singleton(GrantDirectPermissionHandler::class);
         $this->app->singleton(GrantPermissionToRoleHandler::class);

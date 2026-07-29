@@ -12,8 +12,8 @@ use HangTuah\GateTrail\Models\AccessAudit;
 use HangTuah\GateTrail\Mutations\ActorIdentity;
 use HangTuah\GateTrail\Mutations\StrictMutationTransaction;
 use HangTuah\GateTrail\Support\ModelRegistry;
+use HangTuah\GateTrail\Tests\Fixtures\ForcedRollback;
 use HangTuah\GateTrail\Tests\TestCase;
-use RuntimeException;
 
 final class StrictMutationTransactionTest extends TestCase
 {
@@ -88,9 +88,16 @@ final class StrictMutationTransactionTest extends TestCase
                     },
                 );
 
-                throw new RuntimeException('Roll back outer transaction.');
+                $this->assertDatabaseHas('acl_roles', [
+                    'name' => 'reviewer',
+                ]);
+                $this->assertDatabaseCount('acl_access_audits', 1);
+
+                throw new ForcedRollback('Roll back outer transaction.');
             });
-        } catch (RuntimeException) {
+
+            $this->fail('The outer transaction should roll back.');
+        } catch (ForcedRollback) {
             $this->assertDatabaseMissing('acl_roles', [
                 'name' => 'reviewer',
             ]);

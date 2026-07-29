@@ -61,6 +61,7 @@ final class ModelRegistry
             'role_assignment',
             RoleAssignment::class,
             RoleAssignmentContract::class,
+            requiresBaseModel: true,
         );
     }
 
@@ -74,6 +75,7 @@ final class ModelRegistry
             'permission_assignment',
             PermissionAssignment::class,
             PermissionAssignmentContract::class,
+            requiresBaseModel: true,
         );
     }
 
@@ -87,6 +89,7 @@ final class ModelRegistry
             'role_permission',
             RolePermission::class,
             RolePermissionContract::class,
+            requiresBaseModel: true,
         );
     }
 
@@ -109,6 +112,7 @@ final class ModelRegistry
         string $default,
         ?string $contract = null,
         bool $requiresSoftDeletes = false,
+        bool $requiresBaseModel = false,
     ): string {
         $class = $this->models[$key] ?? $default;
 
@@ -125,6 +129,18 @@ final class ModelRegistry
                 $key,
                 $class,
                 $contract,
+            );
+        }
+
+        if (
+            $requiresBaseModel
+            && $class !== $default
+            && ! is_subclass_of($class, $default)
+        ) {
+            throw InvalidModelConfiguration::missingBaseModel(
+                $key,
+                $class,
+                $default,
             );
         }
 

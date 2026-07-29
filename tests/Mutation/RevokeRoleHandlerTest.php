@@ -16,10 +16,10 @@ use HangTuah\GateTrail\MutationOutcome;
 use HangTuah\GateTrail\Mutations\Commands\RevokeRoleCommand;
 use HangTuah\GateTrail\Mutations\Handlers\RevokeRoleHandler;
 use HangTuah\GateTrail\SystemActor;
+use HangTuah\GateTrail\Tests\Fixtures\ForcedRollback;
 use HangTuah\GateTrail\Tests\Fixtures\FrozenClock;
 use HangTuah\GateTrail\Tests\Fixtures\TestSubject;
 use HangTuah\GateTrail\Tests\TestCase;
-use RuntimeException;
 
 final class RevokeRoleHandlerTest extends TestCase
 {
@@ -225,18 +225,68 @@ final class RevokeRoleHandlerTest extends TestCase
 
         try {
             $connection->transaction(function (): void {
-                app(RevokeRoleHandler::class)->handle(
+                $result = app(RevokeRoleHandler::class)->handle(
                     $this->command($this->assignment),
                 );
 
-                throw new RuntimeException('Roll back outer transaction.');
+                $this->assertSame(
+                    MutationOutcome::Revoked,
+                    $result->outcome,
+                );
+                $this->assertNotNull(
+                    $this->assignment->fresh()
+                        ?->getAttribute('revoked_at'),
+                );
+                $this->assertDatabaseCount('acl_access_audits', 1);
+
+                throw new ForcedRollback('Roll back outer transaction.');
             });
-        } catch (RuntimeException) {
+
+            $this->fail('The outer transaction should roll back.');
+        } catch (ForcedRollback) {
             $this->assertNull(
                 $this->assignment->fresh()?->getAttribute('revoked_at'),
             );
             $this->assertDatabaseCount('acl_access_audits', 0);
         }
+    }
+
+    public function test_soft_deleted_role_preserves_revocation_and_historical_names(): void
+    {
+        Role::query()
+            ->whereKey($this->assignment->getAttribute('role_id'))
+            ->firstOrFail()
+            ->delete();
+
+        $result = app(RevokeRoleHandler::class)->handle(
+            $this->command($this->assignment),
+        );
+        $audit = $this->app['db']
+            ->table('acl_access_audits')
+            ->where('id', $result->auditId)
+            ->first();
+        $context = json_decode(
+            $audit->context,
+            true,
+            flags: JSON_THROW_ON_ERROR,
+        );
+
+        $this->assertSame(MutationOutcome::Revoked, $result->outcome);
+        $this->assertSame('web', $context['guard_name']);
+        $this->assertSame('reviewer', $context['role_name']);
+    }
+
+    public function test_assignment_expiring_exactly_at_request_time_is_expired(): void
+    {
+        $this->assignment->forceFill([
+            'expires_at' => '2026-07-29 12:00:00',
+        ])->save();
+
+        $this->expectException(AssignmentNotActive::class);
+
+        app(RevokeRoleHandler::class)->handle(
+            $this->command($this->assignment),
+        );
     }
 
     /**

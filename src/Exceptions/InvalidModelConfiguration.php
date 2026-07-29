@@ -46,4 +46,17 @@ final class InvalidModelConfiguration extends InvalidArgumentException
             $class,
         ));
     }
+
+    public static function missingBaseModel(
+        string $key,
+        string $class,
+        string $base,
+    ): self {
+        return new self(sprintf(
+            'GateTrail model [%s] class [%s] must extend [%s].',
+            $key,
+            $class,
+            $base,
+        ));
+    }
 }

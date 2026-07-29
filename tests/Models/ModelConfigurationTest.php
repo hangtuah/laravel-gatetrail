@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail\Tests\Models;
 
+use HangTuah\GateTrail\Contracts\PermissionAssignmentContract;
+use HangTuah\GateTrail\Contracts\RoleAssignmentContract;
 use HangTuah\GateTrail\Contracts\RoleContract;
+use HangTuah\GateTrail\Contracts\RolePermissionContract;
 use HangTuah\GateTrail\Exceptions\InvalidModelConfiguration;
 use HangTuah\GateTrail\Models\AccessAudit;
 use HangTuah\GateTrail\Models\Permission;
@@ -75,6 +78,73 @@ final class ModelConfigurationTest extends TestCase
 
         app(ModelRegistry::class)->role();
     }
+
+    public function test_contract_only_assignment_models_are_rejected_with_typed_error(): void
+    {
+        config()->set(
+            'gatetrail.models.role_assignment',
+            ContractOnlyRoleAssignment::class,
+        );
+        config()->set(
+            'gatetrail.models.permission_assignment',
+            ContractOnlyPermissionAssignment::class,
+        );
+        config()->set(
+            'gatetrail.models.role_permission',
+            ContractOnlyRolePermission::class,
+        );
+        $registry = app(ModelRegistry::class);
+
+        foreach ([
+            'roleAssignment',
+            'permissionAssignment',
+            'rolePermission',
+        ] as $accessor) {
+            try {
+                $registry->{$accessor}();
+
+                $this->fail(sprintf(
+                    'Accessor [%s] should reject a contract-only model.',
+                    $accessor,
+                ));
+            } catch (InvalidModelConfiguration $exception) {
+                $this->assertStringContainsString(
+                    'must extend',
+                    $exception->getMessage(),
+                );
+            }
+        }
+    }
+
+    public function test_assignment_model_subclasses_resolve_from_configuration(): void
+    {
+        config()->set(
+            'gatetrail.models.role_assignment',
+            ExtendedRoleAssignment::class,
+        );
+        config()->set(
+            'gatetrail.models.permission_assignment',
+            ExtendedPermissionAssignment::class,
+        );
+        config()->set(
+            'gatetrail.models.role_permission',
+            ExtendedRolePermission::class,
+        );
+        $registry = app(ModelRegistry::class);
+
+        $this->assertSame(
+            ExtendedRoleAssignment::class,
+            $registry->roleAssignment(),
+        );
+        $this->assertSame(
+            ExtendedPermissionAssignment::class,
+            $registry->permissionAssignment(),
+        );
+        $this->assertSame(
+            ExtendedRolePermission::class,
+            $registry->rolePermission(),
+        );
+    }
 }
 
 final class CustomRole extends Role {}
@@ -82,3 +152,15 @@ final class CustomRole extends Role {}
 final class InvalidRole extends Model {}
 
 final class RoleWithoutSoftDeletes extends Model implements RoleContract {}
+
+final class ContractOnlyRoleAssignment extends Model implements RoleAssignmentContract {}
+
+final class ContractOnlyPermissionAssignment extends Model implements PermissionAssignmentContract {}
+
+final class ContractOnlyRolePermission extends Model implements RolePermissionContract {}
+
+final class ExtendedRoleAssignment extends RoleAssignment {}
+
+final class ExtendedPermissionAssignment extends PermissionAssignment {}
+
+final class ExtendedRolePermission extends RolePermission {}

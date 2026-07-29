@@ -49,6 +49,7 @@ final class RolePermissionInputResolverTest extends TestCase
             $this->assignment,
             $this->assignment->getKey(),
             (string) $this->assignment->getKey(),
+            '0'.$this->assignment->getKey(),
             AssignmentReference::id($this->assignment->getKey()),
         ];
 
@@ -99,5 +100,39 @@ final class RolePermissionInputResolverTest extends TestCase
 
         app(RolePermissionInputResolver::class)
             ->resolve($this->assignment);
+    }
+
+    public function test_malformed_string_identifiers_are_rejected_before_querying(): void
+    {
+        $malformed = [' 1', '1 ', '+1', '-1', '1.0', '1e3', 'abc'];
+
+        $this->app['db']->connection('testing')->transaction(
+            function () use ($malformed): void {
+                foreach ($malformed as $identifier) {
+                    try {
+                        app(RolePermissionInputResolver::class)
+                            ->resolve($identifier);
+
+                        $this->fail(sprintf(
+                            'Identifier [%s] should be rejected.',
+                            $identifier,
+                        ));
+                    } catch (AssignmentNotActive $exception) {
+                        $this->assertSame(
+                            'role_permission',
+                            $exception->assignmentKind,
+                        );
+                        $this->assertSame(
+                            hash('sha256', $identifier),
+                            $exception->referenceHash,
+                        );
+                        $this->assertStringNotContainsString(
+                            $identifier,
+                            $exception->getMessage(),
+                        );
+                    }
+                }
+            },
+        );
     }
 }

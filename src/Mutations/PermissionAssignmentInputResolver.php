@@ -14,7 +14,7 @@ use LogicException;
 
 final readonly class PermissionAssignmentInputResolver
 {
-    public function __construct(private ModelRegistry $models) {}
+    public function __construct(private ModelRegistry $models, private AssignmentIdentifierNormalizer $identifiers) {}
 
     public function resolve(PermissionAssignmentContract|AssignmentReference|string|int $input): PermissionAssignment&PermissionAssignmentContract
     {
@@ -35,7 +35,11 @@ final readonly class PermissionAssignmentInputResolver
         if (! is_int($id) && ! is_string($id)) {
             throw AssignmentNotActive::forPermission('model');
         }
-        $assignment = $class::query()->whereKey($id)->lockForUpdate()->first();
+        $key = $this->identifiers->normalize($instance, $id);
+        if ($key === null) {
+            throw AssignmentNotActive::forPermission($id);
+        }
+        $assignment = $class::query()->whereKey($key)->lockForUpdate()->first();
         if (! $assignment instanceof PermissionAssignmentContract) {
             throw AssignmentNotActive::forPermission($id);
         }
