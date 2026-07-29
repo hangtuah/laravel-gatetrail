@@ -60,4 +60,25 @@ final class AuditContextBuilderTest extends TestCase
             app(MetadataNormalizer::class)->normalize([]),
         );
     }
+
+    public function test_role_permission_context_has_both_natural_names(): void
+    {
+        $context = app(AuditContextBuilder::class)
+            ->rolePermissionAssignment(
+                'web',
+                'reviewer',
+                'documents.approve',
+                app(MetadataNormalizer::class)->normalize([
+                    'ticket' => 'SEC-42',
+                ]),
+            );
+
+        $this->assertSame(
+            '{"schema_version":1,"guard_name":"web",'
+            .'"role_name":"reviewer",'
+            .'"permission_name":"documents.approve",'
+            .'"metadata":{"ticket":"SEC-42"}}',
+            $context,
+        );
+    }
 }

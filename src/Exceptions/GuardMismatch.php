@@ -13,10 +13,12 @@ final class GuardMismatch extends RuntimeException
         public readonly string $targetGuard,
         public readonly string $targetType,
         public readonly int|string|null $targetId,
+        string $sourceType = 'subject',
     ) {
         parent::__construct(
             sprintf(
-                'GateTrail subject guard [%s] does not match %s guard [%s].',
+                'GateTrail %s guard [%s] does not match %s guard [%s].',
+                $sourceType,
                 $subjectGuard,
                 $targetType,
                 $targetGuard,
@@ -47,6 +49,20 @@ final class GuardMismatch extends RuntimeException
             $permissionGuard,
             'permission',
             $permissionId,
+        );
+    }
+
+    public static function forRolePermission(
+        string $roleGuard,
+        string $permissionGuard,
+        int|string|null $permissionId,
+    ): self {
+        return new self(
+            $roleGuard,
+            $permissionGuard,
+            'permission',
+            $permissionId,
+            'role',
         );
     }
 }

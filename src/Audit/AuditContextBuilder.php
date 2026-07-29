@@ -47,6 +47,25 @@ final readonly class AuditContextBuilder
         ]);
     }
 
+    public function rolePermissionAssignment(
+        string $guardName,
+        string $roleName,
+        string $permissionName,
+        NormalizedMetadata $metadata,
+    ): string {
+        $this->assertName($guardName, 'guard name');
+        $this->assertName($roleName, 'role name');
+        $this->assertName($permissionName, 'permission name');
+
+        return $this->json->object([
+            'schema_version' => 1,
+            'guard_name' => $guardName,
+            'role_name' => $roleName,
+            'permission_name' => $permissionName,
+            'metadata' => $metadata->value,
+        ]);
+    }
+
     private function assertName(string $value, string $label): void
     {
         if ($value === '') {

@@ -47,4 +47,17 @@ interface AssignmentManager
     /** @param array<string,mixed> $metadata
      * @return MutationResult<PermissionAssignment> */
     public function revokeDirectPermission(PermissionAssignmentContract|AssignmentReference|string|int $assignment, Model|SystemActor $actor, string $reason, array $metadata = []): MutationResult;
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     * @return MutationResult<Model&RolePermissionContract>
+     */
+    public function grantPermissionToRole(
+        RoleContract|RoleReference|string|int $role,
+        PermissionContract|PermissionReference|string|int $permission,
+        Model|SystemActor $actor,
+        string $reason,
+        ?AssignmentPeriod $period = null,
+        array $metadata = [],
+    ): MutationResult;
 }

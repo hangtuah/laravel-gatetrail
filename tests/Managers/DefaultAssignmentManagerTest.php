@@ -220,7 +220,16 @@ final class DefaultAssignmentManagerTest extends TestCase
             ),
         ));
 
-        $this->assertSame(['assignRole', 'revokeRole', 'grantDirectPermission', 'revokeDirectPermission'], $methods);
+        $this->assertSame(
+            [
+                'assignRole',
+                'revokeRole',
+                'grantDirectPermission',
+                'revokeDirectPermission',
+                'grantPermissionToRole',
+            ],
+            $methods,
+        );
     }
 
     public function test_public_direct_permission_grant_and_revoke(): void
@@ -246,6 +255,31 @@ final class DefaultAssignmentManagerTest extends TestCase
         $this->assertSame(MutationOutcome::Revoked, $revoked->outcome);
         $this->assertDatabaseHas('acl_access_audits', [
             'event' => 'permission.revoked_from_subject',
+        ]);
+    }
+
+    public function test_public_api_grants_permission_to_role(): void
+    {
+        Permission::query()->create([
+            'name' => 'documents.approve',
+            'guard_name' => 'web',
+        ]);
+
+        $result = app(AssignmentManager::class)
+            ->grantPermissionToRole(
+                role: 'reviewer',
+                permission: 'documents.approve',
+                actor: SystemActor::named('security-suite'),
+                reason: 'Reviewer may approve documents',
+                metadata: ['ticket' => 'SEC-42'],
+            );
+
+        $this->assertSame(MutationOutcome::Created, $result->outcome);
+        $this->assertNotNull($result->auditId);
+        $this->assertDatabaseHas('acl_access_audits', [
+            'event' => 'permission.granted_to_role',
+            'target_type' => 'role_permission',
+            'target_id' => $result->resource->getKey(),
         ]);
     }
 }
