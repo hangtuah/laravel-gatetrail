@@ -56,7 +56,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | Approximately 30% | Equal-phase progress across Phases 0–13 |
+| Overall roadmap by primary phases | Approximately 31% | Equal-phase progress across Phases 0–13 |
 | Deliverable tracker | 10 of 32, approximately 31% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
@@ -98,7 +98,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 43% | In progress |
+| 4 | Mutation services | 48% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -619,7 +619,7 @@ additional progress items.
 
 - [x] `RoleManager::create()`.
 - [x] `RoleManager::update()`.
-- [ ] `RoleManager::deactivate()`.
+- [x] `RoleManager::deactivate()`.
 - [ ] `RoleManager::restore()`.
 
 #### Permission-definition mutations
@@ -640,9 +640,9 @@ additional progress items.
 - [ ] Consumer documentation and pre-v1 API freeze.
 
 ```text
-Completed: 9
+Completed: 10
 Total:     21
-Progress:  42.857%, reported as 43%
+Progress:  47.619%, reported as 48%
 ```
 
 ### Required strict-audit flow
@@ -767,8 +767,21 @@ audit write.
   return `Unchanged` without an audit record or an `updated_at` change, while
   real edits persist description only and record canonical `role.updated`
   before/after snapshots proving name, guard, and deletion state are
-  unchanged. Deactivate and restore remain unimplemented, so `RoleManager`
-  currently exposes `create()` and `update()` only.
+  unchanged.
+- Strict `RoleManager::deactivate()` now suspends a role definition without
+  rewriting history. It resolves and locks the active role from every accepted
+  input, rejects missing and already-deactivated definitions as `RoleNotFound`,
+  and soft-deactivates through a deterministic update so `deleted_at` and
+  `updated_at` both carry the single captured package clock timestamp instead
+  of an Eloquent wall-clock value. Name, guard, and description are untouched,
+  the `(name, guard_name)` namespace stays occupied so creation still throws
+  `DuplicateRole`, and subject-role and role-permission assignment rows remain
+  byte-identical and unrevoked. Canonical `role.deactivated` before/after
+  evidence is persisted atomically, and the audit snapshot builder now reloads
+  definitions through a model-bound unscoped primary-key query so a
+  just-deactivated row is still reconstructable. Restore remains unimplemented,
+  so `RoleManager` currently exposes `create()`, `update()`, and
+  `deactivate()` only.
 
 ### Pre-v1 assignment-manager contract gate
 

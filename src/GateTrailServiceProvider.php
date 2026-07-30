@@ -36,6 +36,7 @@ use HangTuah\GateTrail\Mutations\DefinitionIdentifierNormalizer;
 use HangTuah\GateTrail\Mutations\DefinitionInputValidator;
 use HangTuah\GateTrail\Mutations\Handlers\AssignRoleHandler;
 use HangTuah\GateTrail\Mutations\Handlers\CreateRoleHandler;
+use HangTuah\GateTrail\Mutations\Handlers\DeactivateRoleHandler;
 use HangTuah\GateTrail\Mutations\Handlers\GrantDirectPermissionHandler;
 use HangTuah\GateTrail\Mutations\Handlers\GrantPermissionToRoleHandler;
 use HangTuah\GateTrail\Mutations\Handlers\RevokeDirectPermissionHandler;
@@ -96,6 +97,7 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(AssignRoleHandler::class);
         $this->app->singleton(CreateRoleHandler::class);
         $this->app->singleton(UpdateRoleHandler::class);
+        $this->app->singleton(DeactivateRoleHandler::class);
         $this->app->singleton(GrantDirectPermissionHandler::class);
         $this->app->singleton(GrantPermissionToRoleHandler::class);
         $this->app->singleton(RevokeRoleHandler::class);

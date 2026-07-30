@@ -19,14 +19,7 @@ final readonly class RoleSnapshotBuilder
 
     public function build(Model&RoleContract $role): string
     {
-        if (
-            ! $role->exists
-            || ! ($persisted = $role->fresh()) instanceof Model
-        ) {
-            throw new InvalidArgumentException(
-                'GateTrail cannot snapshot an unpersisted role definition.',
-            );
-        }
+        $persisted = $this->reload($role);
 
         return $this->json->object([
             'id' => $this->json->identifier(
@@ -47,6 +40,44 @@ final readonly class RoleSnapshotBuilder
                 'deleted_at',
             ),
         ]);
+    }
+
+    /**
+     * Reloads the exact persisted row behind one role definition.
+     *
+     * The query is bound to the supplied model, so it keeps the configured
+     * class, connection, and table, and it is pinned to that model's primary
+     * key. Every global scope is dropped rather than only `SoftDeletingScope`:
+     * a canonical audit snapshot must describe the row as stored, and a
+     * consumer scope that hides the freshly mutated row would otherwise fail
+     * an already-successful mutation instead of recording it. Dropping scopes
+     * cannot widen the result, because the primary key still identifies at
+     * most one row.
+     */
+    private function reload(Model&RoleContract $role): Model
+    {
+        $key = $role->getKey();
+
+        if (
+            ! $role->exists
+            || (! is_int($key) && ! is_string($key))
+        ) {
+            throw new InvalidArgumentException(
+                'GateTrail cannot snapshot an unpersisted role definition.',
+            );
+        }
+
+        $persisted = $role->newQueryWithoutScopes()
+            ->whereKey($key)
+            ->first();
+
+        if (! $persisted instanceof Model) {
+            throw new InvalidArgumentException(
+                'GateTrail cannot snapshot an unpersisted role definition.',
+            );
+        }
+
+        return $persisted;
     }
 
     private function requiredString(

@@ -37,4 +37,18 @@ interface RoleManager
         ?string $reason = null,
         array $metadata = [],
     ): MutationResult;
+
+    /**
+     * Suspends one role definition globally while preserving every stored
+     * subject-role and role-permission assignment.
+     *
+     * @param  array<string, mixed>  $metadata
+     * @return MutationResult<Model&RoleContract>
+     */
+    public function deactivate(
+        RoleContract|RoleReference|string|int $role,
+        Model|SystemActor $actor,
+        ?string $reason = null,
+        array $metadata = [],
+    ): MutationResult;
 }
