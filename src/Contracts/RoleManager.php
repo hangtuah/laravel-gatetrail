@@ -51,4 +51,19 @@ interface RoleManager
         ?string $reason = null,
         array $metadata = [],
     ): MutationResult;
+
+    /**
+     * Reactivates one deactivated role definition. Preserved assignments
+     * become eligible again on their own merits; revoked assignments stay
+     * revoked.
+     *
+     * @param  array<string, mixed>  $metadata
+     * @return MutationResult<Model&RoleContract>
+     */
+    public function restore(
+        RoleContract|RoleReference|string|int $role,
+        Model|SystemActor $actor,
+        ?string $reason = null,
+        array $metadata = [],
+    ): MutationResult;
 }

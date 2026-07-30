@@ -10,9 +10,11 @@ use HangTuah\GateTrail\Models\Role;
 use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\Commands\CreateRoleCommand;
 use HangTuah\GateTrail\Mutations\Commands\DeactivateRoleCommand;
+use HangTuah\GateTrail\Mutations\Commands\RestoreRoleCommand;
 use HangTuah\GateTrail\Mutations\Commands\UpdateRoleCommand;
 use HangTuah\GateTrail\Mutations\Handlers\CreateRoleHandler;
 use HangTuah\GateTrail\Mutations\Handlers\DeactivateRoleHandler;
+use HangTuah\GateTrail\Mutations\Handlers\RestoreRoleHandler;
 use HangTuah\GateTrail\Mutations\Handlers\UpdateRoleHandler;
 use HangTuah\GateTrail\RoleChanges;
 use HangTuah\GateTrail\RoleReference;
@@ -26,6 +28,7 @@ final readonly class DefaultRoleManager implements RoleManager
         private CreateRoleHandler $createRole,
         private UpdateRoleHandler $updateRole,
         private DeactivateRoleHandler $deactivateRole,
+        private RestoreRoleHandler $restoreRole,
         private ClockInterface $clock,
     ) {}
 
@@ -89,6 +92,27 @@ final readonly class DefaultRoleManager implements RoleManager
     ): MutationResult {
         return $this->deactivateRole->handle(
             DeactivateRoleCommand::capture(
+                role: $role,
+                actor: $actor,
+                reason: $reason,
+                metadata: $metadata,
+                clock: $this->clock,
+            ),
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     * @return MutationResult<Model&RoleContract>
+     */
+    public function restore(
+        RoleContract|RoleReference|string|int $role,
+        Model|SystemActor $actor,
+        ?string $reason = null,
+        array $metadata = [],
+    ): MutationResult {
+        return $this->restoreRole->handle(
+            RestoreRoleCommand::capture(
                 role: $role,
                 actor: $actor,
                 reason: $reason,

@@ -98,7 +98,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 48% | In progress |
+| 4 | Mutation services | 52% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -620,7 +620,7 @@ additional progress items.
 - [x] `RoleManager::create()`.
 - [x] `RoleManager::update()`.
 - [x] `RoleManager::deactivate()`.
-- [ ] `RoleManager::restore()`.
+- [x] `RoleManager::restore()`.
 
 #### Permission-definition mutations
 
@@ -640,9 +640,9 @@ additional progress items.
 - [ ] Consumer documentation and pre-v1 API freeze.
 
 ```text
-Completed: 10
+Completed: 11
 Total:     21
-Progress:  47.619%, reported as 48%
+Progress:  52.381%, reported as 52%
 ```
 
 ### Required strict-audit flow
@@ -779,9 +779,28 @@ audit write.
   byte-identical and unrevoked. Canonical `role.deactivated` before/after
   evidence is persisted atomically, and the audit snapshot builder now reloads
   definitions through a model-bound unscoped primary-key query so a
-  just-deactivated row is still reconstructable. Restore remains unimplemented,
-  so `RoleManager` currently exposes `create()`, `update()`, and
-  `deactivate()` only.
+  just-deactivated row is still reconstructable.
+- Strict `RoleManager::restore()` completes the accepted four-method role
+  contract. A dedicated transaction-bound
+  `DeactivatedRoleDefinitionInputResolver` locks soft-deleted definitions and
+  rejects active and missing rows as `RoleNotFound`, so the active-only
+  resolver every other mutation depends on stays unchanged. Restoration is the
+  exact inverse of deactivation: `deleted_at` is cleared and `updated_at`
+  carries the captured package clock through one explicit update, without
+  Eloquent's `restore()`, its wall-clock timestamps, or its
+  `restoring`/`restored` events. Name, guard, and description are untouched,
+  the same persisted row is reactivated so no duplicate-name translation and
+  no second definition occur, and the `(name, guard_name)` namespace stays
+  occupied. Subject-role and role-permission rows remain byte-identical:
+  unrevoked assignments become eligible again on their own merits and revoked
+  assignments keep their full revocation tuple. Canonical `role.restored`
+  before/after evidence is persisted atomically.
+
+`RoleManager` is now 4 of 4 complete — `create()`, `update()`, `deactivate()`,
+and `restore()` each have a real single-use-case handler and no stub exists.
+The contract remains pre-v1, but its accepted role-definition surface is
+complete. `PermissionManager` and the remaining cross-cutting mutation
+behaviors keep Phase 4 open.
 
 ### Pre-v1 assignment-manager contract gate
 

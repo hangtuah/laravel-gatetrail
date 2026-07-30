@@ -32,6 +32,7 @@ use HangTuah\GateTrail\Managers\DefaultAssignmentManager;
 use HangTuah\GateTrail\Managers\DefaultRoleManager;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\AssignmentIdentifierNormalizer;
+use HangTuah\GateTrail\Mutations\DeactivatedRoleDefinitionInputResolver;
 use HangTuah\GateTrail\Mutations\DefinitionIdentifierNormalizer;
 use HangTuah\GateTrail\Mutations\DefinitionInputValidator;
 use HangTuah\GateTrail\Mutations\Handlers\AssignRoleHandler;
@@ -39,6 +40,7 @@ use HangTuah\GateTrail\Mutations\Handlers\CreateRoleHandler;
 use HangTuah\GateTrail\Mutations\Handlers\DeactivateRoleHandler;
 use HangTuah\GateTrail\Mutations\Handlers\GrantDirectPermissionHandler;
 use HangTuah\GateTrail\Mutations\Handlers\GrantPermissionToRoleHandler;
+use HangTuah\GateTrail\Mutations\Handlers\RestoreRoleHandler;
 use HangTuah\GateTrail\Mutations\Handlers\RevokeDirectPermissionHandler;
 use HangTuah\GateTrail\Mutations\Handlers\RevokePermissionFromRoleHandler;
 use HangTuah\GateTrail\Mutations\Handlers\RevokeRoleHandler;
@@ -98,6 +100,7 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(CreateRoleHandler::class);
         $this->app->singleton(UpdateRoleHandler::class);
         $this->app->singleton(DeactivateRoleHandler::class);
+        $this->app->singleton(RestoreRoleHandler::class);
         $this->app->singleton(GrantDirectPermissionHandler::class);
         $this->app->singleton(GrantPermissionToRoleHandler::class);
         $this->app->singleton(RevokeRoleHandler::class);
@@ -112,6 +115,7 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(RevokePermissionFromRoleHandler::class);
         $this->app->singleton(RoleAssignmentInputResolver::class);
         $this->app->singleton(RoleDefinitionInputResolver::class);
+        $this->app->singleton(DeactivatedRoleDefinitionInputResolver::class);
         $this->app->singleton(RolePermissionInputResolver::class);
         $this->app->singleton(StrictMutationTransaction::class);
         $this->app->singleton(

@@ -11,6 +11,11 @@ use HangTuah\GateTrail\Exceptions\RoleNotFound;
 use HangTuah\GateTrail\Managers\DefaultRoleManager;
 use HangTuah\GateTrail\Models\Role;
 use HangTuah\GateTrail\MutationOutcome;
+use HangTuah\GateTrail\MutationResult;
+use HangTuah\GateTrail\Mutations\Handlers\CreateRoleHandler;
+use HangTuah\GateTrail\Mutations\Handlers\DeactivateRoleHandler;
+use HangTuah\GateTrail\Mutations\Handlers\RestoreRoleHandler;
+use HangTuah\GateTrail\Mutations\Handlers\UpdateRoleHandler;
 use HangTuah\GateTrail\RoleChanges;
 use HangTuah\GateTrail\RoleReference;
 use HangTuah\GateTrail\SystemActor;
@@ -19,6 +24,7 @@ use HangTuah\GateTrail\Tests\TestCase;
 use Psr\Clock\ClockInterface;
 use ReflectionClass;
 use ReflectionMethod;
+use ReflectionNamedType;
 use ReflectionParameter;
 
 final class DefaultRoleManagerTest extends TestCase
@@ -303,7 +309,153 @@ final class DefaultRoleManagerTest extends TestCase
         }
     }
 
-    public function test_current_public_contract_exposes_create_update_and_deactivate(): void
+    public function test_public_api_restores_a_role_through_the_full_path(): void
+    {
+        $manager = app(RoleManager::class);
+        $created = $manager->create(
+            'reviewer',
+            'web',
+            SystemActor::named('definition-suite'),
+            description: 'Reviews documents.',
+        );
+        $manager->deactivate(
+            role: $created->resource,
+            actor: SystemActor::named('definition-suite'),
+        );
+
+        $result = $manager->restore(
+            role: $created->resource,
+            actor: SystemActor::named('definition-suite'),
+            reason: 'Reinstated after review',
+            metadata: ['ticket' => 'SEC-42'],
+        );
+        $audit = $this->app['db']
+            ->table('acl_access_audits')
+            ->where('id', $result->auditId)
+            ->first();
+
+        $this->assertSame(MutationOutcome::Restored, $result->outcome);
+        $this->assertTrue($result->changed());
+        $this->assertNotNull($result->auditId);
+        $this->assertNull($result->resource->getAttribute('deleted_at'));
+        $this->assertNotNull($audit);
+        $this->assertSame('role.restored', $audit->event);
+        $this->assertSame('role', $audit->target_type);
+        $this->assertSame(
+            ['ticket' => 'SEC-42'],
+            json_decode(
+                $audit->context,
+                true,
+                flags: JSON_THROW_ON_ERROR,
+            )['metadata'],
+        );
+    }
+
+    public function test_public_restoration_accepts_every_accepted_input(): void
+    {
+        $manager = app(RoleManager::class);
+        $actor = SystemActor::named('definition-suite');
+        $inputs = [
+            static fn (Role $role): Role => $role,
+            static fn (Role $role): int => (int) $role->getKey(),
+            static fn (Role $role): RoleReference => RoleReference::id(
+                $role->getKey(),
+            ),
+            static fn (Role $role): string => 'reviewer',
+        ];
+
+        foreach ($inputs as $index => $input) {
+            Role::query()->withTrashed()->forceDelete();
+            $role = $manager->create('reviewer', 'web', $actor)->resource;
+            $manager->deactivate(role: $role, actor: $actor);
+
+            $result = $manager->restore(
+                role: $input($role),
+                actor: $actor,
+            );
+
+            $this->assertSame(
+                MutationOutcome::Restored,
+                $result->outcome,
+                "Input [$index] should restore the role.",
+            );
+            $this->assertNotNull($result->auditId);
+            $this->assertNull(
+                Role::query()
+                    ->withTrashed()
+                    ->whereKey($role->getKey())
+                    ->first()
+                    ?->getAttribute('deleted_at'),
+            );
+        }
+    }
+
+    public function test_full_role_lifecycle_round_trip(): void
+    {
+        $manager = app(RoleManager::class);
+        $actor = SystemActor::named('definition-suite');
+
+        $created = $manager->create(
+            'reviewer',
+            'web',
+            $actor,
+            description: 'Reviews documents.',
+        );
+        $role = $created->resource;
+
+        $this->assertSame(MutationOutcome::Created, $created->outcome);
+        $this->assertSame(
+            MutationOutcome::Updated,
+            $manager->update(
+                role: $role,
+                changes: RoleChanges::description('Reviews submissions'),
+                actor: $actor,
+            )->outcome,
+        );
+        $this->assertSame(
+            MutationOutcome::Deactivated,
+            $manager->deactivate(role: $role, actor: $actor)->outcome,
+        );
+        $this->assertSame(
+            MutationOutcome::Restored,
+            $manager->restore(role: $role, actor: $actor)->outcome,
+        );
+
+        // Both active-role mutations work again once the definition is back.
+        $this->assertSame(
+            MutationOutcome::Updated,
+            $manager->update(
+                role: $role,
+                changes: RoleChanges::description('Reviews everything'),
+                actor: $actor,
+            )->outcome,
+        );
+        $this->assertSame(
+            MutationOutcome::Deactivated,
+            $manager->deactivate(role: $role, actor: $actor)->outcome,
+        );
+        $this->assertSame(
+            MutationOutcome::Restored,
+            $manager->restore(role: $role, actor: $actor)->outcome,
+        );
+
+        $this->assertSame(
+            'Reviews everything',
+            Role::query()->sole()->getAttribute('description'),
+        );
+        $this->assertSame('reviewer', Role::query()->sole()->getAttribute('name'));
+        $this->assertDatabaseCount('acl_access_audits', 7);
+
+        try {
+            $manager->create('reviewer', 'web', $actor);
+
+            $this->fail('A restored namespace should remain occupied.');
+        } catch (DuplicateRole) {
+            $this->assertSame(1, Role::query()->withTrashed()->count());
+        }
+    }
+
+    public function test_public_contract_exposes_the_four_role_mutations(): void
     {
         $methods = array_values(array_map(
             static fn (ReflectionMethod $method): string => $method->getName(),
@@ -316,13 +468,9 @@ final class DefaultRoleManagerTest extends TestCase
             ),
         ));
 
-        $this->assertSame(['create', 'update', 'deactivate'], $methods);
-        $this->assertFalse(
-            (new ReflectionClass(RoleManager::class))->hasMethod('restore'),
-        );
-        $this->assertFalse(
-            (new ReflectionClass(DefaultRoleManager::class))
-                ->hasMethod('restore'),
+        $this->assertSame(
+            ['create', 'update', 'deactivate', 'restore'],
+            $methods,
         );
 
         foreach ($methods as $method) {
@@ -331,6 +479,49 @@ final class DefaultRoleManagerTest extends TestCase
                 (new ReflectionMethod(DefaultRoleManager::class, $method))
                     ->getDeclaringClass()
                     ->getName(),
+            );
+        }
+    }
+
+    public function test_no_role_mutation_is_declared_as_a_stub(): void
+    {
+        $handlers = array_values(array_filter(array_map(
+            static fn (ReflectionParameter $parameter): ?string => $parameter
+                ->getType() instanceof ReflectionNamedType
+                    ? $parameter->getType()->getName()
+                    : null,
+            (new ReflectionClass(DefaultRoleManager::class))
+                ->getConstructor()
+                ?->getParameters() ?? [],
+        )));
+
+        // Every public mutation is backed by an injected single-use-case
+        // handler, so none of the four can be a placeholder body.
+        $this->assertSame(
+            [
+                CreateRoleHandler::class,
+                UpdateRoleHandler::class,
+                DeactivateRoleHandler::class,
+                RestoreRoleHandler::class,
+                ClockInterface::class,
+            ],
+            $handlers,
+        );
+
+        foreach (
+            ['create', 'update', 'deactivate', 'restore'] as $method
+        ) {
+            $reflection = new ReflectionMethod(
+                DefaultRoleManager::class,
+                $method,
+            );
+
+            $this->assertFalse($reflection->isAbstract());
+            $this->assertSame(
+                MutationResult::class,
+                $reflection->getReturnType() instanceof ReflectionNamedType
+                    ? $reflection->getReturnType()->getName()
+                    : null,
             );
         }
     }
@@ -355,6 +546,10 @@ final class DefaultRoleManagerTest extends TestCase
         $this->assertSame(
             ['role', 'actor', 'reason', 'metadata'],
             $this->parameters('deactivate'),
+        );
+        $this->assertSame(
+            ['role', 'actor', 'reason', 'metadata'],
+            $this->parameters('restore'),
         );
     }
 
