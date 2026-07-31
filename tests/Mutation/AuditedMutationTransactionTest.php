@@ -356,6 +356,148 @@ final class AuditedMutationTransactionTest extends TestCase
         $this->assertSame([], $this->logger->errors());
     }
 
+    public function test_an_unchanged_caller_owned_mutation_schedules_no_callback(): void
+    {
+        config()->set('gatetrail.audit.strict', false);
+        $orchestrator = $this->orchestrator();
+        $role = $this->role();
+
+        $this->connection()->transaction(
+            function () use ($orchestrator, $role): void {
+                $orchestrator->run(
+                    fn (): PreparedMutation => new PreparedMutation(
+                        $role,
+                        MutationOutcome::Unchanged,
+                        null,
+                    ),
+                );
+
+                // Nothing at all is registered: the capability check inspects
+                // transaction state instead of registering a probe.
+                $this->assertCount(0, $this->pendingCallbacks());
+            },
+        );
+
+        $this->assertDatabaseCount('acl_access_audits', 0);
+    }
+
+    public function test_a_changed_caller_owned_mutation_schedules_one_audit_callback(): void
+    {
+        config()->set('gatetrail.audit.strict', false);
+        $orchestrator = $this->orchestrator();
+
+        $this->connection()->transaction(function () use ($orchestrator): void {
+            $orchestrator->run(
+                fn (): PreparedMutation => $this->created($this->role()),
+            );
+
+            $this->assertCount(1, $this->pendingCallbacks());
+        });
+
+        $this->assertDatabaseCount('acl_access_audits', 1);
+    }
+
+    public function test_repeated_caller_owned_mutations_schedule_one_callback_each(): void
+    {
+        config()->set('gatetrail.audit.strict', false);
+        $orchestrator = $this->orchestrator();
+
+        $this->connection()->transaction(function () use ($orchestrator): void {
+            $orchestrator->run(
+                fn (): PreparedMutation => $this->created($this->role()),
+            );
+            $orchestrator->run(
+                fn (): PreparedMutation => new PreparedMutation(
+                    Role::query()->sole(),
+                    MutationOutcome::Unchanged,
+                    null,
+                ),
+            );
+
+            // The unchanged call adds nothing to the changed call's callback.
+            $this->assertCount(1, $this->pendingCallbacks());
+        });
+
+        $this->assertDatabaseCount('acl_access_audits', 1);
+    }
+
+    public function test_strict_mode_schedules_no_callback_at_all(): void
+    {
+        $orchestrator = $this->orchestrator();
+
+        $this->connection()->transaction(function () use ($orchestrator): void {
+            $result = $orchestrator->run(
+                fn (): PreparedMutation => $this->created($this->role()),
+            );
+
+            $this->assertNotNull($result->auditId);
+            $this->assertCount(0, $this->pendingCallbacks());
+            // Strict auditing writes inside the caller transaction, so the
+            // audit is already visible before the outer commit.
+            $this->assertDatabaseCount('acl_access_audits', 1);
+        });
+    }
+
+    public function test_an_unsupported_boundary_is_rejected_before_the_operation_runs(): void
+    {
+        config()->set('gatetrail.audit.strict', false);
+        $orchestrator = $this->orchestrator();
+        $connection = $this->connection();
+        $connection->beginTransaction();
+        $connection->unsetTransactionManager();
+        $ran = false;
+
+        try {
+            $orchestrator->run(
+                function () use (&$ran): PreparedMutation {
+                    $ran = true;
+
+                    return $this->created($this->role());
+                },
+            );
+
+            $this->fail('An unsupported boundary should be rejected.');
+        } catch (UnsupportedAuditBoundary) {
+            $this->assertFalse(
+                $ran,
+                'The operation closure must never run.',
+            );
+            $this->assertDatabaseCount('acl_roles', 0);
+        } finally {
+            $connection->rollBack();
+        }
+    }
+
+    public function test_a_rolled_back_callback_is_discarded_without_running(): void
+    {
+        config()->set('gatetrail.audit.strict', false);
+        $orchestrator = $this->orchestrator();
+
+        try {
+            $this->connection()->transaction(
+                function () use ($orchestrator): void {
+                    $orchestrator->run(
+                        fn (): PreparedMutation => $this->created(
+                            $this->role(),
+                        ),
+                    );
+
+                    $this->assertCount(1, $this->pendingCallbacks());
+
+                    throw new ForcedRollback('Roll back outer transaction.');
+                },
+            );
+
+            $this->fail('The outer transaction should roll back.');
+        } catch (ForcedRollback) {
+            $this->assertCount(0, $this->pendingCallbacks());
+            $this->assertDatabaseCount('acl_roles', 0);
+            $this->assertDatabaseCount('acl_access_audits', 0);
+            $this->assertSame([], $this->failures);
+            $this->assertSame([], $this->logger->errors());
+        }
+    }
+
     public function test_disabled_auditing_is_not_implemented_yet(): void
     {
         config()->set('gatetrail.audit.enabled', false);
@@ -421,6 +563,20 @@ final class AuditedMutationTransactionTest extends TestCase
         $this->assertInstanceOf(Connection::class, $connection);
 
         return $connection;
+    }
+
+    /**
+     * The callbacks Laravel would execute at the next outermost commit.
+     *
+     * @return list<callable>
+     */
+    private function pendingCallbacks(): array
+    {
+        $applicable = $this->app->make('db.transactions')
+            ->callbackApplicableTransactions()
+            ->last();
+
+        return $applicable === null ? [] : $applicable->getCallbacks();
     }
 
     /**

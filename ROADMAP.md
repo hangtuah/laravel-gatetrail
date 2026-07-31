@@ -868,11 +868,17 @@ audit write.
   GateTrail owns the outermost transaction, non-strict mode commits the
   mutation and then writes the audit in a second transaction, returning the
   audit identifier. When it joins a caller-owned transaction it verifies
-  outermost after-commit support *before* mutating, rejecting an unsupported
-  boundary with `UnsupportedAuditBoundary` rather than silently writing the
-  audit inside the caller's transaction; the audit then waits for the outer
-  commit and the immediate result reports a null identifier. A caller rollback
-  discards both the mutation and the pending audit. A non-strict audit failure
+  outermost after-commit support *before* the mutation closure runs, rejecting
+  an unsupported boundary with `UnsupportedAuditBoundary` rather than silently
+  writing the audit inside the caller's transaction; the audit then waits for
+  the outer commit and the immediate result reports a null identifier. That
+  verification reads transaction state and registers nothing, so an unchanged
+  result leaves no callback of any kind behind it. A caller rollback discards
+  both the mutation and the pending audit. Audit mode selection itself fails
+  closed: `audit.enabled` and `audit.strict` must be real booleans, and a
+  missing, null, string, numeric, array, or object value is rejected with
+  `InvalidAuditConfiguration` before any table is touched rather than being
+  coerced into weaker auditing. A non-strict audit failure
   leaves the mutation committed, returns a null identifier, writes one
   error-level log, and dispatches an `AuditPersistenceFailed` operational event
   carrying safe identifiers, the audit event name, an optional request ID, and
@@ -880,9 +886,9 @@ audit write.
   credentials, or exception messages. Operational reporting is best effort: a
   broken log channel or a throwing listener cannot turn a committed mutation
   into an application error, and a failed audit is never retried. Unchanged
-  results write no audit, schedule no callback, and emit nothing. Canonical
-  audit documents are proven byte-identical between strict and non-strict
-  execution across all fourteen mutations.
+  results write no audit, schedule no audit callback, and emit nothing.
+  Canonical audit documents are proven byte-identical between strict and
+  non-strict execution across all fourteen mutations.
 
 `RoleManager` and `PermissionManager` are now each 4 of 4 complete —
 `create()`, `update()`, `deactivate()`, and `restore()` on both contracts have

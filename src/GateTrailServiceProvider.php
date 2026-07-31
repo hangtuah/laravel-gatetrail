@@ -36,6 +36,7 @@ use HangTuah\GateTrail\Managers\DefaultAssignmentManager;
 use HangTuah\GateTrail\Managers\DefaultPermissionManager;
 use HangTuah\GateTrail\Managers\DefaultRoleManager;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
+use HangTuah\GateTrail\Mutations\AfterCommitBoundary;
 use HangTuah\GateTrail\Mutations\AssignmentIdentifierNormalizer;
 use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\DeactivatedPermissionDefinitionInputResolver;
@@ -145,6 +146,7 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(DeactivatedRoleDefinitionInputResolver::class);
         $this->app->singleton(RolePermissionInputResolver::class);
         $this->app->singleton(StrictMutationTransaction::class);
+        $this->app->singleton(AfterCommitBoundary::class);
         $this->app->singleton(AuditedMutationTransaction::class);
         $this->app->singleton(
             MutationReasonValidator::class,

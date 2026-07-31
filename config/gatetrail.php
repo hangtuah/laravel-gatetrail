@@ -84,6 +84,11 @@ return [
      * after the commit and never retries the mutation. Inside a caller-owned
      * transaction the audit waits for the outermost commit, so the immediate
      * result also carries a null audit identifier.
+     *
+     * Both flags must be real booleans. Anything else — a missing key, null,
+     * "true", "false", 0, 1, an array — is rejected with
+     * InvalidAuditConfiguration before a mutation runs, so a typo can never
+     * quietly downgrade auditing.
      */
     'audit' => [
         'enabled' => true,

@@ -44,6 +44,7 @@ final readonly class AuditedMutationTransaction
     public function __construct(
         private AuditModeResolver $modes,
         private StrictMutationTransaction $transaction,
+        private AfterCommitBoundary $boundaries,
         private AccessAuditWriter $audits,
         private AuditFailureReporter $failures,
     ) {}
@@ -104,8 +105,10 @@ final readonly class AuditedMutationTransaction
         $callerOwned = $connection->transactionLevel() > 0;
 
         if ($callerOwned) {
-            // Checked before the mutation runs, so an unsupported boundary
-            // never leaves a committed mutation without a path to evidence.
+            // Checked before the operation closure runs, so an unsupported
+            // boundary never leaves a mutation inside a caller transaction
+            // without a path to evidence. The check registers no callback, so
+            // an unchanged result leaves nothing scheduled at all.
             $this->assertAfterCommitSupport($connection);
         }
 
@@ -161,33 +164,16 @@ final readonly class AuditedMutationTransaction
     }
 
     /**
-     * Proves the connection defers an after-commit callback to its outermost
-     * commit.
+     * Rejects a caller-owned transaction that would not defer the audit to
+     * its outermost commit.
      *
-     * Laravel runs the callback immediately when the connection has no
-     * transaction manager tracking the open transaction, which would write
-     * the audit inside the caller's transaction. Registering a no-op probe
-     * and observing whether it ran inline tests that behavior directly rather
-     * than assuming a method's existence implies the semantics. The probe
-     * persists nothing.
+     * {@see AfterCommitBoundary} answers this by inspecting transaction state
+     * rather than by registering a probe callback, so nothing is scheduled
+     * and nothing has to be undone when the mutation turns out unchanged.
      */
     private function assertAfterCommitSupport(Connection $connection): void
     {
-        $deferred = true;
-
-        try {
-            $connection->afterCommit(
-                static function () use (&$deferred): void {
-                    $deferred = false;
-                },
-            );
-        } catch (Throwable) {
-            throw UnsupportedAuditBoundary::forConnection(
-                $connection->getName(),
-            );
-        }
-
-        if (! $deferred) {
+        if (! $this->boundaries->defersCallbacks($connection)) {
             throw UnsupportedAuditBoundary::forConnection(
                 $connection->getName(),
             );
