@@ -9,6 +9,8 @@ use HangTuah\GateTrail\Audit\AccessAuditWriter;
 use HangTuah\GateTrail\Audit\AuditFailureReporter;
 use HangTuah\GateTrail\Audit\PendingAuditRecord;
 use HangTuah\GateTrail\Events\AuditPersistenceFailed;
+use HangTuah\GateTrail\Events\MutationCommitted;
+use HangTuah\GateTrail\Events\MutationEventDispatcher;
 use HangTuah\GateTrail\Exceptions\AuditWriteFailed;
 use HangTuah\GateTrail\Exceptions\UnsupportedAfterCommitBoundary;
 use HangTuah\GateTrail\Models\AccessAudit;
@@ -37,6 +39,11 @@ final class AuditedMutationTransactionTest extends TestCase
      */
     private array $failures = [];
 
+    /**
+     * @var list<MutationCommitted>
+     */
+    private array $events = [];
+
     private RecordingLogger $logger;
 
     protected function setUp(): void
@@ -48,6 +55,7 @@ final class AuditedMutationTransactionTest extends TestCase
         ])->assertExitCode(0);
 
         $this->failures = [];
+        $this->events = [];
         $this->logger = new RecordingLogger;
         $this->app->instance(LoggerInterface::class, $this->logger);
 
@@ -55,6 +63,12 @@ final class AuditedMutationTransactionTest extends TestCase
             AuditPersistenceFailed::class,
             function (AuditPersistenceFailed $event): void {
                 $this->failures[] = $event;
+            },
+        );
+        Event::listen(
+            MutationCommitted::class,
+            function (MutationCommitted $event): void {
+                $this->events[] = $event;
             },
         );
     }
@@ -682,6 +696,133 @@ final class AuditedMutationTransactionTest extends TestCase
         $this->assertDatabaseCount('acl_access_audits', 0);
     }
 
+    public function test_an_unbuildable_event_cannot_escape_after_commit(): void
+    {
+        // An unknown mutation name is a package bug, but it is discovered
+        // after the mutation and its audit have already committed.
+        $result = $this->orchestrator()->run(
+            fn (): PreparedMutation => $this->prepared(
+                $this->record(event: 'role.renamed'),
+            ),
+        );
+
+        $this->assertSame(MutationOutcome::Created, $result->outcome);
+        $this->assertNotNull($result->auditId);
+        $this->assertDatabaseCount('acl_roles', 1);
+        $this->assertDatabaseCount('acl_access_audits', 1);
+        $this->assertSame([], $this->events);
+        $this->assertSame([], $this->failures);
+
+        $this->assertSafeReport(
+            'role.renamed',
+            InvalidArgumentException::class,
+        );
+    }
+
+    public function test_a_violated_event_invariant_is_contained_the_same_way(): void
+    {
+        foreach ([
+            'blank target type' => $this->record(targetType: '   '),
+            'blank actor' => $this->record(
+                actor: new ActorIdentity('gatetrail.system', '  '),
+            ),
+        ] as $label => $record) {
+            Role::query()->forceDelete();
+            $this->app['db']->table('acl_access_audits')->delete();
+            $this->logger->records = [];
+            $this->events = [];
+
+            $result = $this->orchestrator()->run(
+                fn (): PreparedMutation => $this->prepared($record),
+            );
+
+            $this->assertSame(
+                MutationOutcome::Created,
+                $result->outcome,
+                "A [$label] record must not break the mutation.",
+            );
+            $this->assertDatabaseCount('acl_roles', 1);
+            $this->assertSame([], $this->events);
+            $this->assertSafeReport(
+                'role.created',
+                InvalidArgumentException::class,
+            );
+        }
+    }
+
+    public function test_an_unbuildable_event_is_contained_inside_a_caller_transaction(): void
+    {
+        $orchestrator = $this->orchestrator();
+
+        $this->connection()->transaction(function () use ($orchestrator): void {
+            $result = $orchestrator->run(
+                fn (): PreparedMutation => $this->prepared(
+                    $this->record(event: 'role.renamed'),
+                ),
+            );
+
+            $this->assertSame(MutationOutcome::Created, $result->outcome);
+            $this->assertSame([], $this->logger->records);
+        });
+
+        // The failure surfaces during the outermost commit and still cannot
+        // reach the caller.
+        $this->assertDatabaseCount('acl_roles', 1);
+        $this->assertDatabaseCount('acl_access_audits', 1);
+        $this->assertSame([], $this->events);
+        $this->assertSafeReport(
+            'role.renamed',
+            InvalidArgumentException::class,
+        );
+    }
+
+    public function test_a_throwing_logger_cannot_surface_a_construction_failure(): void
+    {
+        $this->app->instance(
+            LoggerInterface::class,
+            new RecordingLogger(throws: true),
+        );
+
+        $result = $this->orchestrator()->run(
+            fn (): PreparedMutation => $this->prepared(
+                $this->record(event: 'role.renamed'),
+            ),
+        );
+
+        $this->assertSame(MutationOutcome::Created, $result->outcome);
+        $this->assertDatabaseCount('acl_roles', 1);
+        $this->assertSame([], $this->events);
+    }
+
+    public function test_a_contained_failure_never_retries_or_duplicates(): void
+    {
+        $this->orchestrator()->run(
+            fn (): PreparedMutation => $this->prepared(
+                $this->record(event: 'role.renamed'),
+            ),
+        );
+
+        // One mutation, one audit row, one log line, no event, no recursive
+        // operational event.
+        $this->assertSame(1, Role::query()->count());
+        $this->assertDatabaseCount('acl_access_audits', 1);
+        $this->assertCount(1, $this->logger->errors());
+        $this->assertSame([], $this->events);
+        $this->assertSame([], $this->failures);
+    }
+
+    public function test_a_valid_event_still_dispatches_normally(): void
+    {
+        $result = $this->orchestrator()->run(
+            fn (): PreparedMutation => $this->created($this->role()),
+        );
+
+        $this->assertCount(1, $this->events);
+        $this->assertSame('role.created', $this->events[0]->mutation);
+        $this->assertSame($result->auditId, $this->events[0]->auditId);
+        $this->assertSame([], $this->logger->records);
+    }
+
     public function test_a_prepared_mutation_cannot_misreport_its_evidence(): void
     {
         $role = $this->role();
@@ -796,6 +937,73 @@ final class AuditedMutationTransactionTest extends TestCase
     }
 
     /**
+     * Asserts the one operational log a contained post-commit failure writes.
+     */
+    private function assertSafeReport(
+        string $mutation,
+        string $exception,
+    ): void {
+        $errors = $this->logger->errors();
+
+        $this->assertCount(1, $errors);
+        $this->assertSame(
+            MutationEventDispatcher::MESSAGE,
+            $errors[0]['message'],
+        );
+
+        $context = $errors[0]['context'];
+
+        $this->assertSame($mutation, $context['mutation']);
+        $this->assertSame('created', $context['outcome']);
+        $this->assertSame('1', $context['target_id']);
+        $this->assertNull($context['subject_type']);
+        $this->assertNull($context['subject_id']);
+        $this->assertSame($exception, $context['exception']);
+        $this->assertArrayNotHasKey('request_id', $context);
+        $this->assertSame(
+            [
+                'mutation',
+                'outcome',
+                'target_type',
+                'target_id',
+                'subject_type',
+                'subject_id',
+                'actor_type',
+                'actor_id',
+                'audit_id',
+                'occurred_at',
+                'exception',
+            ],
+            array_keys($context),
+        );
+
+        $encoded = json_encode($context, JSON_THROW_ON_ERROR);
+
+        foreach ([
+            'Create reviewer role',
+            'schema_version',
+            'guard_name',
+            'metadata',
+            'unknown mutation event',
+            'non-empty string',
+        ] as $forbidden) {
+            $this->assertStringNotContainsString($forbidden, $encoded);
+        }
+    }
+
+    /**
+     * @return PreparedMutation<Role>
+     */
+    private function prepared(PendingAuditRecord $record): PreparedMutation
+    {
+        return new PreparedMutation(
+            $this->role(),
+            MutationOutcome::Created,
+            $record,
+        );
+    }
+
+    /**
      * @return PreparedMutation<Role>
      */
     private function created(Role $role): PreparedMutation
@@ -807,14 +1015,20 @@ final class AuditedMutationTransactionTest extends TestCase
         );
     }
 
-    private function record(): PendingAuditRecord
-    {
+    private function record(
+        string $event = 'role.created',
+        string $targetType = 'role',
+        ?ActorIdentity $actor = null,
+    ): PendingAuditRecord {
         return new PendingAuditRecord(
-            event: 'role.created',
-            actor: new ActorIdentity('gatetrail.system', 'audit-suite'),
+            event: $event,
+            actor: $actor ?? new ActorIdentity(
+                'gatetrail.system',
+                'audit-suite',
+            ),
             subjectType: null,
             subjectId: null,
-            targetType: 'role',
+            targetType: $targetType,
             targetId: 1,
             before: null,
             after: '{"id":"1","name":"reviewer","guard_name":"web"}',

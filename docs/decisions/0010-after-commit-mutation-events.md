@@ -409,6 +409,10 @@ applied to post-commit audit failures.
 Rules:
 
 - exceptions thrown by synchronous listeners are caught and never propagated;
+- so is a failure to construct the event itself. An unknown mutation name or a
+  violated invariant is a package bug, but it is discovered after the commit,
+  so it is reported from the audit record's safe scalar fields and no event is
+  dispatched;
 - one error-level log is written, with a stable package message and the
   event's `context()` payload plus the caught exception's class name;
 - the log carries no snapshots, no metadata, no reason, no credentials, and no

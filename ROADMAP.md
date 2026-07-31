@@ -921,9 +921,10 @@ audit write.
   performs the deferred audit attempt, the reserved cache-invalidation point and
   the dispatch in that order, so the event can carry an audit identifier the
   immediate `MutationResult` structurally could not. A rollback discards it and
-  an unchanged outcome schedules nothing. A throwing listener never escapes a
-  committed mutation: it is caught, logged once with the event context and the
-  exception class only, never re-dispatched, and never retried. Event production
+  an unchanged outcome schedules nothing. Nothing after the commit can escape:
+  a throwing listener, and an event that cannot even be constructed because a
+  package invariant was violated, are both caught and logged once with safe
+  context and the exception class only, never re-dispatched, and never retried. Event production
   is always on, with no configuration flag. The after-commit boundary rule is now
   uniform across every audit mode and its exception is
   `UnsupportedAfterCommitBoundary`; `UnsupportedAuditBoundary` no longer exists.

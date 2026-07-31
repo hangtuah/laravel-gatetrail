@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace HangTuah\GateTrail\Events;
 
 use DateTimeImmutable;
-use DateTimeZone;
 use HangTuah\GateTrail\Contracts\GateTrailEvent;
 use HangTuah\GateTrail\MutationOutcome;
 use InvalidArgumentException;
@@ -139,29 +138,18 @@ final readonly class MutationCommitted implements GateTrailEvent
      */
     public function context(): array
     {
-        $context = [
-            'mutation' => $this->mutation,
-            'outcome' => $this->outcome->value,
-            'target_type' => $this->targetType,
-            'target_id' => (string) $this->targetId,
-            'subject_type' => $this->subjectType,
-            'subject_id' => $this->subjectId === null
-                ? null
-                : (string) $this->subjectId,
-            'actor_type' => $this->actorType,
-            'actor_id' => $this->actorId,
-            'audit_id' => $this->auditId === null
-                ? null
-                : (string) $this->auditId,
-            'occurred_at' => $this->occurredAt
-                ->setTimezone(new DateTimeZone('UTC'))
-                ->format('Y-m-d\TH:i:s.u\Z'),
-        ];
-
-        if ($this->requestId !== null) {
-            $context['request_id'] = $this->requestId;
-        }
-
-        return $context;
+        return SafeMutationContext::build(
+            mutation: $this->mutation,
+            outcome: $this->outcome,
+            targetType: $this->targetType,
+            targetId: $this->targetId,
+            subjectType: $this->subjectType,
+            subjectId: $this->subjectId,
+            actorType: $this->actorType,
+            actorId: $this->actorId,
+            auditId: $this->auditId,
+            occurredAt: $this->occurredAt,
+            requestId: $this->requestId,
+        );
     }
 }

@@ -24,9 +24,9 @@ final class UnsupportedAfterCommitBoundary extends RuntimeException
     ) {
         parent::__construct(
             $connection === null
-                ? 'The GateTrail connection cannot defer a non-strict audit until its outermost commit.'
+                ? 'The GateTrail connection cannot defer after-commit work until its outermost commit.'
                 : sprintf(
-                    'GateTrail connection [%s] cannot defer a non-strict audit until its outermost commit.',
+                    'GateTrail connection [%s] cannot defer after-commit work until its outermost commit.',
                     $connection,
                 ),
         );
