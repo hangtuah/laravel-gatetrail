@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail\Mutations\Handlers;
 
-use HangTuah\GateTrail\Audit\AccessAuditWriter;
 use HangTuah\GateTrail\Audit\AuditContextBuilder;
 use HangTuah\GateTrail\Audit\MetadataNormalizer;
 use HangTuah\GateTrail\Audit\PendingAuditRecord;
@@ -14,11 +13,11 @@ use HangTuah\GateTrail\Contracts\PermissionContract;
 use HangTuah\GateTrail\MutationOutcome;
 use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
+use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\RestorePermissionCommand;
 use HangTuah\GateTrail\Mutations\DeactivatedPermissionDefinitionInputResolver;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
-use HangTuah\GateTrail\Mutations\StrictMutationTransaction;
-use Illuminate\Contracts\Config\Repository;
+use HangTuah\GateTrail\Mutations\PreparedMutation;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
@@ -36,16 +35,14 @@ use LogicException;
 final readonly class RestorePermissionHandler
 {
     public function __construct(
-        private Repository $config,
         private MetadataNormalizer $metadata,
         private ActorIdentityResolver $actors,
         private MutationReasonValidator $reasons,
-        private StrictMutationTransaction $transaction,
+        private AuditedMutationTransaction $mutations,
         private DeactivatedPermissionDefinitionInputResolver $permissions,
         private PermissionSnapshotBuilder $snapshots,
         private AuditContextBuilder $contexts,
         private SensitiveAuditValueRedactor $redactor,
-        private AccessAuditWriter $audits,
     ) {}
 
     /**
@@ -54,18 +51,17 @@ final readonly class RestorePermissionHandler
     public function handle(
         RestorePermissionCommand $command,
     ): MutationResult {
-        $this->assertStrictAuditMode();
         $metadata = $this->metadata->normalize($command->metadata);
         $actor = $this->actors->resolve($command->actor);
         $reason = $this->reasons->definition($command->reason);
 
-        return $this->transaction->run(
+        return $this->mutations->run(
             function () use (
                 $command,
                 $metadata,
                 $actor,
                 $reason,
-            ): MutationResult {
+            ): PreparedMutation {
                 $permission = $this->permissions->resolve(
                     $command->permission,
                 );
@@ -83,48 +79,34 @@ final readonly class RestorePermissionHandler
                 ]);
                 $permission->save();
 
-                $auditId = $this->audits->append(
-                    new PendingAuditRecord(
-                        event: 'permission.restored',
-                        actor: $actor,
-                        subjectType: null,
-                        subjectId: null,
-                        targetType: 'permission',
-                        targetId: $this->identifier($permission),
-                        before: $before,
-                        after: $this->snapshots->build($permission),
-                        reason: $this->redactor->auditReason($reason),
-                        context: $this->contexts->permissionDefinition(
-                            $guard,
-                            $name,
-                            $metadata,
-                        ),
-                        ipAddress: null,
-                        userAgent: null,
-                        requestId: null,
-                        createdAt: $command->requestedAt,
+                $audit = new PendingAuditRecord(
+                    event: 'permission.restored',
+                    actor: $actor,
+                    subjectType: null,
+                    subjectId: null,
+                    targetType: 'permission',
+                    targetId: $this->identifier($permission),
+                    before: $before,
+                    after: $this->snapshots->build($permission),
+                    reason: $this->redactor->auditReason($reason),
+                    context: $this->contexts->permissionDefinition(
+                        $guard,
+                        $name,
+                        $metadata,
                     ),
+                    ipAddress: null,
+                    userAgent: null,
+                    requestId: null,
+                    createdAt: $command->requestedAt,
                 );
 
-                return new MutationResult(
+                return new PreparedMutation(
                     $permission,
                     MutationOutcome::Restored,
-                    $auditId,
+                    $audit,
                 );
             },
         );
-    }
-
-    private function assertStrictAuditMode(): void
-    {
-        if (
-            $this->config->get('gatetrail.audit.enabled') !== true
-            || $this->config->get('gatetrail.audit.strict') !== true
-        ) {
-            throw new LogicException(
-                'GateTrail RestorePermissionHandler currently requires strict auditing.',
-            );
-        }
     }
 
     private function identifier(Model $permission): int|string

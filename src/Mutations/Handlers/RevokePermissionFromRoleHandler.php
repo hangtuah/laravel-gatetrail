@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace HangTuah\GateTrail\Mutations\Handlers;
 
 use DateTimeInterface;
-use HangTuah\GateTrail\Audit\AccessAuditWriter;
 use HangTuah\GateTrail\Audit\AuditContextBuilder;
 use HangTuah\GateTrail\Audit\MetadataNormalizer;
 use HangTuah\GateTrail\Audit\PendingAuditRecord;
@@ -17,11 +16,11 @@ use HangTuah\GateTrail\Models\RolePermission;
 use HangTuah\GateTrail\MutationOutcome;
 use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
+use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\RevokePermissionFromRoleCommand;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
+use HangTuah\GateTrail\Mutations\PreparedMutation;
 use HangTuah\GateTrail\Mutations\RolePermissionInputResolver;
-use HangTuah\GateTrail\Mutations\StrictMutationTransaction;
-use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
@@ -31,16 +30,14 @@ use LogicException;
 final readonly class RevokePermissionFromRoleHandler
 {
     public function __construct(
-        private Repository $config,
         private MetadataNormalizer $metadata,
         private ActorIdentityResolver $actors,
         private MutationReasonValidator $reasons,
-        private StrictMutationTransaction $transaction,
+        private AuditedMutationTransaction $mutations,
         private RolePermissionInputResolver $assignments,
         private RolePermissionSnapshotBuilder $snapshots,
         private AuditContextBuilder $contexts,
         private SensitiveAuditValueRedactor $redactor,
-        private AccessAuditWriter $audits,
     ) {}
 
     /**
@@ -49,18 +46,17 @@ final readonly class RevokePermissionFromRoleHandler
     public function handle(
         RevokePermissionFromRoleCommand $command,
     ): MutationResult {
-        $this->assertStrictAuditMode();
         $metadata = $this->metadata->normalize($command->metadata);
         $actor = $this->actors->resolve($command->actor);
         $reason = $this->reasons->assignment($command->reason);
 
-        return $this->transaction->run(
+        return $this->mutations->run(
             function () use (
                 $command,
                 $metadata,
                 $actor,
                 $reason,
-            ): MutationResult {
+            ): PreparedMutation {
                 $assignment = $this->assignments->resolve(
                     $command->assignment,
                 );
@@ -102,52 +98,38 @@ final readonly class RevokePermissionFromRoleHandler
                     );
                 }
 
-                $auditId = $this->audits->append(
-                    new PendingAuditRecord(
-                        event: 'permission.revoked_from_role',
-                        actor: $actor,
-                        subjectType: null,
-                        subjectId: null,
-                        targetType: 'role_permission',
-                        targetId: $assignmentId,
-                        before: $before,
-                        after: $this->snapshots->build(
-                            $assignment,
-                            'after',
-                        ),
-                        reason: $this->redactor->auditReason($reason),
-                        context: $this->contexts->rolePermissionAssignment(
-                            $this->requiredString($role, 'guard_name'),
-                            $this->requiredString($role, 'name'),
-                            $this->requiredString($permission, 'name'),
-                            $metadata,
-                        ),
-                        ipAddress: null,
-                        userAgent: null,
-                        requestId: null,
-                        createdAt: $command->requestedAt,
+                $audit = new PendingAuditRecord(
+                    event: 'permission.revoked_from_role',
+                    actor: $actor,
+                    subjectType: null,
+                    subjectId: null,
+                    targetType: 'role_permission',
+                    targetId: $assignmentId,
+                    before: $before,
+                    after: $this->snapshots->build(
+                        $assignment,
+                        'after',
                     ),
+                    reason: $this->redactor->auditReason($reason),
+                    context: $this->contexts->rolePermissionAssignment(
+                        $this->requiredString($role, 'guard_name'),
+                        $this->requiredString($role, 'name'),
+                        $this->requiredString($permission, 'name'),
+                        $metadata,
+                    ),
+                    ipAddress: null,
+                    userAgent: null,
+                    requestId: null,
+                    createdAt: $command->requestedAt,
                 );
 
-                return new MutationResult(
+                return new PreparedMutation(
                     $assignment,
                     MutationOutcome::Revoked,
-                    $auditId,
+                    $audit,
                 );
             },
         );
-    }
-
-    private function assertStrictAuditMode(): void
-    {
-        if (
-            $this->config->get('gatetrail.audit.enabled') !== true
-            || $this->config->get('gatetrail.audit.strict') !== true
-        ) {
-            throw new LogicException(
-                'GateTrail RevokePermissionFromRoleHandler currently requires strict auditing.',
-            );
-        }
     }
 
     private function assertRevocable(

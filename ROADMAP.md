@@ -56,7 +56,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | Approximately 32% | Equal-phase progress across Phases 0–13 |
+| Overall roadmap by primary phases | Approximately 33% | Equal-phase progress across Phases 0–13 |
 | Deliverable tracker | 10 of 32, approximately 31% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
@@ -98,7 +98,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 71% | In progress |
+| 4 | Mutation services | 76% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -632,7 +632,7 @@ additional progress items.
 #### Cross-cutting mutation behavior
 
 - [x] Strict audit behavior.
-- [ ] Non-strict audit behavior.
+- [x] Non-strict audit behavior.
 - [ ] Disabled audit behavior.
 - [ ] After-commit cache invalidation.
 - [ ] After-commit event dispatch.
@@ -640,9 +640,9 @@ additional progress items.
 - [ ] Consumer documentation and pre-v1 API freeze.
 
 ```text
-Completed: 15
+Completed: 16
 Total:     21
-Progress:  71.429%, reported as 71%
+Progress:  76.190%, reported as 76%
 ```
 
 ### Required strict-audit flow
@@ -860,14 +860,38 @@ audit write.
   appended to, never rewritten, and canonical `permission.restored`
   before/after evidence is persisted atomically.
 
+- Enabled non-strict auditing is now supported by every managed mutation. One
+  central `AuditedMutationTransaction` owns the transaction state machine, so
+  the fourteen handlers only validate, mutate, build canonical snapshots, and
+  return an immutable `PreparedMutation`; none of them inspects audit
+  configuration any more. Strict behavior is unchanged and still atomic. When
+  GateTrail owns the outermost transaction, non-strict mode commits the
+  mutation and then writes the audit in a second transaction, returning the
+  audit identifier. When it joins a caller-owned transaction it verifies
+  outermost after-commit support *before* mutating, rejecting an unsupported
+  boundary with `UnsupportedAuditBoundary` rather than silently writing the
+  audit inside the caller's transaction; the audit then waits for the outer
+  commit and the immediate result reports a null identifier. A caller rollback
+  discards both the mutation and the pending audit. A non-strict audit failure
+  leaves the mutation committed, returns a null identifier, writes one
+  error-level log, and dispatches an `AuditPersistenceFailed` operational event
+  carrying safe identifiers, the audit event name, an optional request ID, and
+  the underlying exception class only — never snapshots, metadata, reasons,
+  credentials, or exception messages. Operational reporting is best effort: a
+  broken log channel or a throwing listener cannot turn a committed mutation
+  into an application error, and a failed audit is never retried. Unchanged
+  results write no audit, schedule no callback, and emit nothing. Canonical
+  audit documents are proven byte-identical between strict and non-strict
+  execution across all fourteen mutations.
+
 `RoleManager` and `PermissionManager` are now each 4 of 4 complete —
 `create()`, `update()`, `deactivate()`, and `restore()` on both contracts have
 a real single-use-case handler and no stub exists. Every definition mutation
 accepted by ADR 0002 is therefore implemented, bound, and tested. Both
-contracts remain pre-v1. Phase 4 stays open because the cross-cutting mutation
-behaviors — non-strict auditing, disabled auditing, after-commit cache
-invalidation, after-commit event dispatch, bounded concurrency retry, and the
-consumer documentation and pre-v1 API freeze — are still outstanding.
+contracts remain pre-v1. Phase 4 stays open because five cross-cutting mutation
+behaviors — disabled auditing, after-commit cache invalidation, after-commit
+event dispatch, bounded concurrency retry, and the consumer documentation and
+pre-v1 API freeze — are still outstanding.
 
 ### Pre-v1 assignment-manager contract gate
 

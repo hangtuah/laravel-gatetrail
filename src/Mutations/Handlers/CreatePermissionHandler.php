@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail\Mutations\Handlers;
 
-use HangTuah\GateTrail\Audit\AccessAuditWriter;
 use HangTuah\GateTrail\Audit\AuditContextBuilder;
 use HangTuah\GateTrail\Audit\MetadataNormalizer;
 use HangTuah\GateTrail\Audit\PendingAuditRecord;
@@ -17,12 +16,12 @@ use HangTuah\GateTrail\Models\Permission;
 use HangTuah\GateTrail\MutationOutcome;
 use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
+use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\CreatePermissionCommand;
 use HangTuah\GateTrail\Mutations\DefinitionInputValidator;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
-use HangTuah\GateTrail\Mutations\StrictMutationTransaction;
+use HangTuah\GateTrail\Mutations\PreparedMutation;
 use HangTuah\GateTrail\Support\ModelRegistry;
-use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
 use LogicException;
@@ -37,18 +36,16 @@ final readonly class CreatePermissionHandler
     private const NAMESPACE_COLUMNS = ['name', 'guard_name'];
 
     public function __construct(
-        private Repository $config,
         private DefinitionInputValidator $definitions,
         private MetadataNormalizer $metadata,
         private ActorIdentityResolver $actors,
         private MutationReasonValidator $reasons,
-        private StrictMutationTransaction $transaction,
+        private AuditedMutationTransaction $mutations,
         private ModelRegistry $models,
         private UniqueConstraintViolationClassifier $uniqueViolations,
         private PermissionSnapshotBuilder $snapshots,
         private AuditContextBuilder $contexts,
         private SensitiveAuditValueRedactor $redactor,
-        private AccessAuditWriter $audits,
     ) {}
 
     /**
@@ -56,7 +53,6 @@ final readonly class CreatePermissionHandler
      */
     public function handle(CreatePermissionCommand $command): MutationResult
     {
-        $this->assertStrictAuditMode();
         $name = $this->definitions->name($command->name);
         $guard = $this->definitions->guard($command->guard);
         $description = $this->definitions->description(
@@ -66,7 +62,7 @@ final readonly class CreatePermissionHandler
         $actor = $this->actors->resolve($command->actor);
         $reason = $this->reasons->definition($command->reason);
 
-        return $this->transaction->run(
+        return $this->mutations->run(
             function () use (
                 $command,
                 $name,
@@ -75,7 +71,7 @@ final readonly class CreatePermissionHandler
                 $metadata,
                 $actor,
                 $reason,
-            ): MutationResult {
+            ): PreparedMutation {
                 $class = $this->models->permission();
                 $collision = $class::query()
                     ->withTrashed()
@@ -118,48 +114,34 @@ final readonly class CreatePermissionHandler
                     throw $exception;
                 }
 
-                $auditId = $this->audits->append(
-                    new PendingAuditRecord(
-                        event: 'permission.created',
-                        actor: $actor,
-                        subjectType: null,
-                        subjectId: null,
-                        targetType: 'permission',
-                        targetId: $this->identifier($permission),
-                        before: null,
-                        after: $this->snapshots->build($permission),
-                        reason: $this->redactor->auditReason($reason),
-                        context: $this->contexts->permissionDefinition(
-                            $guard,
-                            $name,
-                            $metadata,
-                        ),
-                        ipAddress: null,
-                        userAgent: null,
-                        requestId: null,
-                        createdAt: $command->requestedAt,
+                $audit = new PendingAuditRecord(
+                    event: 'permission.created',
+                    actor: $actor,
+                    subjectType: null,
+                    subjectId: null,
+                    targetType: 'permission',
+                    targetId: $this->identifier($permission),
+                    before: null,
+                    after: $this->snapshots->build($permission),
+                    reason: $this->redactor->auditReason($reason),
+                    context: $this->contexts->permissionDefinition(
+                        $guard,
+                        $name,
+                        $metadata,
                     ),
+                    ipAddress: null,
+                    userAgent: null,
+                    requestId: null,
+                    createdAt: $command->requestedAt,
                 );
 
-                return new MutationResult(
+                return new PreparedMutation(
                     $permission,
                     MutationOutcome::Created,
-                    $auditId,
+                    $audit,
                 );
             },
         );
-    }
-
-    private function assertStrictAuditMode(): void
-    {
-        if (
-            $this->config->get('gatetrail.audit.enabled') !== true
-            || $this->config->get('gatetrail.audit.strict') !== true
-        ) {
-            throw new LogicException(
-                'GateTrail CreatePermissionHandler currently requires strict auditing.',
-            );
-        }
     }
 
     private function identifier(Model $permission): int|string

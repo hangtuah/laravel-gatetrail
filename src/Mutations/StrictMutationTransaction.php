@@ -6,8 +6,15 @@ namespace HangTuah\GateTrail\Mutations;
 
 use Closure;
 use HangTuah\GateTrail\Support\ModelRegistry;
+use Illuminate\Database\Connection;
 
 /**
+ * Runs one closure inside a single-attempt transaction on the configured
+ * access-audit connection.
+ *
+ * This is the lowest-level transaction primitive. It never retries, so a
+ * caller can rely on its closure running exactly once.
+ *
  * @internal
  */
 final readonly class StrictMutationTransaction
@@ -24,12 +31,19 @@ final readonly class StrictMutationTransaction
      */
     public function run(Closure $operation): mixed
     {
-        $class = $this->models->accessAudit();
-        $connection = (new $class)->getConnection();
-
-        return $connection->transaction(
+        return $this->connection()->transaction(
             static fn (): mixed => $operation(),
             1,
         );
+    }
+
+    /**
+     * The connection every GateTrail mutation and audit write shares.
+     */
+    public function connection(): Connection
+    {
+        $class = $this->models->accessAudit();
+
+        return (new $class)->getConnection();
     }
 }

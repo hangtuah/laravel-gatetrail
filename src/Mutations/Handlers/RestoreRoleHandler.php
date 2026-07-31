@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail\Mutations\Handlers;
 
-use HangTuah\GateTrail\Audit\AccessAuditWriter;
 use HangTuah\GateTrail\Audit\AuditContextBuilder;
 use HangTuah\GateTrail\Audit\MetadataNormalizer;
 use HangTuah\GateTrail\Audit\PendingAuditRecord;
@@ -14,11 +13,11 @@ use HangTuah\GateTrail\Contracts\RoleContract;
 use HangTuah\GateTrail\MutationOutcome;
 use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
+use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\RestoreRoleCommand;
 use HangTuah\GateTrail\Mutations\DeactivatedRoleDefinitionInputResolver;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
-use HangTuah\GateTrail\Mutations\StrictMutationTransaction;
-use Illuminate\Contracts\Config\Repository;
+use HangTuah\GateTrail\Mutations\PreparedMutation;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
@@ -35,16 +34,14 @@ use LogicException;
 final readonly class RestoreRoleHandler
 {
     public function __construct(
-        private Repository $config,
         private MetadataNormalizer $metadata,
         private ActorIdentityResolver $actors,
         private MutationReasonValidator $reasons,
-        private StrictMutationTransaction $transaction,
+        private AuditedMutationTransaction $mutations,
         private DeactivatedRoleDefinitionInputResolver $roles,
         private RoleSnapshotBuilder $snapshots,
         private AuditContextBuilder $contexts,
         private SensitiveAuditValueRedactor $redactor,
-        private AccessAuditWriter $audits,
     ) {}
 
     /**
@@ -52,18 +49,17 @@ final readonly class RestoreRoleHandler
      */
     public function handle(RestoreRoleCommand $command): MutationResult
     {
-        $this->assertStrictAuditMode();
         $metadata = $this->metadata->normalize($command->metadata);
         $actor = $this->actors->resolve($command->actor);
         $reason = $this->reasons->definition($command->reason);
 
-        return $this->transaction->run(
+        return $this->mutations->run(
             function () use (
                 $command,
                 $metadata,
                 $actor,
                 $reason,
-            ): MutationResult {
+            ): PreparedMutation {
                 $role = $this->roles->resolve($command->role);
                 $guard = $this->requiredString($role, 'guard_name');
                 $name = $this->requiredString($role, 'name');
@@ -79,48 +75,34 @@ final readonly class RestoreRoleHandler
                 ]);
                 $role->save();
 
-                $auditId = $this->audits->append(
-                    new PendingAuditRecord(
-                        event: 'role.restored',
-                        actor: $actor,
-                        subjectType: null,
-                        subjectId: null,
-                        targetType: 'role',
-                        targetId: $this->identifier($role),
-                        before: $before,
-                        after: $this->snapshots->build($role),
-                        reason: $this->redactor->auditReason($reason),
-                        context: $this->contexts->roleDefinition(
-                            $guard,
-                            $name,
-                            $metadata,
-                        ),
-                        ipAddress: null,
-                        userAgent: null,
-                        requestId: null,
-                        createdAt: $command->requestedAt,
+                $audit = new PendingAuditRecord(
+                    event: 'role.restored',
+                    actor: $actor,
+                    subjectType: null,
+                    subjectId: null,
+                    targetType: 'role',
+                    targetId: $this->identifier($role),
+                    before: $before,
+                    after: $this->snapshots->build($role),
+                    reason: $this->redactor->auditReason($reason),
+                    context: $this->contexts->roleDefinition(
+                        $guard,
+                        $name,
+                        $metadata,
                     ),
+                    ipAddress: null,
+                    userAgent: null,
+                    requestId: null,
+                    createdAt: $command->requestedAt,
                 );
 
-                return new MutationResult(
+                return new PreparedMutation(
                     $role,
                     MutationOutcome::Restored,
-                    $auditId,
+                    $audit,
                 );
             },
         );
-    }
-
-    private function assertStrictAuditMode(): void
-    {
-        if (
-            $this->config->get('gatetrail.audit.enabled') !== true
-            || $this->config->get('gatetrail.audit.strict') !== true
-        ) {
-            throw new LogicException(
-                'GateTrail RestoreRoleHandler currently requires strict auditing.',
-            );
-        }
     }
 
     private function identifier(Model $role): int|string

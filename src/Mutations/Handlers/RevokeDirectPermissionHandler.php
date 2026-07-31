@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace HangTuah\GateTrail\Mutations\Handlers;
 
 use DateTimeInterface;
-use HangTuah\GateTrail\Audit\AccessAuditWriter;
 use HangTuah\GateTrail\Audit\AuditContextBuilder;
 use HangTuah\GateTrail\Audit\MetadataNormalizer;
 use HangTuah\GateTrail\Audit\PendingAuditRecord;
@@ -16,30 +15,27 @@ use HangTuah\GateTrail\Models\PermissionAssignment;
 use HangTuah\GateTrail\MutationOutcome;
 use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
+use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\RevokeDirectPermissionCommand;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
 use HangTuah\GateTrail\Mutations\PermissionAssignmentInputResolver;
-use HangTuah\GateTrail\Mutations\StrictMutationTransaction;
-use Illuminate\Contracts\Config\Repository;
+use HangTuah\GateTrail\Mutations\PreparedMutation;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
 /** @internal */
 final readonly class RevokeDirectPermissionHandler
 {
-    public function __construct(private Repository $config, private MetadataNormalizer $metadata, private ActorIdentityResolver $actors, private MutationReasonValidator $reasons, private StrictMutationTransaction $transaction, private PermissionAssignmentInputResolver $assignments, private PermissionAssignmentSnapshotBuilder $snapshots, private AuditContextBuilder $contexts, private SensitiveAuditValueRedactor $redactor, private AccessAuditWriter $audits) {}
+    public function __construct(private MetadataNormalizer $metadata, private ActorIdentityResolver $actors, private MutationReasonValidator $reasons, private AuditedMutationTransaction $mutations, private PermissionAssignmentInputResolver $assignments, private PermissionAssignmentSnapshotBuilder $snapshots, private AuditContextBuilder $contexts, private SensitiveAuditValueRedactor $redactor) {}
 
     /** @return MutationResult<PermissionAssignment> */
     public function handle(RevokeDirectPermissionCommand $command): MutationResult
     {
-        if ($this->config->get('gatetrail.audit.enabled') !== true || $this->config->get('gatetrail.audit.strict') !== true) {
-            throw new LogicException('GateTrail RevokeDirectPermissionHandler currently requires strict auditing.');
-        }
         $metadata = $this->metadata->normalize($command->metadata);
         $actor = $this->actors->resolve($command->actor);
         $reason = $this->reasons->assignment($command->reason);
 
-        return $this->transaction->run(function () use ($command, $metadata, $actor, $reason): MutationResult {
+        return $this->mutations->run(function () use ($command, $metadata, $actor, $reason): PreparedMutation {
             $a = $this->assignments->resolve($command->assignment);
             $id = $a->getKey();
             if (! is_int($id) && ! is_string($id)) {
@@ -65,9 +61,9 @@ final readonly class RevokeDirectPermissionHandler
             if (! is_string($guard) || ! is_string($name)) {
                 throw new LogicException('GateTrail permission identity is invalid.');
             }
-            $auditId = $this->audits->append(new PendingAuditRecord(event: 'permission.revoked_from_subject', actor: $actor, subjectType: $subjectType, subjectId: $subjectId, targetType: 'permission_assignment', targetId: $id, before: $before, after: $this->snapshots->build($a, 'after'), reason: $this->redactor->auditReason($reason), context: $this->contexts->directPermissionAssignment($guard, $name, $metadata), ipAddress: null, userAgent: null, requestId: null, createdAt: $command->requestedAt));
+            $audit = new PendingAuditRecord(event: 'permission.revoked_from_subject', actor: $actor, subjectType: $subjectType, subjectId: $subjectId, targetType: 'permission_assignment', targetId: $id, before: $before, after: $this->snapshots->build($a, 'after'), reason: $this->redactor->auditReason($reason), context: $this->contexts->directPermissionAssignment($guard, $name, $metadata), ipAddress: null, userAgent: null, requestId: null, createdAt: $command->requestedAt);
 
-            return new MutationResult($a, MutationOutcome::Revoked, $auditId);
+            return new PreparedMutation($a, MutationOutcome::Revoked, $audit);
         });
     }
 }

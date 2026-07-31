@@ -9,6 +9,8 @@ use HangTuah\GateTrail\Assignments\AssignmentDecisionMaker;
 use HangTuah\GateTrail\Assignments\AssignmentLockStore;
 use HangTuah\GateTrail\Audit\AccessAuditWriter;
 use HangTuah\GateTrail\Audit\AuditContextBuilder;
+use HangTuah\GateTrail\Audit\AuditFailureReporter;
+use HangTuah\GateTrail\Audit\AuditModeResolver;
 use HangTuah\GateTrail\Audit\CanonicalAuditJson;
 use HangTuah\GateTrail\Audit\MetadataNormalizer;
 use HangTuah\GateTrail\Audit\PermissionAssignmentSnapshotBuilder;
@@ -35,6 +37,7 @@ use HangTuah\GateTrail\Managers\DefaultPermissionManager;
 use HangTuah\GateTrail\Managers\DefaultRoleManager;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\AssignmentIdentifierNormalizer;
+use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\DeactivatedPermissionDefinitionInputResolver;
 use HangTuah\GateTrail\Mutations\DeactivatedRoleDefinitionInputResolver;
 use HangTuah\GateTrail\Mutations\DefinitionIdentifierNormalizer;
@@ -93,6 +96,8 @@ final class GateTrailServiceProvider extends ServiceProvider
         );
         $this->app->singleton(AccessAuditWriter::class);
         $this->app->singleton(AuditContextBuilder::class);
+        $this->app->singleton(AuditFailureReporter::class);
+        $this->app->singleton(AuditModeResolver::class);
         $this->app->singleton(CanonicalAuditJson::class);
         $this->app->singleton(MetadataNormalizer::class);
         $this->app->singleton(PermissionAssignmentSnapshotBuilder::class);
@@ -140,6 +145,7 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(DeactivatedRoleDefinitionInputResolver::class);
         $this->app->singleton(RolePermissionInputResolver::class);
         $this->app->singleton(StrictMutationTransaction::class);
+        $this->app->singleton(AuditedMutationTransaction::class);
         $this->app->singleton(
             MutationReasonValidator::class,
             static function (Application $app): MutationReasonValidator {

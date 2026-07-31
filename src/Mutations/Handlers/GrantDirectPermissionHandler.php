@@ -10,7 +10,6 @@ use HangTuah\GateTrail\Assignments\AssignmentDecisionOutcome;
 use HangTuah\GateTrail\Assignments\AssignmentLockStore;
 use HangTuah\GateTrail\Assignments\AssignmentScope;
 use HangTuah\GateTrail\Assignments\EffectiveAssignmentPeriod;
-use HangTuah\GateTrail\Audit\AccessAuditWriter;
 use HangTuah\GateTrail\Audit\AuditContextBuilder;
 use HangTuah\GateTrail\Audit\MetadataNormalizer;
 use HangTuah\GateTrail\Audit\PendingAuditRecord;
@@ -22,12 +21,12 @@ use HangTuah\GateTrail\MutationOutcome;
 use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\ActorIdentity;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
+use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\GrantDirectPermissionCommand;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
 use HangTuah\GateTrail\Mutations\PermissionInputResolver;
-use HangTuah\GateTrail\Mutations\StrictMutationTransaction;
+use HangTuah\GateTrail\Mutations\PreparedMutation;
 use HangTuah\GateTrail\Support\ModelRegistry;
-use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 use LogicException;
@@ -36,11 +35,10 @@ use LogicException;
 final readonly class GrantDirectPermissionHandler
 {
     public function __construct(
-        private Repository $config,
         private MetadataNormalizer $metadata,
         private ActorIdentityResolver $actors,
         private MutationReasonValidator $reasons,
-        private StrictMutationTransaction $transaction,
+        private AuditedMutationTransaction $mutations,
         private PermissionInputResolver $permissions,
         private AssignmentLockStore $locks,
         private AssignmentConflictQuery $conflicts,
@@ -49,16 +47,11 @@ final readonly class GrantDirectPermissionHandler
         private PermissionAssignmentSnapshotBuilder $snapshots,
         private AuditContextBuilder $contexts,
         private SensitiveAuditValueRedactor $redactor,
-        private AccessAuditWriter $audits,
     ) {}
 
     /** @return MutationResult<Model&PermissionAssignmentContract> */
     public function handle(GrantDirectPermissionCommand $command): MutationResult
     {
-        if ($this->config->get('gatetrail.audit.enabled') !== true
-            || $this->config->get('gatetrail.audit.strict') !== true) {
-            throw new LogicException('GateTrail GrantDirectPermissionHandler currently requires strict auditing.');
-        }
 
         $metadata = $this->metadata->normalize($command->metadata);
         $actor = $this->actors->resolve($command->actor);
@@ -66,9 +59,9 @@ final readonly class GrantDirectPermissionHandler
         [$subjectType, $subjectId] = $this->subjectIdentity($command->subject);
         $candidate = EffectiveAssignmentPeriod::fromAssignment($command->period, $command->requestedAt);
 
-        return $this->transaction->run(function () use (
+        return $this->mutations->run(function () use (
             $command, $metadata, $actor, $reason, $subjectType, $subjectId, $candidate,
-        ): MutationResult {
+        ): PreparedMutation {
             $permission = $this->permissions->resolve($command->subject, $command->permission);
             $permissionId = $this->identifier($permission, 'permission');
             $scope = AssignmentScope::forPermission($subjectType, $subjectId, $permissionId);
@@ -85,7 +78,7 @@ final readonly class GrantDirectPermissionHandler
                     throw new LogicException('GateTrail unchanged permission assignment has no existing model.');
                 }
 
-                return new MutationResult($decision->existingAssignment, MutationOutcome::Unchanged, null);
+                return new PreparedMutation($decision->existingAssignment, MutationOutcome::Unchanged, null);
             }
             if ($decision->outcome === AssignmentDecisionOutcome::Conflict) {
                 throw DuplicateActiveAssignment::forScope($scope);
@@ -94,7 +87,7 @@ final readonly class GrantDirectPermissionHandler
             $assignment = $this->createAssignment(
                 $subjectType, $subjectId, $permissionId, $actor, $reason, $command,
             );
-            $auditId = $this->audits->append(new PendingAuditRecord(
+            $audit = new PendingAuditRecord(
                 event: 'permission.granted_to_subject',
                 actor: $actor,
                 subjectType: $subjectType,
@@ -113,9 +106,9 @@ final readonly class GrantDirectPermissionHandler
                 userAgent: null,
                 requestId: null,
                 createdAt: $command->requestedAt,
-            ));
+            );
 
-            return new MutationResult($assignment, MutationOutcome::Created, $auditId);
+            return new PreparedMutation($assignment, MutationOutcome::Created, $audit);
         });
     }
 

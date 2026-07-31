@@ -10,7 +10,6 @@ use HangTuah\GateTrail\Assignments\AssignmentDecisionOutcome;
 use HangTuah\GateTrail\Assignments\AssignmentLockStore;
 use HangTuah\GateTrail\Assignments\AssignmentScope;
 use HangTuah\GateTrail\Assignments\EffectiveAssignmentPeriod;
-use HangTuah\GateTrail\Audit\AccessAuditWriter;
 use HangTuah\GateTrail\Audit\AuditContextBuilder;
 use HangTuah\GateTrail\Audit\MetadataNormalizer;
 use HangTuah\GateTrail\Audit\PendingAuditRecord;
@@ -22,12 +21,12 @@ use HangTuah\GateTrail\MutationOutcome;
 use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\ActorIdentity;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
+use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\AssignRoleCommand;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
+use HangTuah\GateTrail\Mutations\PreparedMutation;
 use HangTuah\GateTrail\Mutations\RoleInputResolver;
-use HangTuah\GateTrail\Mutations\StrictMutationTransaction;
 use HangTuah\GateTrail\Support\ModelRegistry;
-use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 use LogicException;
@@ -38,11 +37,10 @@ use LogicException;
 final readonly class AssignRoleHandler
 {
     public function __construct(
-        private Repository $config,
         private MetadataNormalizer $metadata,
         private ActorIdentityResolver $actors,
         private MutationReasonValidator $reasons,
-        private StrictMutationTransaction $transaction,
+        private AuditedMutationTransaction $mutations,
         private RoleInputResolver $roles,
         private AssignmentLockStore $locks,
         private AssignmentConflictQuery $conflicts,
@@ -51,7 +49,6 @@ final readonly class AssignRoleHandler
         private RoleAssignmentSnapshotBuilder $snapshots,
         private AuditContextBuilder $contexts,
         private SensitiveAuditValueRedactor $redactor,
-        private AccessAuditWriter $audits,
     ) {}
 
     /**
@@ -59,7 +56,6 @@ final readonly class AssignRoleHandler
      */
     public function handle(AssignRoleCommand $command): MutationResult
     {
-        $this->assertStrictAuditMode();
         $metadata = $this->metadata->normalize($command->metadata);
         $actor = $this->actors->resolve($command->actor);
         $reason = $this->reasons->assignment($command->reason);
@@ -71,7 +67,7 @@ final readonly class AssignRoleHandler
             $command->requestedAt,
         );
 
-        return $this->transaction->run(
+        return $this->mutations->run(
             function () use (
                 $command,
                 $metadata,
@@ -80,7 +76,7 @@ final readonly class AssignRoleHandler
                 $subjectType,
                 $subjectId,
                 $candidate,
-            ): MutationResult {
+            ): PreparedMutation {
                 $role = $this->roles->resolve(
                     $command->subject,
                     $command->role,
@@ -113,7 +109,7 @@ final readonly class AssignRoleHandler
                         );
                     }
 
-                    return new MutationResult(
+                    return new PreparedMutation(
                         $decision->existingAssignment,
                         MutationOutcome::Unchanged,
                         null,
@@ -135,54 +131,40 @@ final readonly class AssignRoleHandler
                     $reason,
                     $command,
                 );
-                $auditId = $this->audits->append(
-                    new PendingAuditRecord(
-                        event: 'role.assigned',
-                        actor: $actor,
-                        subjectType: $subjectType,
-                        subjectId: $subjectId,
-                        targetType: 'role_assignment',
-                        targetId: $this->modelIdentifier(
-                            $assignment,
-                            'role assignment',
-                        ),
-                        before: null,
-                        after: $this->snapshots->build($assignment),
-                        reason: $this->redactor->auditReason($reason),
-                        context: $this->contexts->roleAssignment(
-                            $this->requiredString(
-                                $role,
-                                'guard_name',
-                            ),
-                            $this->requiredString($role, 'name'),
-                            $metadata,
-                        ),
-                        ipAddress: null,
-                        userAgent: null,
-                        requestId: null,
-                        createdAt: $command->requestedAt,
+                $audit = new PendingAuditRecord(
+                    event: 'role.assigned',
+                    actor: $actor,
+                    subjectType: $subjectType,
+                    subjectId: $subjectId,
+                    targetType: 'role_assignment',
+                    targetId: $this->modelIdentifier(
+                        $assignment,
+                        'role assignment',
                     ),
+                    before: null,
+                    after: $this->snapshots->build($assignment),
+                    reason: $this->redactor->auditReason($reason),
+                    context: $this->contexts->roleAssignment(
+                        $this->requiredString(
+                            $role,
+                            'guard_name',
+                        ),
+                        $this->requiredString($role, 'name'),
+                        $metadata,
+                    ),
+                    ipAddress: null,
+                    userAgent: null,
+                    requestId: null,
+                    createdAt: $command->requestedAt,
                 );
 
-                return new MutationResult(
+                return new PreparedMutation(
                     $assignment,
                     MutationOutcome::Created,
-                    $auditId,
+                    $audit,
                 );
             },
         );
-    }
-
-    private function assertStrictAuditMode(): void
-    {
-        if (
-            $this->config->get('gatetrail.audit.enabled') !== true
-            || $this->config->get('gatetrail.audit.strict') !== true
-        ) {
-            throw new LogicException(
-                'GateTrail AssignRoleHandler currently requires strict auditing.',
-            );
-        }
     }
 
     /**

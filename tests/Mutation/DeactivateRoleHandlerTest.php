@@ -407,12 +407,13 @@ final class DeactivateRoleHandlerTest extends TestCase
         }
     }
 
-    public function test_handler_requires_strict_auditing(): void
+    public function test_handler_requires_enabled_auditing(): void
     {
-        config()->set('gatetrail.audit.strict', false);
+        // Non-strict auditing is supported; disabled auditing is not yet.
+        config()->set('gatetrail.audit.enabled', false);
 
         $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('requires strict auditing');
+        $this->expectExceptionMessage('requires enabled auditing');
 
         app(DeactivateRoleHandler::class)->handle(
             $this->command(role: $this->role),

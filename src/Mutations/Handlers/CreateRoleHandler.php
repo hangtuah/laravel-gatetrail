@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail\Mutations\Handlers;
 
-use HangTuah\GateTrail\Audit\AccessAuditWriter;
 use HangTuah\GateTrail\Audit\AuditContextBuilder;
 use HangTuah\GateTrail\Audit\MetadataNormalizer;
 use HangTuah\GateTrail\Audit\PendingAuditRecord;
@@ -17,12 +16,12 @@ use HangTuah\GateTrail\Models\Role;
 use HangTuah\GateTrail\MutationOutcome;
 use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
+use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\CreateRoleCommand;
 use HangTuah\GateTrail\Mutations\DefinitionInputValidator;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
-use HangTuah\GateTrail\Mutations\StrictMutationTransaction;
+use HangTuah\GateTrail\Mutations\PreparedMutation;
 use HangTuah\GateTrail\Support\ModelRegistry;
-use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
 use LogicException;
@@ -37,18 +36,16 @@ final readonly class CreateRoleHandler
     private const NAMESPACE_COLUMNS = ['name', 'guard_name'];
 
     public function __construct(
-        private Repository $config,
         private DefinitionInputValidator $definitions,
         private MetadataNormalizer $metadata,
         private ActorIdentityResolver $actors,
         private MutationReasonValidator $reasons,
-        private StrictMutationTransaction $transaction,
+        private AuditedMutationTransaction $mutations,
         private ModelRegistry $models,
         private UniqueConstraintViolationClassifier $uniqueViolations,
         private RoleSnapshotBuilder $snapshots,
         private AuditContextBuilder $contexts,
         private SensitiveAuditValueRedactor $redactor,
-        private AccessAuditWriter $audits,
     ) {}
 
     /**
@@ -56,7 +53,6 @@ final readonly class CreateRoleHandler
      */
     public function handle(CreateRoleCommand $command): MutationResult
     {
-        $this->assertStrictAuditMode();
         $name = $this->definitions->name($command->name);
         $guard = $this->definitions->guard($command->guard);
         $description = $this->definitions->description(
@@ -66,7 +62,7 @@ final readonly class CreateRoleHandler
         $actor = $this->actors->resolve($command->actor);
         $reason = $this->reasons->definition($command->reason);
 
-        return $this->transaction->run(
+        return $this->mutations->run(
             function () use (
                 $command,
                 $name,
@@ -75,7 +71,7 @@ final readonly class CreateRoleHandler
                 $metadata,
                 $actor,
                 $reason,
-            ): MutationResult {
+            ): PreparedMutation {
                 $class = $this->models->role();
                 $collision = $class::query()
                     ->withTrashed()
@@ -115,48 +111,34 @@ final readonly class CreateRoleHandler
                     throw $exception;
                 }
 
-                $auditId = $this->audits->append(
-                    new PendingAuditRecord(
-                        event: 'role.created',
-                        actor: $actor,
-                        subjectType: null,
-                        subjectId: null,
-                        targetType: 'role',
-                        targetId: $this->identifier($role),
-                        before: null,
-                        after: $this->snapshots->build($role),
-                        reason: $this->redactor->auditReason($reason),
-                        context: $this->contexts->roleDefinition(
-                            $guard,
-                            $name,
-                            $metadata,
-                        ),
-                        ipAddress: null,
-                        userAgent: null,
-                        requestId: null,
-                        createdAt: $command->requestedAt,
+                $audit = new PendingAuditRecord(
+                    event: 'role.created',
+                    actor: $actor,
+                    subjectType: null,
+                    subjectId: null,
+                    targetType: 'role',
+                    targetId: $this->identifier($role),
+                    before: null,
+                    after: $this->snapshots->build($role),
+                    reason: $this->redactor->auditReason($reason),
+                    context: $this->contexts->roleDefinition(
+                        $guard,
+                        $name,
+                        $metadata,
                     ),
+                    ipAddress: null,
+                    userAgent: null,
+                    requestId: null,
+                    createdAt: $command->requestedAt,
                 );
 
-                return new MutationResult(
+                return new PreparedMutation(
                     $role,
                     MutationOutcome::Created,
-                    $auditId,
+                    $audit,
                 );
             },
         );
-    }
-
-    private function assertStrictAuditMode(): void
-    {
-        if (
-            $this->config->get('gatetrail.audit.enabled') !== true
-            || $this->config->get('gatetrail.audit.strict') !== true
-        ) {
-            throw new LogicException(
-                'GateTrail CreateRoleHandler currently requires strict auditing.',
-            );
-        }
     }
 
     private function identifier(Model $role): int|string

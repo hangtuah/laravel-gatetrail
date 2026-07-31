@@ -497,26 +497,22 @@ final class DeactivatePermissionHandlerTest extends TestCase
         $this->assertPermissionRemainsActive();
     }
 
-    public function test_handler_requires_strict_auditing(): void
+    public function test_handler_requires_enabled_auditing(): void
     {
-        foreach (['gatetrail.audit.enabled', 'gatetrail.audit.strict'] as $key) {
-            config()->set('gatetrail.audit.enabled', true);
-            config()->set('gatetrail.audit.strict', true);
-            config()->set($key, false);
+        // Non-strict auditing is supported; disabled auditing is not yet.
+        config()->set('gatetrail.audit.enabled', false);
 
-            try {
-                app(DeactivatePermissionHandler::class)->handle(
-                    $this->command(permission: $this->permission),
-                );
+        try {
+            app(DeactivatePermissionHandler::class)->handle(
+                $this->command(permission: $this->permission),
+            );
 
-                $this->fail('Strict auditing should be required.');
-            } catch (LogicException $exception) {
-                $this->assertStringContainsString(
-                    'requires strict auditing',
-                    $exception->getMessage(),
-                );
-                $this->assertPermissionRemainsActive();
-            }
+            $this->fail('Enabled auditing should be required.');
+        } catch (LogicException $exception) {
+            $this->assertStringContainsString(
+                'requires enabled auditing',
+                $exception->getMessage(),
+            );
         }
     }
 

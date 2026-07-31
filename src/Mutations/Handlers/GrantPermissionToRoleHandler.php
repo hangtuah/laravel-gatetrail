@@ -10,7 +10,6 @@ use HangTuah\GateTrail\Assignments\AssignmentDecisionOutcome;
 use HangTuah\GateTrail\Assignments\AssignmentLockStore;
 use HangTuah\GateTrail\Assignments\AssignmentScope;
 use HangTuah\GateTrail\Assignments\EffectiveAssignmentPeriod;
-use HangTuah\GateTrail\Audit\AccessAuditWriter;
 use HangTuah\GateTrail\Audit\AuditContextBuilder;
 use HangTuah\GateTrail\Audit\MetadataNormalizer;
 use HangTuah\GateTrail\Audit\PendingAuditRecord;
@@ -22,12 +21,12 @@ use HangTuah\GateTrail\MutationOutcome;
 use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\ActorIdentity;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
+use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\GrantPermissionToRoleCommand;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
+use HangTuah\GateTrail\Mutations\PreparedMutation;
 use HangTuah\GateTrail\Mutations\RolePermissionDefinitionResolver;
-use HangTuah\GateTrail\Mutations\StrictMutationTransaction;
 use HangTuah\GateTrail\Support\ModelRegistry;
-use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
@@ -35,11 +34,10 @@ use LogicException;
 final readonly class GrantPermissionToRoleHandler
 {
     public function __construct(
-        private Repository $config,
         private MetadataNormalizer $metadata,
         private ActorIdentityResolver $actors,
         private MutationReasonValidator $reasons,
-        private StrictMutationTransaction $transaction,
+        private AuditedMutationTransaction $mutations,
         private RolePermissionDefinitionResolver $definitions,
         private AssignmentLockStore $locks,
         private AssignmentConflictQuery $conflicts,
@@ -48,20 +46,12 @@ final readonly class GrantPermissionToRoleHandler
         private RolePermissionSnapshotBuilder $snapshots,
         private AuditContextBuilder $contexts,
         private SensitiveAuditValueRedactor $redactor,
-        private AccessAuditWriter $audits,
     ) {}
 
     /** @return MutationResult<Model&RolePermissionContract> */
     public function handle(
         GrantPermissionToRoleCommand $command,
     ): MutationResult {
-        if ($this->config->get('gatetrail.audit.enabled') !== true
-            || $this->config->get('gatetrail.audit.strict') !== true) {
-            throw new LogicException(
-                'GateTrail GrantPermissionToRoleHandler currently '
-                .'requires strict auditing.',
-            );
-        }
 
         $metadata = $this->metadata->normalize($command->metadata);
         $actor = $this->actors->resolve($command->actor);
@@ -71,13 +61,13 @@ final readonly class GrantPermissionToRoleHandler
             $command->requestedAt,
         );
 
-        return $this->transaction->run(function () use (
+        return $this->mutations->run(function () use (
             $command,
             $metadata,
             $actor,
             $reason,
             $candidate,
-        ): MutationResult {
+        ): PreparedMutation {
             [$role, $permission, $guard] = $this->definitions->resolve(
                 $command->role,
                 $command->permission,
@@ -111,7 +101,7 @@ final readonly class GrantPermissionToRoleHandler
                     );
                 }
 
-                return new MutationResult(
+                return new PreparedMutation(
                     $decision->existingAssignment,
                     MutationOutcome::Unchanged,
                     null,
@@ -130,41 +120,39 @@ final readonly class GrantPermissionToRoleHandler
                 $reason,
                 $command,
             );
-            $auditId = $this->audits->append(
-                new PendingAuditRecord(
-                    event: 'permission.granted_to_role',
-                    actor: $actor,
-                    subjectType: null,
-                    subjectId: null,
-                    targetType: 'role_permission',
-                    targetId: $this->identifier(
-                        $assignment,
-                        'role-permission assignment',
-                    ),
-                    before: null,
-                    after: $this->snapshots->build($assignment),
-                    reason: $this->redactor->auditReason($reason),
-                    context: $this->contexts->rolePermissionAssignment(
-                        $guard,
-                        $this->requiredString($role, 'name', 'role'),
-                        $this->requiredString(
-                            $permission,
-                            'name',
-                            'permission',
-                        ),
-                        $metadata,
-                    ),
-                    ipAddress: null,
-                    userAgent: null,
-                    requestId: null,
-                    createdAt: $command->requestedAt,
+            $audit = new PendingAuditRecord(
+                event: 'permission.granted_to_role',
+                actor: $actor,
+                subjectType: null,
+                subjectId: null,
+                targetType: 'role_permission',
+                targetId: $this->identifier(
+                    $assignment,
+                    'role-permission assignment',
                 ),
+                before: null,
+                after: $this->snapshots->build($assignment),
+                reason: $this->redactor->auditReason($reason),
+                context: $this->contexts->rolePermissionAssignment(
+                    $guard,
+                    $this->requiredString($role, 'name', 'role'),
+                    $this->requiredString(
+                        $permission,
+                        'name',
+                        'permission',
+                    ),
+                    $metadata,
+                ),
+                ipAddress: null,
+                userAgent: null,
+                requestId: null,
+                createdAt: $command->requestedAt,
             );
 
-            return new MutationResult(
+            return new PreparedMutation(
                 $assignment,
                 MutationOutcome::Created,
-                $auditId,
+                $audit,
             );
         });
     }

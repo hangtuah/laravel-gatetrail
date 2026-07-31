@@ -514,24 +514,20 @@ final class CreatePermissionHandlerTest extends TestCase
         }
     }
 
-    public function test_handler_requires_strict_auditing(): void
+    public function test_handler_requires_enabled_auditing(): void
     {
-        foreach (['gatetrail.audit.enabled', 'gatetrail.audit.strict'] as $key) {
-            config()->set('gatetrail.audit.enabled', true);
-            config()->set('gatetrail.audit.strict', true);
-            config()->set($key, false);
+        // Non-strict auditing is supported; disabled auditing is not yet.
+        config()->set('gatetrail.audit.enabled', false);
 
-            try {
-                app(CreatePermissionHandler::class)->handle($this->command());
+        try {
+            app(CreatePermissionHandler::class)->handle($this->command());
 
-                $this->fail('Strict auditing should be required.');
-            } catch (LogicException $exception) {
-                $this->assertStringContainsString(
-                    'requires strict auditing',
-                    $exception->getMessage(),
-                );
-                $this->assertDatabaseCount('acl_permissions', 0);
-            }
+            $this->fail('Enabled auditing should be required.');
+        } catch (LogicException $exception) {
+            $this->assertStringContainsString(
+                'requires enabled auditing',
+                $exception->getMessage(),
+            );
         }
     }
 

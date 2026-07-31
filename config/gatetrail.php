@@ -72,6 +72,19 @@ return [
         'require_reason' => false,
     ],
 
+    /*
+     * Strict auditing writes the mutation and its audit record in one
+     * transaction, so an audit failure rolls the mutation back.
+     *
+     * Setting 'strict' => false is an explicit operational trade-off: the
+     * mutation commits first and the audit is written afterwards in its own
+     * transaction. A mutation can therefore succeed with no audit evidence.
+     * When that happens GateTrail returns a null audit identifier, writes one
+     * error-level log, and dispatches AuditPersistenceFailed. It never throws
+     * after the commit and never retries the mutation. Inside a caller-owned
+     * transaction the audit waits for the outermost commit, so the immediate
+     * result also carries a null audit identifier.
+     */
     'audit' => [
         'enabled' => true,
         'strict' => true,
