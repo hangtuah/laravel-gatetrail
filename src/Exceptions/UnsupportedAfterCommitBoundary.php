@@ -7,15 +7,17 @@ namespace HangTuah\GateTrail\Exceptions;
 use RuntimeException;
 
 /**
- * Reports a caller-owned transaction that cannot defer a non-strict audit
- * until its outermost commit.
+ * Reports a caller-owned transaction that cannot defer GateTrail's
+ * after-commit work until its outermost commit.
  *
- * GateTrail rejects that combination before mutating anything rather than
- * silently writing the audit inside the caller's transaction, which would
- * make an outer rollback discard a mutation while keeping evidence of it, or
- * the reverse.
+ * That work is a non-strict audit write, the future cache invalidation, and
+ * the successful mutation event, so the requirement applies in strict,
+ * non-strict, and disabled audit modes alike. GateTrail rejects an
+ * unverifiable boundary before mutating anything rather than running those
+ * side effects inside the caller's transaction, which would make an outer
+ * rollback discard a mutation while keeping evidence of it, or the reverse.
  */
-final class UnsupportedAuditBoundary extends RuntimeException
+final class UnsupportedAfterCommitBoundary extends RuntimeException
 {
     private function __construct(
         public readonly ?string $connection,

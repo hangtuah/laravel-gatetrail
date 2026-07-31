@@ -218,7 +218,12 @@ final class DisabledAuditModeTest extends TestCase
                 );
             }
 
-            $this->assertCount(0, $this->pendingCallbacks());
+            // One deferred announcement per changed mutation, and nothing
+            // else: disabled auditing schedules no audit write.
+            $this->assertCount(
+                count(self::EVENTS),
+                $this->pendingCallbacks(),
+            );
         });
 
         $this->assertSame(1, Role::query()->count());

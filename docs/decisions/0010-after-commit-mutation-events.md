@@ -27,7 +27,8 @@ what happens when a listener fails after the mutation is already durable.
 Implementing dispatch before deciding those questions would make an
 unversioned public API out of whatever the first implementation happened to do.
 
-This ADR decides the contract. It does not implement it.
+This ADR decides the contract. It was accepted and then implemented; see
+Implementation status below.
 
 ## Decision
 
@@ -378,12 +379,16 @@ integration that silently stops receiving events is far harder to detect than a
 boundary that fails immediately, and GateTrail's established posture for an
 unverifiable boundary is to fail closed.
 
-This is a pre-v1 behavior change: strict and disabled mode will begin rejecting
-caller-owned transactions on connections that cannot defer callbacks, which
-work today. The rename is likewise a pre-v1 public API change. Both are
-accepted deliberately. Neither is implemented by this ADR; the existing
-`UnsupportedAuditBoundary` class and the current non-strict-only check remain
-untouched until the event implementation lands.
+This is a pre-v1 behavior change: strict and disabled mode now reject
+caller-owned transactions on connections that cannot defer callbacks. The
+rename is likewise a pre-v1 public API change. Both were accepted deliberately
+and are implemented; `UnsupportedAuditBoundary` no longer exists and no
+compatibility alias was kept.
+
+The check runs before the operation closure and therefore cannot yet know
+whether the outcome will be unchanged, so it applies to every caller-owned
+managed mutation. That is the safe direction, and the check registers nothing,
+so an unchanged result still leaves no callback behind.
 
 No distributed-transaction guarantee is claimed. GateTrail defers to the
 outermost commit of its own configured connection. A listener that writes to
@@ -602,12 +607,21 @@ open — the event class and shape, the mutation name set, the exact payload,
 ordering relative to auditing and the reserved cache-invalidation point, and
 post-commit listener failure policy.
 
-`ADR 0008` is unaffected. Its audit modes, snapshot contract, and
-`AuditPersistenceFailed` operational event stand as written; this ADR only
-defines how the successful mutation event relates to them.
+`ADR 0008` remains correct in substance. Its audit modes, snapshot contract,
+and `AuditPersistenceFailed` operational event stand as written; only the
+exception it names was renamed to `UnsupportedAfterCommitBoundary`, and the
+boundary requirement it describes for non-strict auditing now applies in every
+audit mode.
 
-Dispatch is not implemented. `PACKAGE_SPEC.md` and `ROADMAP.md` continue to
-describe after-commit event dispatch as outstanding work.
+## Implementation status
+
+Implemented. `MutationCommitted`, the `GateTrailEvent` marker interface, and
+central dispatch in `AuditedMutationTransaction` are in place, and all fourteen
+managed mutations dispatch exactly one event after their outermost successful
+commit. The reserved cache-invalidation ordering point exists as a documented
+slot in the announcement callback; no cache behavior is implemented. Bounded
+concurrency retry is still outstanding, and nothing in the dispatch path
+prevents its accepted exactly-once contract.
 
 ## Verification
 

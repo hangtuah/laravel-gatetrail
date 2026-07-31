@@ -98,7 +98,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 81% | In progress |
+| 4 | Mutation services | 86% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -137,6 +137,7 @@ Completed documents:
 - `docs/decisions/0007-laravel-gate-hook-boundary.md`
 - `docs/decisions/0008-audit-snapshot-and-failure-modes.md`
 - `docs/decisions/0009-direct-database-mutation-and-diagnostics.md`
+- `docs/decisions/0010-after-commit-mutation-events.md`
 
 Accepted architecture decisions:
 
@@ -151,6 +152,7 @@ Accepted architecture decisions:
 | 0007 | Bound the Laravel Gate hook to argument-free abilities | Accepted |
 | 0008 | Version audit snapshots and separate audit failure modes | Accepted |
 | 0009 | Treat direct database mutation as unsupported and diagnostic-only | Accepted |
+| 0010 | Dispatch one generic after-commit mutation event | Accepted |
 
 ## 5. Roadmap adherence
 
@@ -635,16 +637,14 @@ additional progress items.
 - [x] Non-strict audit behavior.
 - [x] Disabled audit behavior.
 - [ ] After-commit cache invalidation.
-- [ ] After-commit event dispatch. Contract accepted in
-      [ADR 0010](docs/decisions/0010-after-commit-mutation-events.md); the
-      implementation is outstanding.
+- [x] After-commit event dispatch.
 - [ ] Bounded concurrency retry.
 - [ ] Consumer documentation and pre-v1 API freeze.
 
 ```text
-Completed: 17
+Completed: 18
 Total:     21
-Progress:  80.952%, reported as 81%
+Progress:  85.714%, reported as 86%
 ```
 
 ### Required strict-audit flow
@@ -871,7 +871,8 @@ audit write.
   mutation and then writes the audit in a second transaction, returning the
   audit identifier. When it joins a caller-owned transaction it verifies
   outermost after-commit support *before* the mutation closure runs, rejecting
-  an unsupported boundary with `UnsupportedAuditBoundary` rather than silently
+  an unsupported boundary with `UnsupportedAfterCommitBoundary` rather than
+  silently
   writing the audit inside the caller's transaction; the audit then waits for
   the outer commit and the immediate result reports a null identifier. That
   verification reads transaction state and registers nothing, so an unchanged
@@ -897,39 +898,46 @@ audit write.
   transaction with unchanged validation, locking, conflict handling, lifecycle
   and rollback behavior, then discards the prepared audit document and returns
   a null identifier. `AccessAuditWriter` is never called, no statement reaches
-  the access-audit table, no after-commit callback is registered, and no
-  operational failure is logged or dispatched because nothing was attempted.
-  A caller-owned transaction is joined normally: an outer commit keeps the
-  mutation, an outer rollback removes it, and a boundary that non-strict mode
-  would reject is irrelevant here because nothing is deferred. `strict` has no
-  effect while auditing is off, and GateTrail never selects this mode by
+  the access-audit table, and no operational failure is logged or dispatched
+  because nothing was attempted. A caller-owned transaction is joined normally:
+  an outer commit keeps the mutation and an outer rollback removes it. `strict`
+  has no effect while auditing is off, and GateTrail never selects this mode by
   itself. Mutations succeed even when audit storage is entirely unavailable,
   which is the point: disabled auditing is an explicit consumer choice that
   leaves no authorization history behind, documented as such in the published
   configuration file.
+- After-commit mutation events are implemented to the contract accepted in
+  [ADR 0010](docs/decisions/0010-after-commit-mutation-events.md). Every changed
+  managed mutation dispatches exactly one public `MutationCommitted` after its
+  outermost successful commit, in strict, non-strict and disabled audit modes
+  alike. The event implements the `GateTrailEvent` marker interface, so a
+  listener bound to that interface receives every GateTrail event while a
+  listener bound to the class receives only this one. It carries the canonical
+  mutation name, outcome, target pair, subject pair, actor pair, audit
+  identifier, UTC timestamp and optional request ID — no models, snapshots,
+  metadata, reasons or credentials — and consumers cannot construct it. Dispatch
+  is central: the fourteen handlers still return a `PreparedMutation` and know
+  nothing about events. Inside a caller-owned transaction one combined callback
+  performs the deferred audit attempt, the reserved cache-invalidation point and
+  the dispatch in that order, so the event can carry an audit identifier the
+  immediate `MutationResult` structurally could not. A rollback discards it and
+  an unchanged outcome schedules nothing. A throwing listener never escapes a
+  committed mutation: it is caught, logged once with the event context and the
+  exception class only, never re-dispatched, and never retried. Event production
+  is always on, with no configuration flag. The after-commit boundary rule is now
+  uniform across every audit mode and its exception is
+  `UnsupportedAfterCommitBoundary`; `UnsupportedAuditBoundary` no longer exists.
 
 `RoleManager` and `PermissionManager` are now each 4 of 4 complete —
 `create()`, `update()`, `deactivate()`, and `restore()` on both contracts have
 a real single-use-case handler and no stub exists. Every definition mutation
 accepted by ADR 0002 is therefore implemented, bound, and tested. Both
-contracts remain pre-v1. All three accepted audit modes are now implemented.
-Phase 4 stays open because four cross-cutting mutation behaviors — after-commit
-cache invalidation, after-commit event dispatch, bounded concurrency retry, and
-the consumer documentation and pre-v1 API freeze — are still outstanding.
+contracts remain pre-v1. All three accepted audit modes and the accepted
+after-commit mutation event are now implemented. Phase 4 stays open because
+three cross-cutting mutation behaviors — after-commit cache invalidation,
+bounded concurrency retry, and the consumer documentation and pre-v1 API
+freeze — are still outstanding.
 
-The successful mutation event contract is accepted but unimplemented.
-[ADR 0010](docs/decisions/0010-after-commit-mutation-events.md) fixes one
-generic `MutationCommitted` event carrying the existing canonical mutation
-names and safe identifiers only, its ordering after the deferred audit attempt
-and the reserved cache-invalidation point in all three audit modes, and the
-post-commit listener failure policy. Owner decisions of 2026-07-31 keep the
-`permission.granted_to_subject` and `permission.revoked_from_subject` names,
-make after-commit boundary rejection uniform across every audit mode with the
-exception contract renamed to `UnsupportedAfterCommitBoundary`, and make event
-production always on with no configuration flag. None of that is built yet: no
-event class exists, no callback is registered, no mutation dispatches anything,
-and the existing `UnsupportedAuditBoundary` and non-strict-only boundary check
-are unchanged, so the checklist item above stays unchecked.
 
 ### Pre-v1 assignment-manager contract gate
 

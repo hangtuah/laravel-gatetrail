@@ -30,6 +30,7 @@ use HangTuah\GateTrail\Database\Schema\Manifest\SchemaManifest;
 use HangTuah\GateTrail\Database\Schema\SchemaAdapterFactory;
 use HangTuah\GateTrail\Database\Schema\SchemaContext;
 use HangTuah\GateTrail\Database\UniqueConstraintViolationClassifier;
+use HangTuah\GateTrail\Events\MutationEventDispatcher;
 use HangTuah\GateTrail\Guards\DefaultGuardResolver;
 use HangTuah\GateTrail\Guards\SubjectGuardResolver;
 use HangTuah\GateTrail\Managers\DefaultAssignmentManager;
@@ -147,6 +148,7 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(RolePermissionInputResolver::class);
         $this->app->singleton(StrictMutationTransaction::class);
         $this->app->singleton(AfterCommitBoundary::class);
+        $this->app->singleton(MutationEventDispatcher::class);
         $this->app->singleton(AuditedMutationTransaction::class);
         $this->app->singleton(
             MutationReasonValidator::class,

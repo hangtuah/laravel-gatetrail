@@ -363,7 +363,10 @@ When GateTrail joins a transaction already owned by the caller:
 Supported connections must provide outermost after-commit callback semantics
 for non-strict auditing inside a caller-owned transaction. If the configured
 connection cannot provide them, GateTrail rejects that combination before
-mutation with `UnsupportedAuditBoundary`.
+mutation with `UnsupportedAfterCommitBoundary`. That exception was named
+`UnsupportedAuditBoundary` when this ADR was accepted; ADR 0010 renamed it and
+widened the requirement to every audit mode, because a caller-owned mutation
+also defers cache invalidation and its successful mutation event.
 
 Non-strict mode weakens the package's history guarantee and must be documented
 as an explicit operational trade-off.
@@ -481,7 +484,7 @@ under the false assumption that no state change occurred.
 - make full snapshots the event contract;
 - define metadata destination, redaction, and limits;
 - separate strict, non-strict, and disabled transaction behavior;
-- add `InvalidAuditMetadata`, `UnsupportedAuditBoundary`, and
+- add `InvalidAuditMetadata`, `UnsupportedAfterCommitBoundary`, and
   `AuditPersistenceFailed`;
 - remove minimum audit snapshot content from open decisions.
 

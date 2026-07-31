@@ -958,7 +958,9 @@ When GateTrail joins a caller-owned transaction in non-strict mode, it waits
 for the outermost commit before attempting the audit in a new transaction. The
 manager returns a null audit identifier because that audit is still pending.
 An outer rollback creates no audit record. A connection without the required
-after-commit semantics throws `UnsupportedAuditBoundary` before mutation.
+after-commit semantics throws `UnsupportedAfterCommitBoundary` before mutation.
+That requirement applies in every audit mode, because a caller-owned mutation
+also defers cache invalidation and its successful mutation event.
 
 When auditing is disabled, no audit write is attempted. Cache invalidation and
 successful mutation events still occur.
@@ -1570,7 +1572,7 @@ InvalidSubject
 InvalidActor
 ReasonRequired
 InvalidAuditMetadata
-UnsupportedAuditBoundary
+UnsupportedAfterCommitBoundary
 AuditWriteFailed
 UnauthorizedMutation
 ```
@@ -1598,8 +1600,11 @@ metadata, or exception messages.
 The exact successful mutation event contract — its class and shape, stable
 mutation names, payload fields, dispatch ordering in every audit mode, and
 listener failure policy — is defined by
-[ADR 0010](docs/decisions/0010-after-commit-mutation-events.md). Dispatch is
-not implemented yet.
+[ADR 0010](docs/decisions/0010-after-commit-mutation-events.md) and is
+implemented. Every changed managed mutation dispatches one
+`MutationCommitted` after its outermost successful commit, carrying safe
+identifiers only. Event production is always on: consumers opt in by
+registering listeners, and dispatching with none registered is normal.
 
 ## 17. Configuration
 
@@ -1954,8 +1959,8 @@ Direct database mutation and diagnostic behavior are accepted in
 [ADR 0009](docs/decisions/0009-direct-database-mutation-and-diagnostics.md).
 
 The successful mutation event contract is accepted in
-[ADR 0010](docs/decisions/0010-after-commit-mutation-events.md). Its dispatch
-is not implemented yet.
+[ADR 0010](docs/decisions/0010-after-commit-mutation-events.md) and
+implemented.
 
 Architecture decisions will be stored under:
 

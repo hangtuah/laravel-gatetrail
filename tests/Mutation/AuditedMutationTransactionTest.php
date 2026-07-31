@@ -10,7 +10,7 @@ use HangTuah\GateTrail\Audit\AuditFailureReporter;
 use HangTuah\GateTrail\Audit\PendingAuditRecord;
 use HangTuah\GateTrail\Events\AuditPersistenceFailed;
 use HangTuah\GateTrail\Exceptions\AuditWriteFailed;
-use HangTuah\GateTrail\Exceptions\UnsupportedAuditBoundary;
+use HangTuah\GateTrail\Exceptions\UnsupportedAfterCommitBoundary;
 use HangTuah\GateTrail\Models\AccessAudit;
 use HangTuah\GateTrail\Models\Role;
 use HangTuah\GateTrail\MutationOutcome;
@@ -274,7 +274,7 @@ final class AuditedMutationTransactionTest extends TestCase
             );
 
             $this->fail('An unsupported boundary should be rejected.');
-        } catch (UnsupportedAuditBoundary $exception) {
+        } catch (UnsupportedAfterCommitBoundary $exception) {
             $this->assertSame('testing', $exception->connection);
             $this->assertDatabaseCount('acl_roles', 0);
         } finally {
@@ -301,7 +301,7 @@ final class AuditedMutationTransactionTest extends TestCase
             );
 
             $this->fail('An unsupported boundary should be rejected.');
-        } catch (UnsupportedAuditBoundary) {
+        } catch (UnsupportedAfterCommitBoundary) {
             $this->assertDatabaseCount('acl_roles', 0);
             $this->assertDatabaseCount('acl_access_audits', 0);
         } finally {
@@ -420,7 +420,7 @@ final class AuditedMutationTransactionTest extends TestCase
         $this->assertDatabaseCount('acl_access_audits', 1);
     }
 
-    public function test_strict_mode_schedules_no_callback_at_all(): void
+    public function test_strict_caller_owned_schedules_only_the_event(): void
     {
         $orchestrator = $this->orchestrator();
 
@@ -430,10 +430,11 @@ final class AuditedMutationTransactionTest extends TestCase
             );
 
             $this->assertNotNull($result->auditId);
-            $this->assertCount(0, $this->pendingCallbacks());
             // Strict auditing writes inside the caller transaction, so the
-            // audit is already visible before the outer commit.
+            // audit is already visible before the outer commit and only the
+            // announcement waits.
             $this->assertDatabaseCount('acl_access_audits', 1);
+            $this->assertCount(1, $this->pendingCallbacks());
         });
     }
 
@@ -456,7 +457,7 @@ final class AuditedMutationTransactionTest extends TestCase
             );
 
             $this->fail('An unsupported boundary should be rejected.');
-        } catch (UnsupportedAuditBoundary) {
+        } catch (UnsupportedAfterCommitBoundary) {
             $this->assertFalse(
                 $ran,
                 'The operation closure must never run.',
@@ -564,7 +565,7 @@ final class AuditedMutationTransactionTest extends TestCase
         $this->assertSame([], $this->logger->records);
     }
 
-    public function test_disabled_caller_owned_commit_registers_no_callback(): void
+    public function test_disabled_caller_owned_commit_schedules_only_the_event(): void
     {
         config()->set('gatetrail.audit.enabled', false);
         $orchestrator = $this->orchestrator();
@@ -576,7 +577,7 @@ final class AuditedMutationTransactionTest extends TestCase
 
             $this->assertSame(MutationOutcome::Created, $result->outcome);
             $this->assertNull($result->auditId);
-            $this->assertCount(0, $this->pendingCallbacks());
+            $this->assertCount(1, $this->pendingCallbacks());
         });
 
         $this->assertDatabaseCount('acl_roles', 1);
@@ -612,25 +613,30 @@ final class AuditedMutationTransactionTest extends TestCase
         }
     }
 
-    public function test_disabled_auditing_ignores_an_unsupported_boundary(): void
+    public function test_disabled_auditing_still_rejects_an_unsupported_boundary(): void
     {
         config()->set('gatetrail.audit.enabled', false);
         $orchestrator = $this->orchestrator();
         $connection = $this->connection();
         $connection->beginTransaction();
         $connection->unsetTransactionManager();
+        $ran = false;
 
         try {
-            // Non-strict mode rejects this state because it must defer an
-            // audit. Disabled mode defers nothing, so the boundary is
-            // irrelevant and the mutation proceeds.
-            $result = $orchestrator->run(
-                fn (): PreparedMutation => $this->created($this->role()),
+            // Disabled auditing defers no audit, but it still defers the
+            // mutation event, so the boundary rule is uniform.
+            $orchestrator->run(
+                function () use (&$ran): PreparedMutation {
+                    $ran = true;
+
+                    return $this->created($this->role());
+                },
             );
 
-            $this->assertSame(MutationOutcome::Created, $result->outcome);
-            $this->assertNull($result->auditId);
-            $this->assertDatabaseCount('acl_roles', 1);
+            $this->fail('An unsupported boundary should be rejected.');
+        } catch (UnsupportedAfterCommitBoundary) {
+            $this->assertFalse($ran);
+            $this->assertDatabaseCount('acl_roles', 0);
         } finally {
             $connection->rollBack();
         }

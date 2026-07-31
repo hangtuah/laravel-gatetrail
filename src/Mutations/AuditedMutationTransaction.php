@@ -10,38 +10,48 @@ use HangTuah\GateTrail\Audit\AuditFailureReporter;
 use HangTuah\GateTrail\Audit\AuditMode;
 use HangTuah\GateTrail\Audit\AuditModeResolver;
 use HangTuah\GateTrail\Audit\PendingAuditRecord;
-use HangTuah\GateTrail\Exceptions\UnsupportedAuditBoundary;
+use HangTuah\GateTrail\Events\MutationEventDispatcher;
+use HangTuah\GateTrail\Exceptions\UnsupportedAfterCommitBoundary;
+use HangTuah\GateTrail\MutationOutcome;
 use HangTuah\GateTrail\MutationResult;
 use Illuminate\Database\Connection;
+use Illuminate\Database\Eloquent\Model;
 use Throwable;
 
 /**
- * Applies the configured audit mode to every managed mutation.
+ * Applies the configured audit mode to every managed mutation and announces
+ * the result once it is durable.
  *
- * Handlers stay mode-agnostic: they validate, mutate, build canonical
- * snapshots, and return a {@see PreparedMutation}. This class owns the
- * transaction state machine.
+ * Handlers stay mode-agnostic and dispatch-agnostic: they validate, mutate,
+ * build canonical snapshots, and return a {@see PreparedMutation}. This class
+ * owns the transaction state machine, the audit write, and the after-commit
+ * side effects.
  *
  * Strict:
- *   begin -> mutate -> append audit -> commit. An audit failure rolls the
- *   mutation back and throws `AuditWriteFailed`.
+ *   begin -> mutate -> append audit -> commit -> announce. An audit failure
+ *   rolls the mutation back, throws `AuditWriteFailed`, and announces nothing.
  *
  * Non-strict, GateTrail owns the outermost transaction:
- *   begin -> mutate -> commit -> append audit in a second transaction. An
- *   audit failure leaves the mutation committed, returns a null identifier,
- *   and is reported operationally instead of thrown.
+ *   begin -> mutate -> commit -> append audit in a second transaction ->
+ *   announce. An audit failure leaves the mutation committed, reports
+ *   operationally, and the announcement carries a null audit identifier.
  *
  * Non-strict, inside a caller-owned transaction:
- *   verify after-commit support -> mutate -> return a null identifier ->
- *   append the audit in a new transaction once the caller's outermost
- *   transaction commits. A caller rollback discards both.
+ *   mutate -> return a null identifier -> at the outermost commit, append the
+ *   audit in a new transaction and then announce.
  *
  * Disabled:
- *   begin or join -> mutate -> commit -> return a null identifier. No audit is
- *   written, no callback is registered, and no after-commit boundary is
- *   required. Nothing failed, so no operational failure is reported either.
+ *   begin or join -> mutate -> commit -> announce with a null identifier. No
+ *   audit is written and nothing failed, so nothing is reported.
+ *
+ * Announcing is the reserved cache-invalidation point followed by the
+ * successful mutation event. Inside a caller-owned transaction it is one
+ * callback rather than several, so ordering never depends on the framework's
+ * callback order.
  *
  * @internal
+ *
+ * @see docs/decisions/0010-after-commit-mutation-events.md
  */
 final readonly class AuditedMutationTransaction
 {
@@ -51,6 +61,7 @@ final readonly class AuditedMutationTransaction
         private AfterCommitBoundary $boundaries,
         private AccessAuditWriter $audits,
         private AuditFailureReporter $failures,
+        private MutationEventDispatcher $events,
     ) {}
 
     /**
@@ -69,36 +80,6 @@ final readonly class AuditedMutationTransaction
     }
 
     /**
-     * Runs the mutation in its normal single-attempt transaction and discards
-     * the prepared audit document.
-     *
-     * Handlers stay mode-agnostic, so they still build a `PendingAuditRecord`.
-     * It is dropped with the closure's stack frame here: it never reaches
-     * {@see AccessAuditWriter}, is never captured in a callback, and produces
-     * no access-audit statement. Nothing is deferred either, so a caller-owned
-     * transaction needs no after-commit boundary and none is checked.
-     *
-     * @template TResource of \Illuminate\Database\Eloquent\Model
-     *
-     * @param  Closure(): PreparedMutation<TResource>  $operation
-     * @return MutationResult<TResource>
-     */
-    private function runUnaudited(Closure $operation): MutationResult
-    {
-        return $this->transaction->run(
-            static function () use ($operation): MutationResult {
-                $prepared = $operation();
-
-                return new MutationResult(
-                    $prepared->resource,
-                    $prepared->outcome,
-                    null,
-                );
-            },
-        );
-    }
-
-    /**
      * @template TResource of \Illuminate\Database\Eloquent\Model
      *
      * @param  Closure(): PreparedMutation<TResource>  $operation
@@ -106,18 +87,33 @@ final readonly class AuditedMutationTransaction
      */
     private function runStrict(Closure $operation): MutationResult
     {
-        return $this->transaction->run(
-            function () use ($operation): MutationResult {
+        $connection = $this->begin();
+
+        /** @var array{PreparedMutation<TResource>, int|string|null} $completed */
+        $completed = $this->transaction->run(
+            function () use ($operation): array {
                 $prepared = $operation();
 
-                return new MutationResult(
-                    $prepared->resource,
-                    $prepared->outcome,
+                return [
+                    $prepared,
                     $prepared->audit === null
                         ? null
                         : $this->audits->append($prepared->audit),
-                );
+                ];
             },
+        );
+        [$prepared, $auditId] = $completed;
+
+        $this->announce(
+            $connection,
+            $prepared,
+            static fn (): int|string|null => $auditId,
+        );
+
+        return new MutationResult(
+            $prepared->resource,
+            $prepared->outcome,
+            $auditId,
         );
     }
 
@@ -129,17 +125,7 @@ final readonly class AuditedMutationTransaction
      */
     private function runNonStrict(Closure $operation): MutationResult
     {
-        $connection = $this->transaction->connection();
-        $callerOwned = $connection->transactionLevel() > 0;
-
-        if ($callerOwned) {
-            // Checked before the operation closure runs, so an unsupported
-            // boundary never leaves a mutation inside a caller transaction
-            // without a path to evidence. The check registers no callback, so
-            // an unchanged result leaves nothing scheduled at all.
-            $this->assertAfterCommitSupport($connection);
-        }
-
+        $connection = $this->begin();
         $prepared = $this->transaction->run($operation);
         $audit = $prepared->audit;
 
@@ -151,13 +137,16 @@ final readonly class AuditedMutationTransaction
             );
         }
 
-        if ($callerOwned) {
+        if ($connection->transactionLevel() > 0) {
             // The mutation is still uncommitted inside the caller's
-            // transaction, so the audit waits for its outermost commit and
-            // this result reports a pending audit as a null identifier.
-            $connection->afterCommit(function () use ($audit): void {
-                $this->attempt($audit);
-            });
+            // transaction, so the audit attempt and the announcement both wait
+            // for its outermost commit and this result reports a pending audit
+            // as a null identifier.
+            $this->announce(
+                $connection,
+                $prepared,
+                fn (): int|string|null => $this->attempt($audit),
+            );
 
             return new MutationResult(
                 $prepared->resource,
@@ -166,11 +155,124 @@ final readonly class AuditedMutationTransaction
             );
         }
 
+        $auditId = $this->attempt($audit);
+
+        $this->announce(
+            $connection,
+            $prepared,
+            static fn (): int|string|null => $auditId,
+        );
+
         return new MutationResult(
             $prepared->resource,
             $prepared->outcome,
-            $this->attempt($audit),
+            $auditId,
         );
+    }
+
+    /**
+     * Runs the mutation in its normal single-attempt transaction and discards
+     * the prepared audit document.
+     *
+     * Handlers stay mode-agnostic, so they still build a `PendingAuditRecord`.
+     * It never reaches {@see AccessAuditWriter} and produces no access-audit
+     * statement, but it still describes the change, so the announcement is
+     * built from it exactly as in the other modes.
+     *
+     * @template TResource of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Closure(): PreparedMutation<TResource>  $operation
+     * @return MutationResult<TResource>
+     */
+    private function runUnaudited(Closure $operation): MutationResult
+    {
+        $connection = $this->begin();
+        $prepared = $this->transaction->run($operation);
+
+        $this->announce(
+            $connection,
+            $prepared,
+            static fn (): int|string|null => null,
+        );
+
+        return new MutationResult(
+            $prepared->resource,
+            $prepared->outcome,
+            null,
+        );
+    }
+
+    /**
+     * Resolves the mutation connection and rejects a caller-owned transaction
+     * that cannot carry GateTrail's after-commit work.
+     *
+     * The check runs before the operation closure, so an unsupported boundary
+     * never leaves a mutation inside a caller transaction whose audit, cache
+     * invalidation, and event could not follow it. It cannot know yet whether
+     * the outcome will be unchanged, so it applies to every caller-owned
+     * mutation; that is deliberately the safe direction, and the check itself
+     * registers nothing.
+     */
+    private function begin(): Connection
+    {
+        $connection = $this->transaction->connection();
+
+        if (
+            $connection->transactionLevel() > 0
+            && ! $this->boundaries->defersCallbacks($connection)
+        ) {
+            throw UnsupportedAfterCommitBoundary::forConnection(
+                $connection->getName(),
+            );
+        }
+
+        return $connection;
+    }
+
+    /**
+     * Runs the reserved cache-invalidation point and dispatches the successful
+     * mutation event, immediately or at the caller's outermost commit.
+     *
+     * An unchanged mutation changed no authorization state, so it resolves no
+     * audit identifier, registers no callback, and dispatches nothing.
+     *
+     * @template TResource of Model
+     *
+     * @param  PreparedMutation<TResource>  $prepared
+     * @param  Closure(): (int|string|null)  $auditId
+     */
+    private function announce(
+        Connection $connection,
+        PreparedMutation $prepared,
+        Closure $auditId,
+    ): void {
+        $audit = $prepared->audit;
+
+        if (
+            $audit === null
+            || $prepared->outcome === MutationOutcome::Unchanged
+        ) {
+            return;
+        }
+
+        $outcome = $prepared->outcome;
+        $announce = function () use ($audit, $outcome, $auditId): void {
+            $resolved = $auditId();
+
+            // Reserved ordering point. Future after-commit cache invalidation
+            // runs here, between audit persistence and event dispatch. No
+            // cache behavior exists yet.
+
+            $this->events->dispatch($audit, $outcome, $resolved);
+        };
+
+        if ($connection->transactionLevel() > 0) {
+            $connection->afterCommit($announce);
+
+            return;
+        }
+
+        $announce();
     }
 
     /**
@@ -188,23 +290,6 @@ final readonly class AuditedMutationTransaction
             $this->failures->report($record, $failure);
 
             return null;
-        }
-    }
-
-    /**
-     * Rejects a caller-owned transaction that would not defer the audit to
-     * its outermost commit.
-     *
-     * {@see AfterCommitBoundary} answers this by inspecting transaction state
-     * rather than by registering a probe callback, so nothing is scheduled
-     * and nothing has to be undone when the mutation turns out unchanged.
-     */
-    private function assertAfterCommitSupport(Connection $connection): void
-    {
-        if (! $this->boundaries->defersCallbacks($connection)) {
-            throw UnsupportedAuditBoundary::forConnection(
-                $connection->getName(),
-            );
         }
     }
 }
