@@ -98,7 +98,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 76% | In progress |
+| 4 | Mutation services | 81% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -633,16 +633,16 @@ additional progress items.
 
 - [x] Strict audit behavior.
 - [x] Non-strict audit behavior.
-- [ ] Disabled audit behavior.
+- [x] Disabled audit behavior.
 - [ ] After-commit cache invalidation.
 - [ ] After-commit event dispatch.
 - [ ] Bounded concurrency retry.
 - [ ] Consumer documentation and pre-v1 API freeze.
 
 ```text
-Completed: 16
+Completed: 17
 Total:     21
-Progress:  76.190%, reported as 76%
+Progress:  80.952%, reported as 81%
 ```
 
 ### Required strict-audit flow
@@ -889,15 +889,30 @@ audit write.
   results write no audit, schedule no audit callback, and emit nothing.
   Canonical audit documents are proven byte-identical between strict and
   non-strict execution across all fourteen mutations.
+- Disabled auditing completes the three accepted audit modes. `audit.enabled`
+  set to `false` runs every mutation through its normal single-attempt
+  transaction with unchanged validation, locking, conflict handling, lifecycle
+  and rollback behavior, then discards the prepared audit document and returns
+  a null identifier. `AccessAuditWriter` is never called, no statement reaches
+  the access-audit table, no after-commit callback is registered, and no
+  operational failure is logged or dispatched because nothing was attempted.
+  A caller-owned transaction is joined normally: an outer commit keeps the
+  mutation, an outer rollback removes it, and a boundary that non-strict mode
+  would reject is irrelevant here because nothing is deferred. `strict` has no
+  effect while auditing is off, and GateTrail never selects this mode by
+  itself. Mutations succeed even when audit storage is entirely unavailable,
+  which is the point: disabled auditing is an explicit consumer choice that
+  leaves no authorization history behind, documented as such in the published
+  configuration file.
 
 `RoleManager` and `PermissionManager` are now each 4 of 4 complete —
 `create()`, `update()`, `deactivate()`, and `restore()` on both contracts have
 a real single-use-case handler and no stub exists. Every definition mutation
 accepted by ADR 0002 is therefore implemented, bound, and tested. Both
-contracts remain pre-v1. Phase 4 stays open because five cross-cutting mutation
-behaviors — disabled auditing, after-commit cache invalidation, after-commit
-event dispatch, bounded concurrency retry, and the consumer documentation and
-pre-v1 API freeze — are still outstanding.
+contracts remain pre-v1. All three accepted audit modes are now implemented.
+Phase 4 stays open because four cross-cutting mutation behaviors — after-commit
+cache invalidation, after-commit event dispatch, bounded concurrency retry, and
+the consumer documentation and pre-v1 API freeze — are still outstanding.
 
 ### Pre-v1 assignment-manager contract gate
 

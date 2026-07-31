@@ -29,7 +29,6 @@ use HangTuah\GateTrail\Tests\Fixtures\TestSubject;
 use HangTuah\GateTrail\Tests\TestCase;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
-use LogicException;
 
 final class UpdatePermissionHandlerTest extends TestCase
 {
@@ -524,23 +523,17 @@ final class UpdatePermissionHandlerTest extends TestCase
         }
     }
 
-    public function test_handler_requires_enabled_auditing(): void
+    public function test_disabled_auditing_persists_without_an_audit(): void
     {
-        // Non-strict auditing is supported; disabled auditing is not yet.
         config()->set('gatetrail.audit.enabled', false);
 
-        try {
-            app(UpdatePermissionHandler::class)->handle($this->command(
-                changes: PermissionChanges::description('Approve documents'),
-            ));
+        $result = app(UpdatePermissionHandler::class)->handle($this->command(
+            changes: PermissionChanges::description('Approve documents'),
+        ));
 
-            $this->fail('Enabled auditing should be required.');
-        } catch (LogicException $exception) {
-            $this->assertStringContainsString(
-                'requires enabled auditing',
-                $exception->getMessage(),
-            );
-        }
+        $this->assertSame(MutationOutcome::Updated, $result->outcome);
+        $this->assertNull($result->auditId);
+        $this->assertDatabaseCount('acl_access_audits', 0);
     }
 
     public function test_audit_failure_restores_the_original_description(): void

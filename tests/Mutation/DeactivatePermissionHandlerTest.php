@@ -30,7 +30,6 @@ use HangTuah\GateTrail\Tests\Fixtures\FrozenClock;
 use HangTuah\GateTrail\Tests\Fixtures\TestSubject;
 use HangTuah\GateTrail\Tests\TestCase;
 use Illuminate\Database\Eloquent\Model;
-use LogicException;
 
 final class DeactivatePermissionHandlerTest extends TestCase
 {
@@ -497,23 +496,15 @@ final class DeactivatePermissionHandlerTest extends TestCase
         $this->assertPermissionRemainsActive();
     }
 
-    public function test_handler_requires_enabled_auditing(): void
+    public function test_disabled_auditing_persists_without_an_audit(): void
     {
-        // Non-strict auditing is supported; disabled auditing is not yet.
         config()->set('gatetrail.audit.enabled', false);
 
-        try {
-            app(DeactivatePermissionHandler::class)->handle(
-                $this->command(permission: $this->permission),
-            );
+        $result = app(DeactivatePermissionHandler::class)->handle($this->command(permission: $this->permission));
 
-            $this->fail('Enabled auditing should be required.');
-        } catch (LogicException $exception) {
-            $this->assertStringContainsString(
-                'requires enabled auditing',
-                $exception->getMessage(),
-            );
-        }
+        $this->assertSame(MutationOutcome::Deactivated, $result->outcome);
+        $this->assertNull($result->auditId);
+        $this->assertDatabaseCount('acl_access_audits', 0);
     }
 
     public function test_audit_failure_restores_the_active_permission(): void

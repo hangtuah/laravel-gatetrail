@@ -13,7 +13,6 @@ use HangTuah\GateTrail\Audit\PendingAuditRecord;
 use HangTuah\GateTrail\Exceptions\UnsupportedAuditBoundary;
 use HangTuah\GateTrail\MutationResult;
 use Illuminate\Database\Connection;
-use LogicException;
 use Throwable;
 
 /**
@@ -37,6 +36,11 @@ use Throwable;
  *   append the audit in a new transaction once the caller's outermost
  *   transaction commits. A caller rollback discards both.
  *
+ * Disabled:
+ *   begin or join -> mutate -> commit -> return a null identifier. No audit is
+ *   written, no callback is registered, and no after-commit boundary is
+ *   required. Nothing failed, so no operational failure is reported either.
+ *
  * @internal
  */
 final readonly class AuditedMutationTransaction
@@ -57,17 +61,41 @@ final readonly class AuditedMutationTransaction
      */
     public function run(Closure $operation): MutationResult
     {
-        $mode = $this->modes->resolve();
+        return match ($this->modes->resolve()) {
+            AuditMode::Strict => $this->runStrict($operation),
+            AuditMode::NonStrict => $this->runNonStrict($operation),
+            AuditMode::Disabled => $this->runUnaudited($operation),
+        };
+    }
 
-        if ($mode === AuditMode::Disabled) {
-            throw new LogicException(
-                'GateTrail currently requires enabled auditing.',
-            );
-        }
+    /**
+     * Runs the mutation in its normal single-attempt transaction and discards
+     * the prepared audit document.
+     *
+     * Handlers stay mode-agnostic, so they still build a `PendingAuditRecord`.
+     * It is dropped with the closure's stack frame here: it never reaches
+     * {@see AccessAuditWriter}, is never captured in a callback, and produces
+     * no access-audit statement. Nothing is deferred either, so a caller-owned
+     * transaction needs no after-commit boundary and none is checked.
+     *
+     * @template TResource of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Closure(): PreparedMutation<TResource>  $operation
+     * @return MutationResult<TResource>
+     */
+    private function runUnaudited(Closure $operation): MutationResult
+    {
+        return $this->transaction->run(
+            static function () use ($operation): MutationResult {
+                $prepared = $operation();
 
-        return $mode === AuditMode::Strict
-            ? $this->runStrict($operation)
-            : $this->runNonStrict($operation);
+                return new MutationResult(
+                    $prepared->resource,
+                    $prepared->outcome,
+                    null,
+                );
+            },
+        );
     }
 
     /**

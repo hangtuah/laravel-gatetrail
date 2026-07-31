@@ -85,6 +85,16 @@ return [
      * transaction the audit waits for the outermost commit, so the immediate
      * result also carries a null audit identifier.
      *
+     * Setting 'enabled' => false switches auditing off entirely and is the
+     * strongest warning in this file: mutations still validate, lock, and
+     * persist normally, but GateTrail writes no history at all. There is no
+     * record of who changed which role, permission, or assignment, when, or
+     * why, and nothing reconstructs that history later. Every mutation returns
+     * a null audit identifier. 'strict' has no effect while auditing is off.
+     * Choose this only when another system already records authorization
+     * changes; GateTrail never switches to it by itself, including after an
+     * audit failure.
+     *
      * Both flags must be real booleans. Anything else — a missing key, null,
      * "true", "false", 0, 1, an array — is rejected with
      * InvalidAuditConfiguration before a mutation runs, so a typo can never

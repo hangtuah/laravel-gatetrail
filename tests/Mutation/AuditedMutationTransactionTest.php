@@ -27,7 +27,6 @@ use Illuminate\Database\Events\TransactionBeginning;
 use Illuminate\Database\Events\TransactionCommitted;
 use Illuminate\Support\Facades\Event;
 use InvalidArgumentException;
-use LogicException;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 
@@ -498,16 +497,183 @@ final class AuditedMutationTransactionTest extends TestCase
         }
     }
 
-    public function test_disabled_auditing_is_not_implemented_yet(): void
+    public function test_disabled_auditing_uses_exactly_one_transaction(): void
     {
         config()->set('gatetrail.audit.enabled', false);
+        $orchestrator = $this->orchestrator();
+        $boundaries = $this->countTransactions();
 
-        $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('requires enabled auditing');
-
-        $this->orchestrator()->run(
+        $result = $orchestrator->run(
             fn (): PreparedMutation => $this->created($this->role()),
         );
+
+        $this->assertSame(MutationOutcome::Created, $result->outcome);
+        $this->assertNull($result->auditId);
+        $this->assertSame(1, $boundaries('begin'));
+        $this->assertSame(1, $boundaries('commit'));
+
+        $this->assertDatabaseCount('acl_roles', 1);
+        $this->assertDatabaseCount('acl_access_audits', 0);
+        $this->assertSame([], $this->failures);
+        $this->assertSame([], $this->logger->records);
+    }
+
+    public function test_disabled_auditing_issues_no_access_audit_statement(): void
+    {
+        config()->set('gatetrail.audit.enabled', false);
+        $orchestrator = $this->orchestrator();
+        $statements = [];
+        $this->connection()->beforeExecuting(
+            static function (string $query) use (&$statements): void {
+                $statements[] = $query;
+            },
+        );
+
+        $orchestrator->run(
+            fn (): PreparedMutation => $this->created($this->role()),
+        );
+        $executed = $statements;
+
+        $this->assertNotSame([], $executed);
+
+        foreach ($executed as $statement) {
+            $this->assertStringNotContainsString(
+                'acl_access_audits',
+                $statement,
+                'Disabled auditing must never touch audit storage.',
+            );
+        }
+    }
+
+    public function test_disabled_auditing_survives_unavailable_audit_storage(): void
+    {
+        config()->set('gatetrail.audit.enabled', false);
+        // Resolving the configured connection is not the same as querying the
+        // audit table: the mutation must succeed even though a write would
+        // have failed.
+        $this->breakAuditStorage();
+
+        $result = $this->orchestrator()->run(
+            fn (): PreparedMutation => $this->created($this->role()),
+        );
+
+        $this->assertSame(MutationOutcome::Created, $result->outcome);
+        $this->assertNull($result->auditId);
+        $this->assertDatabaseCount('acl_roles', 1);
+        $this->assertSame([], $this->failures);
+        $this->assertSame([], $this->logger->records);
+    }
+
+    public function test_disabled_caller_owned_commit_registers_no_callback(): void
+    {
+        config()->set('gatetrail.audit.enabled', false);
+        $orchestrator = $this->orchestrator();
+
+        $this->connection()->transaction(function () use ($orchestrator): void {
+            $result = $orchestrator->run(
+                fn (): PreparedMutation => $this->created($this->role()),
+            );
+
+            $this->assertSame(MutationOutcome::Created, $result->outcome);
+            $this->assertNull($result->auditId);
+            $this->assertCount(0, $this->pendingCallbacks());
+        });
+
+        $this->assertDatabaseCount('acl_roles', 1);
+        $this->assertDatabaseCount('acl_access_audits', 0);
+        $this->assertSame([], $this->failures);
+        $this->assertSame([], $this->logger->records);
+    }
+
+    public function test_disabled_caller_owned_rollback_removes_the_mutation(): void
+    {
+        config()->set('gatetrail.audit.enabled', false);
+        $orchestrator = $this->orchestrator();
+
+        try {
+            $this->connection()->transaction(
+                function () use ($orchestrator): void {
+                    $orchestrator->run(
+                        fn (): PreparedMutation => $this->created(
+                            $this->role(),
+                        ),
+                    );
+
+                    throw new ForcedRollback('Roll back outer transaction.');
+                },
+            );
+
+            $this->fail('The outer transaction should roll back.');
+        } catch (ForcedRollback) {
+            $this->assertDatabaseCount('acl_roles', 0);
+            $this->assertDatabaseCount('acl_access_audits', 0);
+            $this->assertSame([], $this->failures);
+            $this->assertSame([], $this->logger->records);
+        }
+    }
+
+    public function test_disabled_auditing_ignores_an_unsupported_boundary(): void
+    {
+        config()->set('gatetrail.audit.enabled', false);
+        $orchestrator = $this->orchestrator();
+        $connection = $this->connection();
+        $connection->beginTransaction();
+        $connection->unsetTransactionManager();
+
+        try {
+            // Non-strict mode rejects this state because it must defer an
+            // audit. Disabled mode defers nothing, so the boundary is
+            // irrelevant and the mutation proceeds.
+            $result = $orchestrator->run(
+                fn (): PreparedMutation => $this->created($this->role()),
+            );
+
+            $this->assertSame(MutationOutcome::Created, $result->outcome);
+            $this->assertNull($result->auditId);
+            $this->assertDatabaseCount('acl_roles', 1);
+        } finally {
+            $connection->rollBack();
+        }
+    }
+
+    public function test_disabled_unchanged_results_remain_a_true_no_op(): void
+    {
+        config()->set('gatetrail.audit.enabled', false);
+        $this->breakAuditStorage();
+        $role = $this->role();
+
+        $result = $this->orchestrator()->run(
+            fn (): PreparedMutation => new PreparedMutation(
+                $role,
+                MutationOutcome::Unchanged,
+                null,
+            ),
+        );
+
+        $this->assertSame(MutationOutcome::Unchanged, $result->outcome);
+        $this->assertNull($result->auditId);
+        $this->assertFalse($result->changed());
+        $this->assertDatabaseCount('acl_access_audits', 0);
+        $this->assertSame([], $this->failures);
+        $this->assertSame([], $this->logger->records);
+    }
+
+    public function test_a_disabled_strict_flag_is_irrelevant(): void
+    {
+        foreach ([true, false] as $strict) {
+            Role::query()->forceDelete();
+            config()->set('gatetrail.audit.enabled', false);
+            config()->set('gatetrail.audit.strict', $strict);
+
+            $result = $this->orchestrator()->run(
+                fn (): PreparedMutation => $this->created($this->role()),
+            );
+
+            $this->assertSame(MutationOutcome::Created, $result->outcome);
+            $this->assertNull($result->auditId);
+        }
+
+        $this->assertDatabaseCount('acl_access_audits', 0);
     }
 
     public function test_a_prepared_mutation_cannot_misreport_its_evidence(): void

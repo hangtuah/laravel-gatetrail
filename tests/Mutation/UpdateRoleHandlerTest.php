@@ -24,7 +24,6 @@ use HangTuah\GateTrail\Tests\Fixtures\FrozenClock;
 use HangTuah\GateTrail\Tests\Fixtures\TestSubject;
 use HangTuah\GateTrail\Tests\TestCase;
 use Illuminate\Database\Eloquent\Model;
-use LogicException;
 
 final class UpdateRoleHandlerTest extends TestCase
 {
@@ -337,17 +336,17 @@ final class UpdateRoleHandlerTest extends TestCase
         }
     }
 
-    public function test_handler_requires_enabled_auditing(): void
+    public function test_disabled_auditing_persists_without_an_audit(): void
     {
-        // Non-strict auditing is supported; disabled auditing is not yet.
         config()->set('gatetrail.audit.enabled', false);
 
-        $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('requires enabled auditing');
-
-        app(UpdateRoleHandler::class)->handle($this->command(
+        $result = app(UpdateRoleHandler::class)->handle($this->command(
             changes: RoleChanges::description('Updated purpose'),
         ));
+
+        $this->assertSame(MutationOutcome::Updated, $result->outcome);
+        $this->assertNull($result->auditId);
+        $this->assertDatabaseCount('acl_access_audits', 0);
     }
 
     public function test_configured_role_subclass_remains_supported(): void
