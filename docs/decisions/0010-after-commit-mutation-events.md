@@ -1,7 +1,8 @@
 # ADR 0010: Dispatch One Generic After-Commit Mutation Event
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-07-31
+- Owner approval date: 2026-07-31
 - Decision owners: GateTrail maintainers
 
 ## Context
@@ -37,6 +38,11 @@ commit of every managed mutation whose outcome is not `Unchanged`.
 The event carries a stable mutation name and safe identifiers only. It is a
 domain event that reports a durable authorization change; it is not an audit
 record and not an operational failure signal.
+
+Event production is always on. There is no configuration flag that disables it,
+and dispatching with no registered listeners is normal and cheap. Consumers opt
+in by registering listeners, not by switching package behavior on, so mutation
+side effects are identical across every installation.
 
 ## Public event shape
 
@@ -130,13 +136,11 @@ audit trail and the event stream, and no translation table exists to drift.
 | `PermissionManager` | `deactivate()` | `permission.deactivated` |
 | `PermissionManager` | `restore()` | `permission.restored` |
 
-Two names differ from the working brief that requested this ADR, which
-proposed `permission.granted_directly` and `permission.revoked_directly`. The
-implemented handlers and every persisted audit row use
-`permission.granted_to_subject` and `permission.revoked_from_subject`. This ADR
-follows the code, because renaming would either break the audit `event`
-vocabulary or create two names for one fact. Changing them remains open for
-owner decision; it is recorded under open questions rather than settled here.
+The direct-permission mutations keep `permission.granted_to_subject` and
+`permission.revoked_from_subject`. A `*_directly` spelling was considered and
+rejected: those two names are already the implemented handlers' audit events and
+already persisted in every existing audit row, so renaming would either break
+the audit `event` vocabulary or leave two names for one fact.
 
 Names are not independently versioned. They are the same identifiers already
 frozen by the audit contract, and a rename is a major-version change.
@@ -354,25 +358,32 @@ callbacks on rollback rather than executing them. That is the mechanism that
 makes "no event after rollback" true, and it is the same mechanism that already
 makes "no audit after rollback" true.
 
-**Unsupported boundaries.** Today an unsupported boundary is rejected before
-mutation only in non-strict mode, because only non-strict mode must defer
-something. Once events exist, strict and disabled modes must defer too. Two
-readings are possible, and this is the ADR's most consequential open item:
+**Unsupported boundaries: uniform rejection.** Today an unsupported boundary is
+rejected before mutation only in non-strict mode, because only non-strict mode
+must defer something. Once events exist, strict and disabled modes must defer
+too, so the rule becomes uniform:
 
-- *Uniform rejection.* Any caller-owned managed mutation requires outermost
-  after-commit support, in every audit mode. This is consistent and fails
-  closed, but it makes strict and disabled mode start throwing in environments
-  that work today, and `UnsupportedAuditBoundary` becomes a misnomer that
-  should be renamed to `UnsupportedAfterCommitBoundary`.
-- *Event-scoped degradation.* Keep today's rejection rule for audits, and when
-  the boundary cannot defer an event, skip dispatch and write one safe
-  operational log.
+- every changed mutation joining a caller-owned transaction requires reliable
+  outermost after-commit semantics, in strict, non-strict, and disabled audit
+  modes alike;
+- an unsupported boundary is rejected before the mutation runs, so nothing is
+  persisted that could not carry its deferred side effects;
+- the boundary now protects deferred audit persistence, the reserved cache
+  invalidation, and event dispatch, so the exception contract is renamed from
+  `UnsupportedAuditBoundary` to `UnsupportedAfterCommitBoundary`.
 
-This ADR recommends **uniform rejection**, because an integration that silently
-stops receiving events is harder to detect than a startup-time failure, and
-because GateTrail's established posture for unverifiable boundaries is to fail
-closed. It requires owner approval because it is a pre-v1 behavior change in
-strict mode, and it requires renaming a public exception.
+The alternative — keeping today's audit-only rejection and degrading to "skip
+dispatch and log" when a boundary cannot defer an event — was rejected. An
+integration that silently stops receiving events is far harder to detect than a
+boundary that fails immediately, and GateTrail's established posture for an
+unverifiable boundary is to fail closed.
+
+This is a pre-v1 behavior change: strict and disabled mode will begin rejecting
+caller-owned transactions on connections that cannot defer callbacks, which
+work today. The rename is likewise a pre-v1 public API change. Both are
+accepted deliberately. Neither is implemented by this ADR; the existing
+`UnsupportedAuditBoundary` class and the current non-strict-only check remain
+untouched until the event implementation lands.
 
 No distributed-transaction guarantee is claimed. GateTrail defers to the
 outermost commit of its own configured connection. A listener that writes to
@@ -459,6 +470,9 @@ the two interact so neither is designed into a corner:
   version.
 - Event names are not versioned independently; they are the audit `event`
   vocabulary, which ADR 0008 already treats as stable public data.
+- Event production has **no configuration surface**. There is nothing to enable,
+  disable, or misconfigure, so the compatibility contract is the event class and
+  its names alone.
 - Handlers stay unaware of dispatch. They build a `PreparedMutation` and return
   it. All timing, deferral, and failure policy lives in the orchestrator, which
   is what makes uniform behavior across fourteen mutations testable at one
@@ -518,6 +532,10 @@ run", and its payload is shaped for the audit pipeline.
 
 - One public event class, one name vocabulary, one dispatch point, one failure
   policy for all fourteen mutations, and for every mutation added later.
+- Event behavior is deterministic across installations because production is
+  always on and cannot be configured away.
+- One boundary rule covers every audit mode, so a caller-owned transaction
+  behaves the same whichever mode is configured.
 - The event name set is already the audit vocabulary, so events and audit rows
   join on a value that cannot drift.
 - The payload is safe by construction: no models, no snapshots, no metadata, no
@@ -535,8 +553,12 @@ run", and its payload is shaped for the audit pipeline.
 - Static analysis cannot narrow a listener to one mutation's payload.
 - A future split into per-mutation classes breaks listeners bound directly to
   `MutationCommitted::class`.
-- Uniform boundary rejection, if approved, makes strict-mode caller-owned
-  mutations fail in environments that work today.
+- Uniform boundary rejection makes strict-mode and disabled-mode caller-owned
+  mutations fail on connections that cannot defer callbacks, which work today.
+- Renaming `UnsupportedAuditBoundary` to `UnsupportedAfterCommitBoundary` is a
+  pre-v1 break for anyone already catching it.
+- Always-on event production means every installation pays the dispatch cost
+  even with no listeners registered, and operators cannot switch it off.
 - A throwing listener silently prevents later listeners for the same event, and
   GateTrail reports it only in a log.
 - The event is one more public serialization contract to keep stable pre-v1.
@@ -571,6 +593,22 @@ run", and its payload is shaped for the audit pipeline.
 - A future request-metadata resolver populates `requestId` with no contract
   change.
 
+## Specification alignment
+
+`PACKAGE_SPEC.md` section 16 was updated when this ADR was accepted to point at
+it as the authoritative event contract. The existing event rules there are
+unchanged and remain correct; this ADR fixes the details section 16 leaves
+open — the event class and shape, the mutation name set, the exact payload,
+ordering relative to auditing and the reserved cache-invalidation point, and
+post-commit listener failure policy.
+
+`ADR 0008` is unaffected. Its audit modes, snapshot contract, and
+`AuditPersistenceFailed` operational event stand as written; this ADR only
+defines how the successful mutation event relates to them.
+
+Dispatch is not implemented. `PACKAGE_SPEC.md` and `ROADMAP.md` continue to
+describe after-commit event dispatch as outstanding work.
+
 ## Verification
 
 Before this decision is considered implemented, tests must prove:
@@ -596,21 +634,32 @@ Before this decision is considered implemented, tests must prove:
   instance appears in the event or its log payload;
 - custom string primary keys, UUIDs, and ULIDs round-trip through
   `targetId` and `subjectId` unchanged;
-- an unsupported after-commit boundary behaves as the approved rule requires;
+- a caller-owned transaction that cannot defer callbacks is rejected before
+  mutation with `UnsupportedAfterCommitBoundary` in strict, non-strict, and
+  disabled audit modes alike;
+- events are dispatched with no configuration flag involved, and dispatching
+  with zero registered listeners is harmless;
 - behavior is identical on Laravel 12 and Laravel 13.
 
-## Open questions requiring owner approval
+## Resolved owner decisions
 
-1. **Direct-permission mutation names.** This ADR keeps the implemented
-   `permission.granted_to_subject` and `permission.revoked_from_subject` rather
-   than the `*_directly` variants proposed in the request. Renaming would also
-   change the audit `event` vocabulary and existing rows.
-2. **Unsupported boundary policy.** Uniform rejection is recommended but
-   changes strict-mode behavior in caller-owned transactions and renames
-   `UnsupportedAuditBoundary` to `UnsupportedAfterCommitBoundary`.
-3. **Whether events are configurable.** No `events.enabled` flag is proposed.
-   If operators need one, its interaction with the boundary rule above must be
-   decided at the same time.
+Approved on 2026-07-31, at which point this ADR moved from Proposed to
+Accepted.
+
+1. **Direct-permission mutation names stay as implemented.**
+   `permission.granted_to_subject` and `permission.revoked_from_subject` are
+   kept. The existing audit vocabulary is not renamed to `*_directly`.
+2. **Boundary behavior is uniform and fail-closed.** Every changed mutation
+   joining a caller-owned transaction requires reliable outermost after-commit
+   semantics in all three audit modes, an unsupported boundary is rejected
+   before mutation, and the exception contract is renamed to
+   `UnsupportedAfterCommitBoundary` because it now protects deferred audit,
+   cache, and event side effects. This increment records the rename only; the
+   production class and the current non-strict-only check are unchanged.
+3. **Successful mutation events are always enabled.** No `events.enabled`
+   configuration is introduced. Dispatching with no registered listeners is
+   acceptable, consumers opt in by registering listeners, and event behavior is
+   therefore deterministic across installations.
 
 ## References
 

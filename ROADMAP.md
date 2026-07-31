@@ -635,9 +635,9 @@ additional progress items.
 - [x] Non-strict audit behavior.
 - [x] Disabled audit behavior.
 - [ ] After-commit cache invalidation.
-- [ ] After-commit event dispatch. Design drafted in
-      [ADR 0010](docs/decisions/0010-after-commit-mutation-events.md), which is
-      Proposed and not implemented.
+- [ ] After-commit event dispatch. Contract accepted in
+      [ADR 0010](docs/decisions/0010-after-commit-mutation-events.md); the
+      implementation is outstanding.
 - [ ] Bounded concurrency retry.
 - [ ] Consumer documentation and pre-v1 API freeze.
 
@@ -917,14 +917,19 @@ Phase 4 stays open because four cross-cutting mutation behaviors — after-commi
 cache invalidation, after-commit event dispatch, bounded concurrency retry, and
 the consumer documentation and pre-v1 API freeze — are still outstanding.
 
-The successful mutation event is designed but unimplemented.
-[ADR 0010](docs/decisions/0010-after-commit-mutation-events.md) proposes one
+The successful mutation event contract is accepted but unimplemented.
+[ADR 0010](docs/decisions/0010-after-commit-mutation-events.md) fixes one
 generic `MutationCommitted` event carrying the existing canonical mutation
-names and safe identifiers only, fixes its ordering after the deferred audit
-attempt and the reserved cache-invalidation point in all three audit modes, and
-settles the post-commit listener failure policy. It is Proposed, carries three
-open questions for owner approval, and dispatches nothing until accepted and
-implemented, so the checklist item above stays unchecked.
+names and safe identifiers only, its ordering after the deferred audit attempt
+and the reserved cache-invalidation point in all three audit modes, and the
+post-commit listener failure policy. Owner decisions of 2026-07-31 keep the
+`permission.granted_to_subject` and `permission.revoked_from_subject` names,
+make after-commit boundary rejection uniform across every audit mode with the
+exception contract renamed to `UnsupportedAfterCommitBoundary`, and make event
+production always on with no configuration flag. None of that is built yet: no
+event class exists, no callback is registered, no mutation dispatches anything,
+and the existing `UnsupportedAuditBoundary` and non-strict-only boundary check
+are unchanged, so the checklist item above stays unchecked.
 
 ### Pre-v1 assignment-manager contract gate
 

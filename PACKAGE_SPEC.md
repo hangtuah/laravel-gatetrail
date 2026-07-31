@@ -1595,6 +1595,12 @@ non-strict post-commit audit write fails. It is not a successful mutation
 domain event and contains safe identifiers rather than snapshots, raw
 metadata, or exception messages.
 
+The exact successful mutation event contract — its class and shape, stable
+mutation names, payload fields, dispatch ordering in every audit mode, and
+listener failure policy — is defined by
+[ADR 0010](docs/decisions/0010-after-commit-mutation-events.md). Dispatch is
+not implemented yet.
+
 ## 17. Configuration
 
 Proposed configuration sections:
@@ -1946,6 +1952,10 @@ Minimum audit snapshot content and audit failure modes are accepted in
 
 Direct database mutation and diagnostic behavior are accepted in
 [ADR 0009](docs/decisions/0009-direct-database-mutation-and-diagnostics.md).
+
+The successful mutation event contract is accepted in
+[ADR 0010](docs/decisions/0010-after-commit-mutation-events.md). Its dispatch
+is not implemented yet.
 
 Architecture decisions will be stored under:
 
