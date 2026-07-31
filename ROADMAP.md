@@ -638,7 +638,9 @@ additional progress items.
 - [x] Disabled audit behavior.
 - [ ] After-commit cache invalidation.
 - [x] After-commit event dispatch.
-- [ ] Bounded concurrency retry.
+- [ ] Bounded concurrency retry. Design drafted in
+      [ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md), which is
+      Proposed and not implemented.
 - [ ] Consumer documentation and pre-v1 API freeze.
 
 ```text
@@ -939,6 +941,19 @@ three cross-cutting mutation behaviors — after-commit cache invalidation,
 bounded concurrency retry, and the consumer documentation and pre-v1 API
 freeze — are still outstanding.
 
+Bounded concurrency retry is designed but unimplemented.
+[ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md) proposes retrying
+only the six assignment mutations, only when GateTrail owns the outermost
+transaction, and only for positively classified transient failures: a
+coordination-row insert race confirmed against the lock table's own primary
+key, plus deadlock and serialization rollbacks. It places the loop inside the
+mutation transaction so a discarded attempt can never reach the after-commit
+audit, cache and event work, keeps definition namespace races as terminal
+domain exceptions, refuses to restart a caller-owned transaction, and defers
+backoff together with lock-timeout recovery. It is Proposed, carries three
+open questions for owner approval, and changes no behavior, so the checklist
+item above stays unchecked. `StrictMutationTransaction` still runs with
+`attempts: 1`.
 
 ### Pre-v1 assignment-manager contract gate
 
