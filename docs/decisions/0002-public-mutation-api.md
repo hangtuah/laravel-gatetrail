@@ -286,8 +286,8 @@ authenticated user, or the active request guard.
 
 Model, integer-ID, and explicit-reference inputs resolve the identified
 definition directly and retain its persisted guard. Consumers therefore use a
-model, an integer ID, or `RoleReference::id()` to mutate a definition that
-lives outside the default guard.
+model, an integer ID, `RoleReference::id()`, or `PermissionReference::id()` to
+mutate a definition that lives outside the default guard.
 
 Numeric-looking strings remain names under these rules.
 

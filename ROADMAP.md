@@ -56,7 +56,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | Approximately 31% | Equal-phase progress across Phases 0–13 |
+| Overall roadmap by primary phases | Approximately 32% | Equal-phase progress across Phases 0–13 |
 | Deliverable tracker | 10 of 32, approximately 31% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
@@ -98,7 +98,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 57% | In progress |
+| 4 | Mutation services | 62% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -625,7 +625,7 @@ additional progress items.
 #### Permission-definition mutations
 
 - [x] `PermissionManager::create()`.
-- [ ] `PermissionManager::update()`.
+- [x] `PermissionManager::update()`.
 - [ ] `PermissionManager::deactivate()`.
 - [ ] `PermissionManager::restore()`.
 
@@ -640,9 +640,9 @@ additional progress items.
 - [ ] Consumer documentation and pre-v1 API freeze.
 
 ```text
-Completed: 12
+Completed: 13
 Total:     21
-Progress:  57.142%, reported as 57%
+Progress:  61.904%, reported as 62%
 ```
 
 ### Required strict-audit flow
@@ -813,12 +813,26 @@ audit write.
   primary-key query, so deactivated rows already reconstruct before the
   remaining lifecycle slices exist, and `permission.created` evidence is
   persisted atomically with its purpose-specific permission-definition context.
+- Strict `PermissionManager::update()` now applies immutable
+  `PermissionChanges` description edits, so name and guard have no change API
+  at all. A dedicated transaction-bound `PermissionDefinitionInputResolver`
+  reloads and row-locks the active permission from model, integer-ID,
+  explicit-reference, and default-guard name inputs, keeps numeric-looking
+  strings as names, rejects deactivated definitions and malformed identifiers
+  before any driver binding, and never inspects authentication state.
+  `PermissionNotFound` now carries a nullable guard, so a missing explicit
+  reference reports no guard rather than inventing one, while name-based and
+  assignment paths keep their resolved guard. Identical descriptions return
+  `Unchanged` with no audit record, no `updated_at` change, and no update
+  statement at all; real edits persist description only and record canonical
+  `permission.updated` before/after snapshots proving id, name, guard, and
+  deletion state are untouched.
 
 `RoleManager` is now 4 of 4 complete — `create()`, `update()`, `deactivate()`,
 and `restore()` each have a real single-use-case handler and no stub exists.
 The contract remains pre-v1, but its accepted role-definition surface is
-complete. `PermissionManager` currently exposes `create()` only: `update()`,
-`deactivate()`, and `restore()` are absent from both the contract and the
+complete. `PermissionManager` currently exposes `create()` and `update()`:
+`deactivate()` and `restore()` are absent from both the contract and the
 default adapter rather than stubbed. That remaining permission work and the
 outstanding cross-cutting mutation behaviors keep Phase 4 open.
 

@@ -48,9 +48,11 @@ use HangTuah\GateTrail\Mutations\Handlers\RestoreRoleHandler;
 use HangTuah\GateTrail\Mutations\Handlers\RevokeDirectPermissionHandler;
 use HangTuah\GateTrail\Mutations\Handlers\RevokePermissionFromRoleHandler;
 use HangTuah\GateTrail\Mutations\Handlers\RevokeRoleHandler;
+use HangTuah\GateTrail\Mutations\Handlers\UpdatePermissionHandler;
 use HangTuah\GateTrail\Mutations\Handlers\UpdateRoleHandler;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
 use HangTuah\GateTrail\Mutations\PermissionAssignmentInputResolver;
+use HangTuah\GateTrail\Mutations\PermissionDefinitionInputResolver;
 use HangTuah\GateTrail\Mutations\PermissionInputResolver;
 use HangTuah\GateTrail\Mutations\RoleAssignmentInputResolver;
 use HangTuah\GateTrail\Mutations\RoleDefinitionInputResolver;
@@ -108,6 +110,7 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(AssignRoleHandler::class);
         $this->app->singleton(CreatePermissionHandler::class);
         $this->app->singleton(CreateRoleHandler::class);
+        $this->app->singleton(UpdatePermissionHandler::class);
         $this->app->singleton(UpdateRoleHandler::class);
         $this->app->singleton(DeactivateRoleHandler::class);
         $this->app->singleton(RestoreRoleHandler::class);
@@ -120,6 +123,7 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(RoleInputResolver::class);
         $this->app->singleton(RolePermissionDefinitionResolver::class);
         $this->app->singleton(PermissionInputResolver::class);
+        $this->app->singleton(PermissionDefinitionInputResolver::class);
         $this->app->singleton(PermissionAssignmentInputResolver::class);
         $this->app->singleton(RevokeDirectPermissionHandler::class);
         $this->app->singleton(RevokePermissionFromRoleHandler::class);

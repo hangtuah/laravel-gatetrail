@@ -12,6 +12,9 @@ use HangTuah\GateTrail\Models\Permission;
 use HangTuah\GateTrail\MutationOutcome;
 use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\Handlers\CreatePermissionHandler;
+use HangTuah\GateTrail\Mutations\Handlers\UpdatePermissionHandler;
+use HangTuah\GateTrail\PermissionChanges;
+use HangTuah\GateTrail\PermissionReference;
 use HangTuah\GateTrail\SystemActor;
 use HangTuah\GateTrail\Tests\Fixtures\FrozenClock;
 use HangTuah\GateTrail\Tests\TestCase;
@@ -122,7 +125,133 @@ final class DefaultPermissionManagerTest extends TestCase
         }
     }
 
-    public function test_manager_signature_matches_the_accepted_decision(): void
+    public function test_public_api_updates_a_permission_through_the_full_path(): void
+    {
+        $manager = app(PermissionManager::class);
+        $created = $manager->create(
+            'documents.approve',
+            'web',
+            SystemActor::named('definition-suite'),
+            description: 'Approve submitted documents',
+        );
+
+        $result = $manager->update(
+            permission: $created->resource,
+            changes: PermissionChanges::description(
+                'Approve or return submitted documents',
+            ),
+            actor: SystemActor::named('definition-suite'),
+            reason: 'Clarify permission purpose',
+            metadata: ['ticket' => 'SEC-42'],
+        );
+        $audit = $this->app['db']
+            ->table('acl_access_audits')
+            ->where('id', $result->auditId)
+            ->first();
+
+        $this->assertSame(MutationOutcome::Updated, $result->outcome);
+        $this->assertTrue($result->changed());
+        $this->assertSame(
+            'Approve or return submitted documents',
+            $result->resource->getAttribute('description'),
+        );
+        $this->assertNotNull($audit);
+        $this->assertSame('permission.updated', $audit->event);
+        $this->assertSame('permission', $audit->target_type);
+        $this->assertSame(
+            '{"schema_version":1,"guard_name":"web",'
+            .'"permission_name":"documents.approve",'
+            .'"metadata":{"ticket":"SEC-42"}}',
+            $audit->context,
+        );
+    }
+
+    public function test_public_api_clears_a_description_explicitly(): void
+    {
+        $manager = app(PermissionManager::class);
+        $manager->create(
+            'documents.approve',
+            'web',
+            SystemActor::named('definition-suite'),
+            description: 'Obsolete description',
+        );
+
+        $result = $manager->update(
+            permission: 'documents.approve',
+            changes: PermissionChanges::description(null),
+            actor: SystemActor::named('definition-suite'),
+            reason: 'Remove obsolete description',
+        );
+
+        $this->assertSame(MutationOutcome::Updated, $result->outcome);
+        $this->assertNull($result->resource->getAttribute('description'));
+        $this->assertNotNull($result->auditId);
+    }
+
+    public function test_public_api_returns_unchanged_without_audit(): void
+    {
+        $manager = app(PermissionManager::class);
+        $manager->create(
+            'documents.approve',
+            'web',
+            SystemActor::named('definition-suite'),
+            description: 'Approve submitted documents',
+        );
+
+        $result = $manager->update(
+            permission: 'documents.approve',
+            changes: PermissionChanges::description(
+                'Approve submitted documents',
+            ),
+            actor: SystemActor::named('definition-suite'),
+        );
+
+        $this->assertSame(MutationOutcome::Unchanged, $result->outcome);
+        $this->assertNull($result->auditId);
+        $this->assertFalse($result->changed());
+        $this->assertDatabaseCount('acl_access_audits', 1);
+    }
+
+    public function test_public_update_accepts_every_accepted_input(): void
+    {
+        $manager = app(PermissionManager::class);
+        $actor = SystemActor::named('definition-suite');
+        $permission = $manager->create(
+            'documents.approve',
+            'web',
+            $actor,
+        )->resource;
+        $inputs = [
+            'model' => $permission,
+            'integer' => (int) $permission->getKey(),
+            'reference' => PermissionReference::id($permission->getKey()),
+            'name' => 'documents.approve',
+        ];
+
+        foreach ($inputs as $label => $input) {
+            $result = $manager->update(
+                permission: $input,
+                changes: PermissionChanges::description(
+                    "Updated through $label",
+                ),
+                actor: $actor,
+            );
+
+            $this->assertSame(
+                MutationOutcome::Updated,
+                $result->outcome,
+                "Input [$label] should update the permission.",
+            );
+            $this->assertNotNull($result->auditId);
+        }
+
+        $this->assertSame(
+            'Updated through name',
+            Permission::query()->sole()->getAttribute('description'),
+        );
+    }
+
+    public function test_manager_signatures_match_the_accepted_decision(): void
     {
         $this->assertSame(
             [
@@ -133,16 +262,15 @@ final class DefaultPermissionManagerTest extends TestCase
                 'description',
                 'metadata',
             ],
-            array_map(
-                static fn (ReflectionParameter $parameter): string => $parameter
-                    ->getName(),
-                (new ReflectionMethod(PermissionManager::class, 'create'))
-                    ->getParameters(),
-            ),
+            $this->parameters('create'),
+        );
+        $this->assertSame(
+            ['permission', 'changes', 'actor', 'reason', 'metadata'],
+            $this->parameters('update'),
         );
     }
 
-    public function test_public_contract_exposes_only_permission_creation(): void
+    public function test_public_contract_exposes_creation_and_update_only(): void
     {
         $methods = array_values(array_map(
             static fn (ReflectionMethod $method): string => $method->getName(),
@@ -155,9 +283,9 @@ final class DefaultPermissionManagerTest extends TestCase
             ),
         ));
 
-        $this->assertSame(['create'], $methods);
+        $this->assertSame(['create', 'update'], $methods);
 
-        foreach (['update', 'deactivate', 'restore'] as $unimplemented) {
+        foreach (['deactivate', 'restore'] as $unimplemented) {
             $this->assertFalse(
                 method_exists(PermissionManager::class, $unimplemented),
                 "[$unimplemented] must not exist before it is implemented.",
@@ -176,10 +304,15 @@ final class DefaultPermissionManagerTest extends TestCase
     {
         $reflection = new ReflectionClass(DefaultPermissionManager::class);
 
-        // The adapter owns exactly one handler and the package clock, so it
-        // has no collaborator that could validate, query, or audit.
+        // The adapter owns exactly one handler per mutation plus the package
+        // clock, so it has no collaborator that could validate, query, or
+        // audit, and neither method can be a placeholder body.
         $this->assertSame(
-            [CreatePermissionHandler::class, ClockInterface::class],
+            [
+                CreatePermissionHandler::class,
+                UpdatePermissionHandler::class,
+                ClockInterface::class,
+            ],
             array_values(array_filter(array_map(
                 static fn (ReflectionParameter $parameter): ?string => $parameter
                     ->getType() instanceof ReflectionNamedType
@@ -189,7 +322,7 @@ final class DefaultPermissionManagerTest extends TestCase
             ))),
         );
         $this->assertSame(
-            ['__construct', 'create'],
+            ['__construct', 'create', 'update'],
             array_map(
                 static fn (ReflectionMethod $method): string => $method
                     ->getName(),
@@ -197,17 +330,32 @@ final class DefaultPermissionManagerTest extends TestCase
             ),
         );
 
-        $create = new ReflectionMethod(
-            DefaultPermissionManager::class,
-            'create',
-        );
+        foreach (['create', 'update'] as $method) {
+            $mutation = new ReflectionMethod(
+                DefaultPermissionManager::class,
+                $method,
+            );
 
-        $this->assertFalse($create->isAbstract());
-        $this->assertSame(
-            MutationResult::class,
-            $create->getReturnType() instanceof ReflectionNamedType
-                ? $create->getReturnType()->getName()
-                : null,
+            $this->assertFalse($mutation->isAbstract());
+            $this->assertSame(
+                MutationResult::class,
+                $mutation->getReturnType() instanceof ReflectionNamedType
+                    ? $mutation->getReturnType()->getName()
+                    : null,
+            );
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function parameters(string $method): array
+    {
+        return array_map(
+            static fn (ReflectionParameter $parameter): string => $parameter
+                ->getName(),
+            (new ReflectionMethod(PermissionManager::class, $method))
+                ->getParameters(),
         );
     }
 }
