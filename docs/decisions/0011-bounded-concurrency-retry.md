@@ -184,7 +184,8 @@ Accepted rule:
   changes; only recovery does;
 - a **classified transient failure** during that attempt is surfaced as
   `ConcurrencyRetryExhausted` with `attempts: 1` and `callerOwned: true`,
-  preserving the classified database exception as `previous`;
+  chaining a sanitized `ConcurrencyFailureCause` rather than the raw driver
+  exception, exactly as section 6 defines;
 - an **unclassified** failure propagates unchanged, as it does today;
 - the caller decides what to do, because only the caller can safely restart
   its own transaction;
@@ -203,50 +204,100 @@ the core safety property of this design.
 **Positionally scoped.** Only the exception raised by the coordination-row
 `INSERT` inside `AssignmentLockStore::acquire()` can be classified as a
 coordination race. The store catches the `QueryException` from that one
-statement, asks the classifier to confirm the expected identity, and rethrows
-an internal marker carrying the original as `previous`. A unique violation
-raised anywhere else in the attempt — a role namespace collision, an
-application table, a consumer trigger — is structurally ineligible, without
-depending on message text to tell them apart.
+statement, asks `CoordinationRaceClassifier` to confirm the expected identity,
+and — only on confirmation — rethrows the internal `CoordinationInsertRace`
+marker described in section 8. A unique violation raised anywhere else in the
+attempt — a role namespace collision, another GateTrail table, a consumer
+table or trigger — is structurally ineligible, whatever any driver's
+diagnostic text says.
 
 **Code-based.** Deadlock and serialization failures can be raised by any
 statement in the attempt, so they are classified from SQLSTATE and vendor code
 alone, with no identity anchor available or needed.
 
+### What PDO actually exposes
+
+An earlier draft of this ADR claimed that PostgreSQL, Oracle and SQL Server
+expose constraint identity structurally and that only MySQL needed message
+inspection. That is wrong and is corrected here, because the whole safety
+argument depends on being honest about it.
+
+Through PDO:
+
+- **SQLSTATE and the numeric vendor code are structured.** They arrive as
+  `errorInfo[0]` and `errorInfo[1]` and are stable, locale-independent, and
+  safe to switch on.
+- **Constraint identity is not.** No supported driver surfaces the violated
+  constraint, table or column set as a dedicated PDO field. On PostgreSQL,
+  Oracle, SQL Server and MySQL alike, the constraint name reaches PHP only
+  inside driver diagnostic text — `errorInfo[2]` and, through Laravel, the
+  `QueryException` message. SQLite reports violated columns rather than a
+  name, also as text.
+
+So **every** driver requires narrow diagnostic-text parsing to confirm
+identity. Diagnostic text is never sufficient by itself, on any driver. The
+rules below therefore apply uniformly:
+
+1. **Positional eligibility first.** The exception must come from the exact
+   coordination `INSERT`. This is the primary safety boundary and the only one
+   that does not depend on text at all.
+2. **Structured agreement second.** SQLSTATE and, where the driver provides
+   one, the numeric vendor code must match the expected values.
+3. **Identity confirmation third.** The expected constraint name — or, on
+   SQLite, the expected column set — must be found in the diagnostic text
+   using identifier-token boundaries, never a substring search.
+4. All three must agree. Any one of them failing means "not a coordination
+   race", and the original exception propagates unchanged.
+
+Token matching rules:
+
+- matching is case-insensitive where the engine folds identifier case, which
+  covers Oracle's upper-cased names and PostgreSQL's lower-cased names;
+- the match is bounded by non-identifier characters, so `acl_asgn_locks_pk`
+  never matches `acl_asgn_locks_pk_2`, `x_acl_asgn_locks_pk`, or any other
+  similar-prefix or similar-suffix constraint;
+- schema-qualified (`gatetrail.acl_asgn_locks_pk`), table-qualified
+  (`acl_assignment_locks.PRIMARY`) and quoted forms — double quotes,
+  backticks, brackets — are each accepted, narrowly and explicitly;
+- names are compared against the runtime-resolved values.
+  `SchemaContext::tableName()` applies the configured prefix and
+  `SchemaContext::table()` adds the schema qualifier, so the classifier never
+  compares against the literal `acl_assignment_locks`. SQLite column matching
+  uses the unqualified table name, because SQLite reports `table.column`
+  without a schema prefix;
+- **no locale-dependent prose is ever part of the identity.** Phrases such as
+  "duplicate key", "duplicate entry", "unique constraint failed" or
+  "violates unique constraint" are translatable and version-dependent. They
+  may be absent from a matcher entirely; the classification rests on
+  SQLSTATE, vendor code, and the identifier token.
+
 ### Coordination-row insert race
 
-The expected identity is the runtime-resolved lock table and its physical
-primary key. `SchemaContext::tableName()` already applies the configured
-prefix, and `SchemaContext::table()` adds the schema qualifier when one is
-configured, so the classifier compares against resolved names and never
-against the literal `acl_assignment_locks`. Column-identity matching uses the
-unqualified table name, because SQLite reports `table.column` without a schema
-prefix.
-
-| Driver | SQLSTATE | Code | Confirmed identity | Reliability |
+| Driver | SQLSTATE | Vendor code | Identity token to confirm | Where the token appears |
 |---|---|---|---|---|
-| PostgreSQL | `23505` | — | constraint name `acl_asgn_locks_pk` in `errorInfo[2]` | structured |
-| Oracle | `23000` | `ORA-00001` | constraint name `ACL_ASGN_LOCKS_PK`, case-insensitive, optional schema prefix | structured |
-| SQL Server | `23000` | `2627` | constraint name `acl_asgn_locks_pk` in the driver message | structured |
-| SQLite | `23000` | `19` | reported columns equal `{table}.assignment_kind` and `{table}.scope_hash` | structured |
-| MySQL / MariaDB | `23000` | `1062` | key name plus resolved table name | **narrow documented fallback** |
+| PostgreSQL | `23505` | — | `acl_asgn_locks_pk` | diagnostic text |
+| Oracle | `23000` | `1` (`ORA-00001`) | `ACL_ASGN_LOCKS_PK`, optional schema prefix | diagnostic text |
+| SQL Server | `23000` | `2627` | `acl_asgn_locks_pk` | diagnostic text |
+| SQLite | `23000` | `19` | `{table}.assignment_kind` and `{table}.scope_hash` | diagnostic text |
+| MySQL / MariaDB | `23000` | `1062` | `PRIMARY`, plus the resolved table where the server qualifies it | diagnostic text |
 
-MySQL is the one genuine gap and it is stated rather than hidden. MySQL cannot
-name a primary key: `MySqlAdapter::physicalPrimaryKeyName()` returns
-`PRIMARY` for every table, and the key name appears only in the driver
-message — qualified as `` `table`.`PRIMARY` `` from MySQL 8.0.19 and as bare
-`'PRIMARY'` before it. Message inspection is therefore unavoidable on MySQL,
-and it is made narrow and safe by three conditions that must all hold:
+The "where the token appears" column deliberately reads the same for every
+row: there is no driver where PDO hands GateTrail a constraint field.
 
-1. the exception was raised by the coordination insert, positionally;
-2. SQLSTATE is `23000` and the vendor code is `1062`;
-3. the message names `PRIMARY`, and additionally names the resolved lock table
-   where the server qualifies it.
+**MySQL remains the weakest row**, and the reason is specific rather than
+general. MySQL cannot name a primary key at all —
+`MySqlAdapter::physicalPrimaryKeyName()` returns `PRIMARY` for every table —
+so the token is not unique to GateTrail's lock table. MySQL 8.0.19 and later
+qualify it as `` `acl_assignment_locks`.`PRIMARY` ``, which restores
+uniqueness; older servers report bare `'PRIMARY'`, which does not.
 
-Because condition 1 already restricts the candidate set to a single statement
-against a single table whose only unique constraint is that primary key,
-conditions 2 and 3 are confirmation rather than identification. The fallback
-is recorded as the only message-dependent rule in the classifier.
+Positional scoping is what makes the older-server case acceptable. Condition 1
+has already restricted the candidate set to a single statement, against a
+single table, whose only unique constraint is that primary key. On that
+statement, `23000` + `1062` + `PRIMARY` cannot describe anything else.
+Identity confirmation is therefore doing confirmation work, not
+identification work — which is true on every driver here, and is the reason
+positional scoping is the primary boundary rather than a convenience.
 
 ### Deadlock and serialization failure
 
@@ -259,16 +310,21 @@ is recorded as the only message-dependent rule in the classifier.
 | Oracle | deadlock detected | `61000` | `ORA-00060` | yes |
 | Oracle | cannot serialize access | `72000` | `ORA-08177` | yes |
 
-Each is a failure the database itself resolved by discarding one transaction.
-The competing transaction is already gone, so an immediate retry has a clean
-field.
+Each is a failure the database itself resolved by rolling back **this**
+transaction. That is the precise guarantee, and it is narrower than it may
+look: the victim's own work is gone, but the surviving transaction may still
+be running and still holding locks. A serialization or deadlock winner will
+often have committed by the time the victim retries, but that is a common
+case, not a property of every deadlock surface. An immediate retry may
+therefore block on ordinary lock acquisition rather than proceeding
+immediately — which is correct behaviour, not a failure.
 
 ### Deliberately not retryable in the initial implementation
 
 | Condition | Driver examples | Reason |
 |---|---|---|
-| Lock wait timeout | MySQL `1205` / `HY000`, SQL Server `1222`, Oracle `ORA-00054` | A timeout means a competing transaction is still holding the lock. Immediate retry makes contention worse; safe handling needs backoff, which section 7 defers. |
-| Database busy / locked | SQLite `SQLITE_BUSY` (5), `SQLITE_LOCKED` (6) | Same reasoning. SQLite is a single-writer test database, not the reference production engine. |
+| Lock wait timeout | MySQL `1205` / `HY000`, SQL Server `1222`, Oracle `ORA-00054` | Accepted owner direction: excluded from the first implementation. A timeout means a competing transaction is still holding the lock, so recovery needs bounded backoff, which section 7 defers. Propagates as its original infrastructure exception. |
+| Database busy / locked | SQLite `SQLITE_BUSY` (5), `SQLITE_LOCKED` (6) | Accepted owner direction: excluded from the first implementation, for the same reason. Propagates as its original infrastructure exception. |
 | Any other unique violation | role and permission namespace constraints, consumer constraints | Semantic, terminal, already translated to typed domain exceptions. |
 | Foreign-key violation | `23503`, MySQL `1452`/`1451`, Oracle `ORA-02291` | Indicates missing or removed referenced state; a retry repeats the same failure. |
 | NOT NULL / check violation | `23502`, `23514`, Oracle `ORA-01400`, `ORA-02290` | A package or schema defect, deterministic. |
@@ -283,6 +339,14 @@ family that is retryable on code alone, because every engine reserves it for
 serialization and deadlock rollback. Every other family requires confirmed
 identity.
 
+**Excluded conditions stay safe.** A lock timeout or a SQLite `BUSY`/`LOCKED`
+condition aborts the attempt before commit, so it can never leave a partial
+mutation or duplicate authorization state — it fails closed, exactly like any
+other unclassified infrastructure failure. Excluding them defers *automatic
+recovery*, not correctness, and it says nothing about SQLite support
+generally: GateTrail's persisted-state guarantees on SQLite are unchanged and
+remain supported.
+
 ## 6. Exhaustion exception
 
 ```php
@@ -294,8 +358,8 @@ final class ConcurrencyRetryExhausted extends RuntimeException
 }
 ```
 
-Named constructors: `afterAttempts(string $operation, int $attempts, Throwable $previous)`
-and `insideCallerTransaction(string $operation, Throwable $previous)`.
+Named constructors: `afterAttempts(string $operation, int $attempts, ConcurrencyFailureCause $cause)`
+and `insideCallerTransaction(string $operation, ConcurrencyFailureCause $cause)`.
 
 Messages:
 
@@ -311,24 +375,65 @@ Contract:
   operation without naming a subject, role, permission, table or column;
 - no SQL, no bindings, no identifiers, no credentials, no driver message and
   no driver code enters the message or the public properties;
-- the final classified database exception is preserved as `previous`, as
-  required, so operators keep the diagnostic chain;
 - domain exceptions are never wrapped. `DuplicateActiveAssignment`,
   `AssignmentNotActive`, `AssignmentScopeCollision`, `GuardMismatch`,
   `RoleNotFound`, `PermissionNotFound`, `ReasonRequired`, `InvalidActor`,
   `AuditWriteFailed` and every other GateTrail exception propagate unchanged
-  and end the attempt immediately.
+  and end the attempt immediately;
+- **the raw `QueryException` is never chained.** See below.
 
-**Security note, stated rather than assumed.** Preserving the driver exception
-as `previous` is an explicit instruction and this ADR follows it, but
-`QueryException::getMessage()` contains the executed SQL and, depending on the
-Laravel version, its bindings. That is a deliberate departure from the posture
-`DuplicateRole` takes, where no previous exception is attached at all.
-Consequences: GateTrail's own operational logging must never serialize the
-exception chain, and consumers whose global handler logs full chains will see
-GateTrail SQL in their logs. This is the one point in the design where
-diagnostic value was chosen over minimal disclosure, and the owner should
-confirm it.
+### Sanitized cause instead of the driver exception
+
+An earlier draft preserved the final `QueryException` as `previous`. That is
+rejected. `QueryException::getMessage()` carries the executed SQL and, in
+several Laravel versions, its bindings — which can contain a subject
+identifier, an assignment reason or consumer metadata. Any global handler that
+serializes an exception chain would then print them, and GateTrail would have
+undone the disclosure discipline every other package exception maintains.
+
+The chain instead ends at a sanitized cause:
+
+```php
+/** @internal */
+final class ConcurrencyFailureCause extends RuntimeException
+{
+    public readonly string $driver;    // 'mysql' | 'pgsql' | 'sqlsrv' | 'oracle' | 'sqlite'
+    public readonly string $category;  // 'coordination_race' | 'deadlock' | 'serialization_failure'
+    public readonly ?string $sqlState; // when the driver supplied one
+    public readonly ?int $vendorCode;  // when the driver supplied one
+}
+```
+
+Rules:
+
+- it is constructed only by `TransientFailureClassifier` or
+  `CoordinationRaceClassifier`, from a failure they have already positively
+  classified;
+- it carries **only** the four fields above. No driver message, no SQL, no
+  bindings, no identifiers, no table or constraint names, no reason, no
+  metadata, no credentials, no driver stack;
+- **it does not chain the original `QueryException`.** The raw exception is
+  read, classified, and dropped; it is not stored on the cause, on
+  `ConcurrencyRetryExhausted`, or anywhere else in the chain;
+- its own message is stable, safe and derived only from those fields, for
+  example `GateTrail classified a mysql deadlock (SQLSTATE 40001, code 1213).`;
+- it is `@internal`. Consumers reach it through
+  `ConcurrencyRetryExhausted::getPrevious()` for diagnostics, but it is not a
+  catchable public contract and is never thrown on its own.
+
+Consequently the entire `previous` chain of a `ConcurrencyRetryExhausted` is:
+one `ConcurrencyFailureCause`, then nothing.
+
+Two supporting rules follow:
+
+- **unclassified failures are never wrapped.** An arbitrary or unclassified
+  `QueryException` is not a concurrency exhaustion and never becomes one. It
+  propagates unchanged, with its own chain intact, exactly as today;
+- **GateTrail does not log the raw classified exception.** Neither the retry
+  loop nor exhaustion writes an operational log containing the driver
+  exception, its message or its chain. Retry is a control-flow concern, not a
+  reporting one, and the sanitized cause is the only diagnostic GateTrail
+  emits.
 
 **When `concurrency_attempts` is `1`.** One attempt is made and no retry is
 possible. A classified transient failure raises `ConcurrencyRetryExhausted`
@@ -357,33 +462,85 @@ into a retry storm that starves the very writer it is waiting for. Ten is far
 beyond any legitimate coordination race, where the loser normally succeeds on
 its second attempt because the winner's row is now present.
 
-**Backoff is not part of the initial implementation.** Both retryable classes
-argue against it:
+**No package-level backoff in the initial implementation.** This is a bounded
+decision for this retry set, not a claim that immediate retry is universally
+optimal. An immediate retry may still block on ordinary lock acquisition if
+the surviving transaction has not yet committed; that is normal database
+behaviour and is not what backoff would fix.
 
-- a coordination insert race means the winner has already inserted the row, so
-  the loser's next attempt finds it immediately. Sleeping adds latency to a
-  contention window that has already closed;
-- a deadlock or serialization rollback means the database already discarded
-  one transaction. The conflicting party is gone.
+The reasons it is adequate here:
 
-Backoff becomes necessary precisely for the class this ADR excludes — lock
-timeouts and busy conditions, where a competing transaction is still holding
-the lock. Backoff and that class are therefore recorded as one paired future
-extension: if lock timeouts are ever made retryable, bounded exponential
-backoff with jitter and an injectable sleeper must land in the same change,
-with tests using a deterministic fake sleeper that records requested delays
-instead of sleeping.
+- attempts are hard-bounded to `1`–`10`, default `3`, so the worst case is a
+  small, finite number of transactions rather than an open-ended loop;
+- the accepted retry candidates are exactly three — coordination insert races,
+  deadlock victims and serialization failures — all of which have already been
+  rolled back by the engine, so a retry is a fresh transaction rather than a
+  poll;
+- lock wait timeouts and SQLite `BUSY`/`LOCKED` are excluded, and those are
+  the conditions where retrying without a delay genuinely amplifies
+  contention;
+- where the surviving transaction is still holding locks, the retry waits on
+  normal blocking lock acquisition, which is the database's own admission
+  control;
+- there is no production evidence yet to size a delay, a ceiling or a jitter
+  distribution, and sleeper, jitter and delay configuration are all public
+  surface that would have to be maintained from the moment they ship.
+
+Backoff must be reconsidered from pilot evidence rather than assumed
+unnecessary. And it is paired with the excluded class: if lock timeouts or
+SQLite `BUSY`/`LOCKED` are ever made retryable, bounded backoff with jitter
+and an injectable delay seam must land in the **same** change, with tests
+using a deterministic fake sleeper that records requested delays instead of
+sleeping.
 
 ## 8. Architectural components
 
-Four new pieces, each with one job:
+Each piece has exactly one job, and none overlaps another:
 
-| Component | Responsibility |
-|---|---|
-| `RetryPolicy` | Reads and validates `assignments.concurrency_attempts`; exposes the bounded attempt count. |
-| `TransientFailureClassifier` | Driver-aware, structured classification of deadlock and serialization failures. Knows SQLSTATE and vendor codes; knows nothing about retry counting. |
-| `CoordinationRaceClassifier` | Confirms that one specific exception is a coordination-row insert race against the resolved lock table and its physical primary key. |
-| `ConcurrencyRetryExhausted` | The typed public exhaustion exception. |
+| Component | Visibility | Responsibility |
+|---|---|---|
+| `RetryPolicy` | `@internal` | Reads and validates `assignments.concurrency_attempts`; exposes the bounded attempt count. Knows nothing about drivers. |
+| `CoordinationRaceClassifier` | `@internal` | Confirms that one specific exception is *the* coordination-row insert race, against the resolved lock table and its physical primary key. |
+| `TransientFailureClassifier` | `@internal` | Classifies supported-driver deadlock and serialization failures from SQLSTATE and vendor code. Knows nothing about coordination rows or retry counting. |
+| `CoordinationInsertRace` | `@internal` | The confirmed-race marker described below. |
+| `ConcurrencyFailureCause` | `@internal` | The sanitized classified cause from section 6. Carries no raw driver exception. |
+| retry orchestrator | `@internal` | Counts attempts, reruns the transaction, decides exhaustion. Knows nothing about SQLSTATE or vendor codes. |
+| `ConcurrencyRetryExhausted` | **public** | The terminal exception when attempts are exhausted or unavailable. |
+
+Only one of the seven is public API.
+
+### The coordination-race marker
+
+```php
+/** @internal */
+final class CoordinationInsertRace extends RuntimeException
+{
+    public readonly ConcurrencyFailureCause $cause;
+}
+```
+
+Rules:
+
+- **only `AssignmentLockStore` may create it**, and only from the `catch`
+  around the coordination-row `INSERT` itself. No other class constructs it,
+  and no other statement can produce it;
+- it is created **only after** `CoordinationRaceClassifier` has confirmed the
+  exception against positional eligibility, SQLSTATE, vendor code and the
+  expected identity token. An insert exception that is not confirmed
+  propagates unchanged, with its own chain intact;
+- it carries a `ConcurrencyFailureCause` with `category: 'coordination_race'`,
+  **not** the raw `QueryException`;
+- the retry orchestrator treats it as retryable. Nothing else does;
+- it is never a public domain outcome. It is caught by the orchestrator and
+  either consumed by a retry or converted into `ConcurrencyRetryExhausted`. It
+  never reaches a consumer, and it is never returned as a `MutationResult`;
+- it cannot be confused with `DuplicateRole`, `DuplicatePermission` or
+  `DuplicateActiveAssignment`. Those are terminal domain outcomes with
+  different types, raised on different paths, and none of them is retryable.
+
+Making the marker a distinct type is what keeps "retryable" out of the domain
+exception hierarchy entirely: the orchestrator catches one internal class, and
+every public exception is by construction non-retryable.
 
 `UniqueConstraintViolationClassifier` is **not** extended. It answers one
 narrow question — "is this a violation of that exact named constraint?" — and
@@ -397,65 +554,123 @@ two answer different questions and stay separate.
 gains one additional entry point:
 
 ```php
-public function run(Closure $operation): MutationResult;            // unchanged
-public function runCoordinated(Closure $operation): MutationResult; // retrying
+public function run(Closure $operation): MutationResult;
+
+public function runCoordinated(
+    string $mutation,
+    Closure $operation,
+): MutationResult;
 ```
 
-The six assignment handlers change one call site each, from `run()` to
-`runCoordinated()`. No handler gains a loop, an attempt counter, a SQLSTATE,
-a vendor code, or a driver branch. Definition handlers keep calling `run()`
-and are structurally incapable of retrying. A named method is preferred over a
-boolean parameter because the call site then states what it means.
+The mutation name is an explicit parameter rather than something derived
+later, and that is not cosmetic. `ConcurrencyRetryExhausted::$operation` must
+be populated when **no** attempt succeeded, so there is no `PreparedMutation`
+and no `PendingAuditRecord` to read it from — those exist only inside an
+attempt that got far enough to build them. A first attempt can fail at
+reference resolution, before any of that. The orchestrator must therefore
+already hold the name when the loop starts.
+
+Rules:
+
+- each of the six assignment handlers passes its own canonical name, the same
+  constant it already uses for its audit `event` and its ADR 0010 mutation
+  name: `role.assigned`, `role.revoked`, `permission.granted_to_subject`,
+  `permission.revoked_from_subject`, `permission.granted_to_role`,
+  `permission.revoked_from_role`;
+- the name is captured **before the first attempt begins**, and the same value
+  is used for every attempt and for the exhaustion exception;
+- the orchestrator never derives it from a `PreparedMutation`, which may never
+  exist;
+- only the six accepted assignment mutation names are valid. A name outside
+  that set — a typo, or a definition mutation name reaching this path — is
+  rejected **before any transaction opens**, alongside `RetryPolicy`
+  validation;
+- the value is a fixed vocabulary term. No subject, role, permission,
+  assignment identifier, guard or reason is ever passed as the operation, so
+  nothing consumer-supplied can reach `ConcurrencyRetryExhausted`.
+
+**No new value object.** Validation is a membership check against the same
+name list `MutationCommitted` already validates against, performed by
+`RetryPolicy` at the top of `runCoordinated()`. A `MutationName` value object
+would add a public-looking type, a second place for the vocabulary to live,
+and a construction step at six call sites, to enforce one `in_array` check. It
+is not worth it. If a future increment needs the vocabulary in a third place,
+promoting it to a shared internal constant list is a smaller change than
+unwinding a value object.
+
+The six assignment handlers change one call site each. No handler gains a
+loop, an attempt counter, a SQLSTATE, a vendor code, or a driver branch.
+Definition handlers keep calling `run()` and are structurally incapable of
+retrying. A named method is preferred over a boolean parameter because the
+call site then states what it means.
 
 ## 9. Retry state machine
 
 ```text
-                    ┌─────────────────────────────┐
-                    │ validate once (pure inputs) │
-                    │ capture immutable command   │
-                    └──────────────┬──────────────┘
-                                   │
-                     caller-owned transaction? ──── yes ──┐
-                                   │ no                   │
-                                   ▼                      ▼
-                        ┌──────────────────┐   ┌──────────────────────┐
-                   ┌───▶│  attempt begins  │   │ single attempt only  │
-                   │    └────────┬─────────┘   └──────────┬───────────┘
-                   │             │                        │
-                   │   resolve → lock → decide            │
-                   │   → persist → audit (strict)         │
-                   │             │                        │
-                   │      ┌──────┴───────┐                │
-                   │      │              │                │
-                   │   commit         throws              │
-                   │      │              │                │
-                   │      ▼              ▼                ▼
-                   │  ┌────────┐   classify?         classify?
-                   │  │ WINNER │        │                 │
-                   │  └───┬────┘   ┌────┴─────┐      ┌────┴──────┐
-                   │      │        │          │      │           │
-                   │      │   retryable   not retryable   retryable / not
-                   │      │        │          │      │           │
-                   │      │   attempts       throw    ConcurrencyRetryExhausted
-                   │      │   remaining?   unchanged   (attempts: 1,
-                   │      │    │      │   (domain or    callerOwned: true)
-                   │      │  yes     no    unknown)   / throw unchanged
-                   └──────┼──┘       │
-                          │          ▼
-                          │   ConcurrencyRetryExhausted
-                          │   (attempts: configured)
-                          ▼
-              ┌───────────────────────────────┐
-              │ AFTER COMMIT — runs at most   │
-              │ once, never inside the loop   │
-              │  1. non-strict audit attempt  │
-              │  2. cache invalidation (slot) │
-              │  3. MutationCommitted         │
-              └───────────────────────────────┘
+        ┌──────────────────────────────────────────────┐
+        │ BEFORE ANY TRANSACTION                       │
+        │  • validate the mutation name (6 accepted)   │
+        │  • validate concurrency_attempts (1..10)     │
+        │  • validate pure inputs, capture the         │
+        │    immutable command with one clock reading  │
+        └───────────────────────┬──────────────────────┘
+                                │  invalid name/config → throw, no transaction
+                                ▼
+                  caller-owned transaction? ───── yes ─────┐
+                                │ no                       │
+                                ▼                          ▼
+                     ┌──────────────────┐      ┌──────────────────────┐
+                ┌───▶│  attempt begins  │      │ single attempt only  │
+                │    └────────┬─────────┘      └──────────┬───────────┘
+                │             │                           │
+                │  resolve refs → coordination row        │
+                │  → lock rows → decide → persist         │
+                │  → strict audit                         │
+                │             │                           │
+                │      ┌──────┴───────┐                   │
+                │   commit         throws                 │
+                │      │              │                   │
+                │      ▼              ▼                   ▼
+                │  ┌────────┐   what was thrown?    what was thrown?
+                │  │ WINNER │        │                    │
+                │  └───┬────┘   ┌────┴────────────┐  ┌────┴────────────┐
+                │      │        │                 │  │                 │
+                │      │  CoordinationInsertRace  │  retryable      not
+                │      │  (confirmed by the       │  (race /        retryable
+                │      │   store's INSERT catch)  │   deadlock /       │
+                │      │        │                 │   serialization)   │
+                │      │  TransientFailure-       │        │           ▼
+                │      │  Classifier says         │        ▼        throw
+                │      │  deadlock / serialization│  Concurrency-  unchanged
+                │      │        │                 │  RetryExhausted
+                │      │        ▼                 │  (attempts: 1,
+                │      │   attempts remaining?    │   callerOwned: true,
+                │      │    │           │         │   cause: sanitized)
+                │      │   yes         no         │
+                └──────┼────┘          │          ▼
+                       │               │      domain exception
+                       │               │      or unclassified
+                       │               │      QueryException →
+                       │               │      throw unchanged
+                       │               ▼
+                       │      ConcurrencyRetryExhausted
+                       │      (attempts: configured,
+                       │       cause: ConcurrencyFailureCause,
+                       │       raw QueryException dropped)
+                       ▼
+           ┌───────────────────────────────────┐
+           │ AFTER COMMIT — at most once,      │
+           │ never inside the loop             │
+           │   1. non-strict audit attempt     │
+           │   2. cache invalidation (slot)    │
+           │   3. MutationCommitted            │
+           └───────────────────────────────────┘
 ```
 
 Every discarded attempt leaves the database as it found it and reaches none of
 the after-commit block. Exhaustion and unclassified failures throw before it.
+An unconfirmed coordination-insert exception never becomes a
+`CoordinationInsertRace` and therefore never enters the retry path at all.
 
 ## 10. Portability and testing
 
@@ -465,22 +680,57 @@ one per driver per condition, carrying the real `errorInfo` triple and message
 that engine produces. This is what lets every contributor run the full
 classification suite on SQLite alone.
 
-Required unit evidence:
+Required unit evidence — **classification and identity**:
 
 - every row of the section 5 matrix classified correctly, per driver;
 - coordination-race confirmation against the resolved lock table and physical
   primary key, including a configured table prefix and a configured schema
   qualifier;
+- diagnostic-text matching is token-bounded on PostgreSQL, Oracle and SQL
+  Server as well as MySQL, and is case-insensitive where the engine folds
+  case;
+- similar-prefix and similar-suffix constraint names are rejected:
+  `acl_asgn_locks_pk_2`, `x_acl_asgn_locks_pk`, `acl_asgn_locks_pkey`;
+- schema-qualified, table-qualified, double-quoted, backtick-quoted and
+  bracket-quoted forms of the expected name are each accepted;
+- classification is unaffected by localized or reworded driver prose: the same
+  SQLSTATE, vendor code and identifier token classify identically whatever the
+  surrounding sentence says, and no matcher depends on phrases such as
+  "duplicate key" or "violates unique constraint";
 - false-positive rejection: a role namespace violation, a permission namespace
   violation, a consumer-table unique violation, a primary-key collision on
   another GateTrail table, a foreign-key violation, a NOT NULL violation, a
   missing-table failure, and an arbitrary `QueryException` are all
   non-retryable;
 - the MySQL fallback rejects a `1062` naming `PRIMARY` on a different table;
+- lock wait timeouts and SQLite `BUSY`/`LOCKED` are classified as **not**
+  retryable on every driver.
+
+Required unit evidence — **operation name and configuration**:
+
+- `runCoordinated()` receives a canonical mutation name and validates it
+  before any transaction opens;
+- each of the six accepted names is valid;
+- an unknown name, a definition mutation name, an empty string and a typo are
+  each rejected before a transaction opens;
 - `concurrency_attempts` validation across `int`, `bool`, `float`,
-  numeric string, `null`, array, object, `0`, negative, `1`, `10`, `11`;
-- `ConcurrencyRetryExhausted` carries no SQL, bindings, identifiers or driver
-  message, and preserves `previous`.
+  numeric string, `null`, array, object, `0`, negative, `1`, `10`, `11`.
+
+Required unit evidence — **exception safety**:
+
+- `ConcurrencyRetryExhausted::$operation` is populated even when no
+  `PreparedMutation` was ever created, because the first attempt failed during
+  reference resolution;
+- `ConcurrencyFailureCause` exposes only `driver`, `category`, `sqlState` and
+  `vendorCode`;
+- the raw `QueryException` is absent from the **entire** `previous` chain:
+  walking `getPrevious()` from a `ConcurrencyRetryExhausted` yields exactly one
+  `ConcurrencyFailureCause` and then `null`;
+- no SQL, binding, identifier, reason, metadata, credential or driver message
+  appears in the message or any public property of either exception, asserted
+  by serializing both objects and searching for planted secrets;
+- an unclassified `QueryException` is never wrapped and propagates with its own
+  chain intact.
 
 Required integration evidence, SQLite by default:
 
@@ -491,18 +741,28 @@ Required integration evidence, SQLite by default:
   leaves no mutation, no audit row and no event;
 - the same immutable command instance is reused by every attempt, and the
   captured timestamp does not change between attempts;
+- `CoordinationInsertRace` is produced only by the coordination `INSERT` path:
+  a unique violation injected anywhere else in the attempt never produces it
+  and is never retried;
+- an unconfirmed exception from the coordination insert propagates unchanged
+  rather than becoming a marker;
 - domain exceptions are never retried — one attempt only, for
   `DuplicateActiveAssignment`, `AssignmentNotActive`, `AssignmentScopeCollision`,
   `GuardMismatch` and `ReasonRequired`;
 - an unknown infrastructure `QueryException` is never retried;
+- a lock wait timeout and a SQLite `BUSY`/`LOCKED` condition are not retried
+  and surface as their original exception;
+- a definition deadlock is not retried and surfaces as its original exception;
 - strict mode leaves neither mutation nor audit after a discarded attempt;
 - non-strict audit failure never triggers a mutation retry;
 - disabled auditing retries the mutation transaction only;
-- a caller-owned transaction makes one attempt and raises
+- a caller-owned transaction makes exactly one attempt and raises
   `ConcurrencyRetryExhausted` with `callerOwned: true`;
 - zero `MutationCommitted` for failed attempts, exactly one for the winner,
   zero on exhaustion;
 - no duplicate audit rows across retried attempts;
+- GateTrail writes no operational log containing the raw driver exception
+  during retry or exhaustion;
 - all four definition managers remain single-attempt.
 
 Required real-concurrency evidence where infrastructure allows: parallel
@@ -521,6 +781,9 @@ golden-vector suite keeps their classification honest locally.
   false-positive tests.
 - Positional scoping means a definition namespace collision can never be
   mistaken for a coordination race, whatever a driver's message says.
+- The public exception chain leaks nothing: `ConcurrencyRetryExhausted` ends at
+  a sanitized cause carrying four safe fields, so no SQL or binding can reach a
+  consumer's log through GateTrail.
 - ADR 0010's exactly-once guarantee is preserved structurally, not by
   convention: after-commit work is unreachable from a failed attempt.
 - Handlers stay free of driver codes and attempt counters.
@@ -528,15 +791,23 @@ golden-vector suite keeps their classification honest locally.
 
 ### Negative
 
-- MySQL coordination-race confirmation depends on message inspection, because
-  MySQL cannot name a primary key.
-- Lock timeouts and SQLite busy conditions are not recovered in the initial
+- Constraint identity depends on narrow diagnostic-text parsing on **every**
+  supported driver, because no PDO driver exposes it as a field. Positional
+  scoping, SQLSTATE and vendor-code agreement carry most of the safety; text
+  matching only confirms.
+- MySQL is the weakest row, because it cannot name a primary key at all and
+  older servers report a bare `PRIMARY`.
+- Lock timeouts and SQLite `BUSY`/`LOCKED` are not recovered in the initial
   implementation.
 - Definition mutations gain no deadlock recovery.
-- `AuditedMutationTransaction` gains a second entry point, so "which method
-  does this handler call" becomes a thing to get right.
-- Preserving the driver exception as `previous` widens what a consumer's
-  global exception logger can print.
+- `AuditedMutationTransaction` gains a second entry point that also takes a
+  mutation name, so "which method does this handler call, with which name"
+  becomes a thing to get right — mitigated by validating the name before any
+  transaction opens.
+- Dropping the raw `QueryException` costs diagnostic depth. An operator sees
+  the driver, category, SQLSTATE and vendor code but not the failing statement,
+  and must reach for database-side logs to go further. That is the accepted
+  trade for not leaking SQL and bindings.
 - Golden vectors must be refreshed when a driver changes its error surface.
 
 ### Neutral and operational
@@ -546,7 +817,11 @@ golden-vector suite keeps their classification honest locally.
   without parsing a message.
 - Default behaviour changes for existing installations: three attempts instead
   of one. This is what the shipped configuration always advertised.
-- Retry adds no new configuration keys.
+- Retry adds no new configuration keys, and no backoff configuration exists to
+  tune or misconfigure.
+- Retry emits no operational log of its own. Contention is observed through
+  `ConcurrencyRetryExhausted` reaching the consumer, not through GateTrail
+  logging driver exceptions.
 - No cache behaviour, event semantics, migration, DBA artifact, public manager
   signature or identifier-length policy changes. `acl_asgn_locks_pk` is
   seventeen characters and remains inside the thirty-character limit.
@@ -604,18 +879,30 @@ key, confirmed positionally**, which is a refinement of ADR 0001's intent
 rather than a departure from it, since only the coordination row's insert can
 lose the race the algorithm describes.
 
-## Open questions requiring owner approval
+## Resolved owner directions
 
-1. **Driver exception as `previous`.** Instructed and followed, but it exposes
-   SQL — and possibly bindings — to any handler that logs the exception chain,
-   unlike `DuplicateRole`, which attaches nothing. Confirm, or accept a safe
-   summary instead of the raw exception.
-2. **Lock timeouts and SQLite busy conditions.** Excluded here and paired with
-   backoff as a future extension. Confirm that no environment needs them in
-   the first implementation.
-3. **Definition deadlock recovery.** Excluded here. Confirm that definition
-   mutations may surface a raw `QueryException` on deadlock until a later
-   increment.
+Three questions were raised by the first draft of this ADR and have been
+decided. They are integrated into the design above; they are recorded here so
+the reasoning is not lost.
+
+1. **The raw `QueryException` is not chained.** Rejected as a `previous`
+   value. `ConcurrencyRetryExhausted` chains a sanitized
+   `ConcurrencyFailureCause` carrying driver, category, SQLSTATE and vendor
+   code only, and nothing beyond it. See section 6.
+2. **Lock wait timeouts and SQLite `BUSY`/`LOCKED` are excluded** from the
+   first implementation. They propagate as their original infrastructure
+   exception, remain fail-closed, and cannot create duplicate authorization
+   state. Retry plus bounded backoff for them is a paired future extension,
+   to be revisited on pilot evidence. This defers automatic recovery only;
+   SQLite's persisted-state guarantees are unchanged and remain supported.
+3. **Definition mutations remain single-attempt.** `RoleManager` and
+   `PermissionManager` keep translating their semantic unique races into
+   `DuplicateRole` and `DuplicatePermission`. A definition deadlock is outside
+   this increment and surfaces as its existing infrastructure exception.
+   Definition deadlock recovery is future hardening, driven by evidence.
+
+No unresolved decisions remain. This ADR is Proposed pending review of the
+design as a whole, not pending any further owner input on these three points.
 
 ## References
 
