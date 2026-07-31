@@ -7,11 +7,13 @@ namespace HangTuah\GateTrail\Tests\Managers;
 use DateTimeImmutable;
 use HangTuah\GateTrail\Contracts\PermissionManager;
 use HangTuah\GateTrail\Exceptions\DuplicatePermission;
+use HangTuah\GateTrail\Exceptions\PermissionNotFound;
 use HangTuah\GateTrail\Managers\DefaultPermissionManager;
 use HangTuah\GateTrail\Models\Permission;
 use HangTuah\GateTrail\MutationOutcome;
 use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\Handlers\CreatePermissionHandler;
+use HangTuah\GateTrail\Mutations\Handlers\DeactivatePermissionHandler;
 use HangTuah\GateTrail\Mutations\Handlers\UpdatePermissionHandler;
 use HangTuah\GateTrail\PermissionChanges;
 use HangTuah\GateTrail\PermissionReference;
@@ -251,6 +253,128 @@ final class DefaultPermissionManagerTest extends TestCase
         );
     }
 
+    public function test_public_api_deactivates_a_permission_through_the_full_path(): void
+    {
+        $manager = app(PermissionManager::class);
+        $created = $manager->create(
+            'documents.approve',
+            'web',
+            SystemActor::named('definition-suite'),
+            description: 'Approve submitted documents',
+        );
+
+        $result = $manager->deactivate(
+            permission: $created->resource,
+            actor: SystemActor::named('definition-suite'),
+            reason: 'Superseded by a narrower permission',
+            metadata: ['ticket' => 'SEC-42'],
+        );
+        $audit = $this->app['db']
+            ->table('acl_access_audits')
+            ->where('id', $result->auditId)
+            ->first();
+
+        $this->assertSame(MutationOutcome::Deactivated, $result->outcome);
+        $this->assertTrue($result->changed());
+        $this->assertSame(
+            '2026-07-29 12:00:00',
+            $result->resource->getAttribute('deleted_at')
+                ?->format('Y-m-d H:i:s'),
+        );
+        $this->assertNotNull($audit);
+        $this->assertSame('permission.deactivated', $audit->event);
+        $this->assertSame('permission', $audit->target_type);
+        $this->assertSame(
+            '{"schema_version":1,"guard_name":"web",'
+            .'"permission_name":"documents.approve",'
+            .'"metadata":{"ticket":"SEC-42"}}',
+            $audit->context,
+        );
+    }
+
+    public function test_public_deactivation_accepts_every_accepted_input(): void
+    {
+        $manager = app(PermissionManager::class);
+        $actor = SystemActor::named('definition-suite');
+        $inputs = [
+            'model' => static fn (Permission $permission): Permission => $permission,
+            'integer' => static fn (Permission $permission): int => (int) $permission
+                ->getKey(),
+            'reference' => static fn (Permission $permission): PermissionReference => PermissionReference::id(
+                $permission->getKey(),
+            ),
+            'name' => static fn (Permission $permission): string => 'documents.approve',
+        ];
+
+        foreach ($inputs as $label => $input) {
+            Permission::query()->withTrashed()->forceDelete();
+            $permission = $manager->create(
+                'documents.approve',
+                'web',
+                $actor,
+            )->resource;
+
+            $result = $manager->deactivate(
+                permission: $input($permission),
+                actor: $actor,
+            );
+
+            $this->assertSame(
+                MutationOutcome::Deactivated,
+                $result->outcome,
+                "Input [$label] should deactivate the permission.",
+            );
+            $this->assertNotNull($result->auditId);
+            $this->assertNotNull(
+                Permission::query()
+                    ->withTrashed()
+                    ->whereKey($permission->getKey())
+                    ->first()
+                    ?->getAttribute('deleted_at'),
+            );
+        }
+    }
+
+    public function test_deactivated_permission_cannot_be_updated_or_recreated(): void
+    {
+        $manager = app(PermissionManager::class);
+        $created = $manager->create(
+            'documents.approve',
+            'web',
+            SystemActor::named('definition-suite'),
+        );
+        $manager->deactivate(
+            permission: $created->resource,
+            actor: SystemActor::named('definition-suite'),
+        );
+
+        try {
+            $manager->update(
+                permission: PermissionReference::id(
+                    $created->resource->getKey(),
+                ),
+                changes: PermissionChanges::description('Updated purpose'),
+                actor: SystemActor::named('definition-suite'),
+            );
+
+            $this->fail('A deactivated permission should not be updatable.');
+        } catch (PermissionNotFound $exception) {
+            $this->assertSame('web', $exception->guard);
+        }
+
+        try {
+            $manager->create(
+                'documents.approve',
+                'web',
+                SystemActor::named('definition-suite'),
+            );
+
+            $this->fail('A deactivated namespace should remain occupied.');
+        } catch (DuplicatePermission) {
+            $this->assertDatabaseCount('acl_access_audits', 2);
+        }
+    }
+
     public function test_manager_signatures_match_the_accepted_decision(): void
     {
         $this->assertSame(
@@ -268,9 +392,13 @@ final class DefaultPermissionManagerTest extends TestCase
             ['permission', 'changes', 'actor', 'reason', 'metadata'],
             $this->parameters('update'),
         );
+        $this->assertSame(
+            ['permission', 'actor', 'reason', 'metadata'],
+            $this->parameters('deactivate'),
+        );
     }
 
-    public function test_public_contract_exposes_creation_and_update_only(): void
+    public function test_public_contract_exposes_the_implemented_mutations_only(): void
     {
         $methods = array_values(array_map(
             static fn (ReflectionMethod $method): string => $method->getName(),
@@ -283,21 +411,16 @@ final class DefaultPermissionManagerTest extends TestCase
             ),
         ));
 
-        $this->assertSame(['create', 'update'], $methods);
+        $this->assertSame(['create', 'update', 'deactivate'], $methods);
 
-        foreach (['deactivate', 'restore'] as $unimplemented) {
-            $this->assertFalse(
-                method_exists(PermissionManager::class, $unimplemented),
-                "[$unimplemented] must not exist before it is implemented.",
-            );
-            $this->assertFalse(
-                method_exists(
-                    DefaultPermissionManager::class,
-                    $unimplemented,
-                ),
-                "[$unimplemented] must not exist as a stub.",
-            );
-        }
+        $this->assertFalse(
+            method_exists(PermissionManager::class, 'restore'),
+            '[restore] must not exist before it is implemented.',
+        );
+        $this->assertFalse(
+            method_exists(DefaultPermissionManager::class, 'restore'),
+            '[restore] must not exist as a stub.',
+        );
     }
 
     public function test_adapter_is_query_free_and_validation_free_by_structure(): void
@@ -311,6 +434,7 @@ final class DefaultPermissionManagerTest extends TestCase
             [
                 CreatePermissionHandler::class,
                 UpdatePermissionHandler::class,
+                DeactivatePermissionHandler::class,
                 ClockInterface::class,
             ],
             array_values(array_filter(array_map(
@@ -322,7 +446,7 @@ final class DefaultPermissionManagerTest extends TestCase
             ))),
         );
         $this->assertSame(
-            ['__construct', 'create', 'update'],
+            ['__construct', 'create', 'update', 'deactivate'],
             array_map(
                 static fn (ReflectionMethod $method): string => $method
                     ->getName(),
@@ -330,7 +454,7 @@ final class DefaultPermissionManagerTest extends TestCase
             ),
         );
 
-        foreach (['create', 'update'] as $method) {
+        foreach (['create', 'update', 'deactivate'] as $method) {
             $mutation = new ReflectionMethod(
                 DefaultPermissionManager::class,
                 $method,

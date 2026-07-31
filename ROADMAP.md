@@ -98,7 +98,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 62% | In progress |
+| 4 | Mutation services | 67% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -626,7 +626,7 @@ additional progress items.
 
 - [x] `PermissionManager::create()`.
 - [x] `PermissionManager::update()`.
-- [ ] `PermissionManager::deactivate()`.
+- [x] `PermissionManager::deactivate()`.
 - [ ] `PermissionManager::restore()`.
 
 #### Cross-cutting mutation behavior
@@ -640,9 +640,9 @@ additional progress items.
 - [ ] Consumer documentation and pre-v1 API freeze.
 
 ```text
-Completed: 13
+Completed: 14
 Total:     21
-Progress:  61.904%, reported as 62%
+Progress:  66.667%, reported as 67%
 ```
 
 ### Required strict-audit flow
@@ -827,13 +827,29 @@ audit write.
   statement at all; real edits persist description only and record canonical
   `permission.updated` before/after snapshots proving id, name, guard, and
   deletion state are untouched.
+- Strict `PermissionManager::deactivate()` now suspends a permission
+  definition without rewriting history. It reuses the transaction-bound
+  `PermissionDefinitionInputResolver`, so every accepted input resolves and
+  row-locks the active permission under the established semantics, and
+  missing, unpersisted, malformed, and already-deactivated targets all fail
+  consistently as `PermissionNotFound` rather than through a second
+  idempotency policy. Deactivation is a deterministic update rather than
+  Eloquent's `delete()`, so `deleted_at` and `updated_at` both carry the
+  single captured package clock timestamp instead of a wall-clock value.
+  Name, guard, and description are untouched, the `(name, guard_name)`
+  namespace stays occupied so creation still throws `DuplicatePermission`,
+  and direct permission assignments and role-permission grants remain
+  byte-identical — unrevoked rows stay unrevoked and revoked rows keep their
+  full revocation tuple. Existing audit rows are appended to, never rewritten,
+  and canonical `permission.deactivated` before/after evidence is persisted
+  atomically.
 
 `RoleManager` is now 4 of 4 complete — `create()`, `update()`, `deactivate()`,
 and `restore()` each have a real single-use-case handler and no stub exists.
 The contract remains pre-v1, but its accepted role-definition surface is
-complete. `PermissionManager` currently exposes `create()` and `update()`:
-`deactivate()` and `restore()` are absent from both the contract and the
-default adapter rather than stubbed. That remaining permission work and the
+complete. `PermissionManager` currently exposes `create()`, `update()`, and
+`deactivate()`: `restore()` is absent from both the contract and the default
+adapter rather than stubbed. That remaining permission work and the
 outstanding cross-cutting mutation behaviors keep Phase 4 open.
 
 ### Pre-v1 assignment-manager contract gate

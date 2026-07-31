@@ -40,4 +40,18 @@ interface PermissionManager
         ?string $reason = null,
         array $metadata = [],
     ): MutationResult;
+
+    /**
+     * Suspends one permission definition globally while preserving every
+     * stored direct permission assignment and role-permission grant.
+     *
+     * @param  array<string, mixed>  $metadata
+     * @return MutationResult<Model&PermissionContract>
+     */
+    public function deactivate(
+        PermissionContract|PermissionReference|string|int $permission,
+        Model|SystemActor $actor,
+        ?string $reason = null,
+        array $metadata = [],
+    ): MutationResult;
 }
