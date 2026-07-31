@@ -54,4 +54,19 @@ interface PermissionManager
         ?string $reason = null,
         array $metadata = [],
     ): MutationResult;
+
+    /**
+     * Reactivates one deactivated permission definition. Preserved
+     * assignments become eligible again on their own merits; revoked
+     * assignments stay revoked.
+     *
+     * @param  array<string, mixed>  $metadata
+     * @return MutationResult<Model&PermissionContract>
+     */
+    public function restore(
+        PermissionContract|PermissionReference|string|int $permission,
+        Model|SystemActor $actor,
+        ?string $reason = null,
+        array $metadata = [],
+    ): MutationResult;
 }

@@ -10,9 +10,11 @@ use HangTuah\GateTrail\Models\Permission;
 use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\Commands\CreatePermissionCommand;
 use HangTuah\GateTrail\Mutations\Commands\DeactivatePermissionCommand;
+use HangTuah\GateTrail\Mutations\Commands\RestorePermissionCommand;
 use HangTuah\GateTrail\Mutations\Commands\UpdatePermissionCommand;
 use HangTuah\GateTrail\Mutations\Handlers\CreatePermissionHandler;
 use HangTuah\GateTrail\Mutations\Handlers\DeactivatePermissionHandler;
+use HangTuah\GateTrail\Mutations\Handlers\RestorePermissionHandler;
 use HangTuah\GateTrail\Mutations\Handlers\UpdatePermissionHandler;
 use HangTuah\GateTrail\PermissionChanges;
 use HangTuah\GateTrail\PermissionReference;
@@ -26,6 +28,7 @@ final readonly class DefaultPermissionManager implements PermissionManager
         private CreatePermissionHandler $createPermission,
         private UpdatePermissionHandler $updatePermission,
         private DeactivatePermissionHandler $deactivatePermission,
+        private RestorePermissionHandler $restorePermission,
         private ClockInterface $clock,
     ) {}
 
@@ -89,6 +92,27 @@ final readonly class DefaultPermissionManager implements PermissionManager
     ): MutationResult {
         return $this->deactivatePermission->handle(
             DeactivatePermissionCommand::capture(
+                permission: $permission,
+                actor: $actor,
+                reason: $reason,
+                metadata: $metadata,
+                clock: $this->clock,
+            ),
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     * @return MutationResult<Model&PermissionContract>
+     */
+    public function restore(
+        PermissionContract|PermissionReference|string|int $permission,
+        Model|SystemActor $actor,
+        ?string $reason = null,
+        array $metadata = [],
+    ): MutationResult {
+        return $this->restorePermission->handle(
+            RestorePermissionCommand::capture(
                 permission: $permission,
                 actor: $actor,
                 reason: $reason,

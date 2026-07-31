@@ -35,6 +35,7 @@ use HangTuah\GateTrail\Managers\DefaultPermissionManager;
 use HangTuah\GateTrail\Managers\DefaultRoleManager;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\AssignmentIdentifierNormalizer;
+use HangTuah\GateTrail\Mutations\DeactivatedPermissionDefinitionInputResolver;
 use HangTuah\GateTrail\Mutations\DeactivatedRoleDefinitionInputResolver;
 use HangTuah\GateTrail\Mutations\DefinitionIdentifierNormalizer;
 use HangTuah\GateTrail\Mutations\DefinitionInputValidator;
@@ -45,6 +46,7 @@ use HangTuah\GateTrail\Mutations\Handlers\DeactivatePermissionHandler;
 use HangTuah\GateTrail\Mutations\Handlers\DeactivateRoleHandler;
 use HangTuah\GateTrail\Mutations\Handlers\GrantDirectPermissionHandler;
 use HangTuah\GateTrail\Mutations\Handlers\GrantPermissionToRoleHandler;
+use HangTuah\GateTrail\Mutations\Handlers\RestorePermissionHandler;
 use HangTuah\GateTrail\Mutations\Handlers\RestoreRoleHandler;
 use HangTuah\GateTrail\Mutations\Handlers\RevokeDirectPermissionHandler;
 use HangTuah\GateTrail\Mutations\Handlers\RevokePermissionFromRoleHandler;
@@ -115,6 +117,7 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(UpdateRoleHandler::class);
         $this->app->singleton(DeactivatePermissionHandler::class);
         $this->app->singleton(DeactivateRoleHandler::class);
+        $this->app->singleton(RestorePermissionHandler::class);
         $this->app->singleton(RestoreRoleHandler::class);
         $this->app->singleton(GrantDirectPermissionHandler::class);
         $this->app->singleton(GrantPermissionToRoleHandler::class);
@@ -126,6 +129,9 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(RolePermissionDefinitionResolver::class);
         $this->app->singleton(PermissionInputResolver::class);
         $this->app->singleton(PermissionDefinitionInputResolver::class);
+        $this->app->singleton(
+            DeactivatedPermissionDefinitionInputResolver::class,
+        );
         $this->app->singleton(PermissionAssignmentInputResolver::class);
         $this->app->singleton(RevokeDirectPermissionHandler::class);
         $this->app->singleton(RevokePermissionFromRoleHandler::class);

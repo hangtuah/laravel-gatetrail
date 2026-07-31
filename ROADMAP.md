@@ -98,7 +98,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 67% | In progress |
+| 4 | Mutation services | 71% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -627,7 +627,7 @@ additional progress items.
 - [x] `PermissionManager::create()`.
 - [x] `PermissionManager::update()`.
 - [x] `PermissionManager::deactivate()`.
-- [ ] `PermissionManager::restore()`.
+- [x] `PermissionManager::restore()`.
 
 #### Cross-cutting mutation behavior
 
@@ -640,9 +640,9 @@ additional progress items.
 - [ ] Consumer documentation and pre-v1 API freeze.
 
 ```text
-Completed: 14
+Completed: 15
 Total:     21
-Progress:  66.667%, reported as 67%
+Progress:  71.429%, reported as 71%
 ```
 
 ### Required strict-audit flow
@@ -843,14 +843,31 @@ audit write.
   full revocation tuple. Existing audit rows are appended to, never rewritten,
   and canonical `permission.deactivated` before/after evidence is persisted
   atomically.
+- Strict `PermissionManager::restore()` completes the accepted four-method
+  permission contract. A dedicated transaction-bound
+  `DeactivatedPermissionDefinitionInputResolver` locks soft-deleted
+  definitions and rejects active, missing, unpersisted, and malformed targets
+  as `PermissionNotFound`, so the active-only resolver every other mutation
+  depends on stays unchanged. Restoration is the exact inverse of
+  deactivation: `deleted_at` is cleared and `updated_at` carries the captured
+  package clock through one explicit update, without Eloquent's `restore()`,
+  its wall-clock timestamps, or its `restoring`/`restored` events. Name,
+  guard, description, and identifier are untouched, the same persisted row is
+  reactivated so no second definition is created, and the namespace stays
+  occupied. Direct permission assignments and role-permission grants remain
+  byte-identical: unrevoked rows become eligible again on their own merits and
+  revoked rows keep their full revocation tuple. Existing audit rows are
+  appended to, never rewritten, and canonical `permission.restored`
+  before/after evidence is persisted atomically.
 
-`RoleManager` is now 4 of 4 complete — `create()`, `update()`, `deactivate()`,
-and `restore()` each have a real single-use-case handler and no stub exists.
-The contract remains pre-v1, but its accepted role-definition surface is
-complete. `PermissionManager` currently exposes `create()`, `update()`, and
-`deactivate()`: `restore()` is absent from both the contract and the default
-adapter rather than stubbed. That remaining permission work and the
-outstanding cross-cutting mutation behaviors keep Phase 4 open.
+`RoleManager` and `PermissionManager` are now each 4 of 4 complete —
+`create()`, `update()`, `deactivate()`, and `restore()` on both contracts have
+a real single-use-case handler and no stub exists. Every definition mutation
+accepted by ADR 0002 is therefore implemented, bound, and tested. Both
+contracts remain pre-v1. Phase 4 stays open because the cross-cutting mutation
+behaviors — non-strict auditing, disabled auditing, after-commit cache
+invalidation, after-commit event dispatch, bounded concurrency retry, and the
+consumer documentation and pre-v1 API freeze — are still outstanding.
 
 ### Pre-v1 assignment-manager contract gate
 
