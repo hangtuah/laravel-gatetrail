@@ -10,11 +10,13 @@ use Illuminate\Contracts\Config\Repository;
 /**
  * Selects the configured audit mode, failing closed on anything malformed.
  *
- * Both flags must be real booleans. A missing key, `null`, `"true"`, `"false"`,
- * `0`, `1`, an array, or an object is rejected rather than coerced, because
- * every plausible coercion silently weakens a security control: truthy
- * coercion would turn an unset flag into strict, and falsy coercion would turn
- * a typo into non-strict or disabled auditing.
+ * `enabled` must always be a real boolean. `strict` must be a real boolean only
+ * when auditing is enabled, because a disabled mode never consults it. A
+ * missing key, `null`, `"true"`, `"false"`, `0`, `1`, an array, or an object is
+ * rejected rather than coerced, because every plausible coercion silently
+ * weakens a security control: truthy coercion would turn an unset flag into
+ * strict, and falsy coercion would turn a typo into non-strict or disabled
+ * auditing.
  *
  * The mode is read per mutation rather than cached, so a consumer that changes
  * configuration between mutations gets the mode it asked for.

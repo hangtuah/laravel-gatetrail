@@ -635,7 +635,9 @@ additional progress items.
 - [x] Non-strict audit behavior.
 - [x] Disabled audit behavior.
 - [ ] After-commit cache invalidation.
-- [ ] After-commit event dispatch.
+- [ ] After-commit event dispatch. Design drafted in
+      [ADR 0010](docs/decisions/0010-after-commit-mutation-events.md), which is
+      Proposed and not implemented.
 - [ ] Bounded concurrency retry.
 - [ ] Consumer documentation and pre-v1 API freeze.
 
@@ -875,10 +877,11 @@ audit write.
   verification reads transaction state and registers nothing, so an unchanged
   result leaves no callback of any kind behind it. A caller rollback discards
   both the mutation and the pending audit. Audit mode selection itself fails
-  closed: `audit.enabled` and `audit.strict` must be real booleans, and a
-  missing, null, string, numeric, array, or object value is rejected with
-  `InvalidAuditConfiguration` before any table is touched rather than being
-  coerced into weaker auditing. A non-strict audit failure
+  closed: `audit.enabled` must always be a real boolean and `audit.strict` must
+  be one whenever auditing is enabled, so a missing, null, string, numeric,
+  array, or object value is rejected with `InvalidAuditConfiguration` before any
+  table is touched rather than being coerced into weaker auditing. A disabled
+  mode never consults `strict`. A non-strict audit failure
   leaves the mutation committed, returns a null identifier, writes one
   error-level log, and dispatches an `AuditPersistenceFailed` operational event
   carrying safe identifiers, the audit event name, an optional request ID, and
@@ -913,6 +916,15 @@ contracts remain pre-v1. All three accepted audit modes are now implemented.
 Phase 4 stays open because four cross-cutting mutation behaviors — after-commit
 cache invalidation, after-commit event dispatch, bounded concurrency retry, and
 the consumer documentation and pre-v1 API freeze — are still outstanding.
+
+The successful mutation event is designed but unimplemented.
+[ADR 0010](docs/decisions/0010-after-commit-mutation-events.md) proposes one
+generic `MutationCommitted` event carrying the existing canonical mutation
+names and safe identifiers only, fixes its ordering after the deferred audit
+attempt and the reserved cache-invalidation point in all three audit modes, and
+settles the post-commit listener failure policy. It is Proposed, carries three
+open questions for owner approval, and dispatches nothing until accepted and
+implemented, so the checklist item above stays unchecked.
 
 ### Pre-v1 assignment-manager contract gate
 

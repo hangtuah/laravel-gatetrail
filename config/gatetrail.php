@@ -95,10 +95,18 @@ return [
      * changes; GateTrail never switches to it by itself, including after an
      * audit failure.
      *
-     * Both flags must be real booleans. Anything else — a missing key, null,
-     * "true", "false", 0, 1, an array — is rejected with
-     * InvalidAuditConfiguration before a mutation runs, so a typo can never
-     * quietly downgrade auditing.
+     * Validation is fail-closed, and it is evaluated in that order:
+     *
+     * - 'enabled' must always be a real boolean. A missing key, null, "true",
+     *   "false", 0, 1, an array, or an object is rejected with
+     *   InvalidAuditConfiguration before a mutation runs.
+     * - When 'enabled' is true, 'strict' must also be a real boolean, and is
+     *   rejected on the same terms.
+     * - When 'enabled' is false, 'strict' has no operational effect and is
+     *   never consulted, so an invalid value there is not reported.
+     *
+     * A typo in a flag that matters therefore fails loudly instead of quietly
+     * downgrading auditing.
      */
     'audit' => [
         'enabled' => true,
