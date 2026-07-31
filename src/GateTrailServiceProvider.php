@@ -12,12 +12,14 @@ use HangTuah\GateTrail\Audit\AuditContextBuilder;
 use HangTuah\GateTrail\Audit\CanonicalAuditJson;
 use HangTuah\GateTrail\Audit\MetadataNormalizer;
 use HangTuah\GateTrail\Audit\PermissionAssignmentSnapshotBuilder;
+use HangTuah\GateTrail\Audit\PermissionSnapshotBuilder;
 use HangTuah\GateTrail\Audit\RoleAssignmentSnapshotBuilder;
 use HangTuah\GateTrail\Audit\RolePermissionSnapshotBuilder;
 use HangTuah\GateTrail\Audit\RoleSnapshotBuilder;
 use HangTuah\GateTrail\Audit\SensitiveAuditValueRedactor;
 use HangTuah\GateTrail\Audit\SensitiveMetadataRedactor;
 use HangTuah\GateTrail\Contracts\AssignmentManager;
+use HangTuah\GateTrail\Contracts\PermissionManager;
 use HangTuah\GateTrail\Contracts\RoleManager;
 use HangTuah\GateTrail\Database\Schema\Ddl\DdlCompilerFactory;
 use HangTuah\GateTrail\Database\Schema\IdentifierValidator;
@@ -29,6 +31,7 @@ use HangTuah\GateTrail\Database\UniqueConstraintViolationClassifier;
 use HangTuah\GateTrail\Guards\DefaultGuardResolver;
 use HangTuah\GateTrail\Guards\SubjectGuardResolver;
 use HangTuah\GateTrail\Managers\DefaultAssignmentManager;
+use HangTuah\GateTrail\Managers\DefaultPermissionManager;
 use HangTuah\GateTrail\Managers\DefaultRoleManager;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\AssignmentIdentifierNormalizer;
@@ -36,6 +39,7 @@ use HangTuah\GateTrail\Mutations\DeactivatedRoleDefinitionInputResolver;
 use HangTuah\GateTrail\Mutations\DefinitionIdentifierNormalizer;
 use HangTuah\GateTrail\Mutations\DefinitionInputValidator;
 use HangTuah\GateTrail\Mutations\Handlers\AssignRoleHandler;
+use HangTuah\GateTrail\Mutations\Handlers\CreatePermissionHandler;
 use HangTuah\GateTrail\Mutations\Handlers\CreateRoleHandler;
 use HangTuah\GateTrail\Mutations\Handlers\DeactivateRoleHandler;
 use HangTuah\GateTrail\Mutations\Handlers\GrantDirectPermissionHandler;
@@ -78,11 +82,16 @@ final class GateTrailServiceProvider extends ServiceProvider
             RoleManager::class,
             DefaultRoleManager::class,
         );
+        $this->app->singleton(
+            PermissionManager::class,
+            DefaultPermissionManager::class,
+        );
         $this->app->singleton(AccessAuditWriter::class);
         $this->app->singleton(AuditContextBuilder::class);
         $this->app->singleton(CanonicalAuditJson::class);
         $this->app->singleton(MetadataNormalizer::class);
         $this->app->singleton(PermissionAssignmentSnapshotBuilder::class);
+        $this->app->singleton(PermissionSnapshotBuilder::class);
         $this->app->singleton(RoleAssignmentSnapshotBuilder::class);
         $this->app->singleton(RolePermissionSnapshotBuilder::class);
         $this->app->singleton(RoleSnapshotBuilder::class);
@@ -97,6 +106,7 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(DefinitionInputValidator::class);
         $this->app->singleton(UniqueConstraintViolationClassifier::class);
         $this->app->singleton(AssignRoleHandler::class);
+        $this->app->singleton(CreatePermissionHandler::class);
         $this->app->singleton(CreateRoleHandler::class);
         $this->app->singleton(UpdateRoleHandler::class);
         $this->app->singleton(DeactivateRoleHandler::class);

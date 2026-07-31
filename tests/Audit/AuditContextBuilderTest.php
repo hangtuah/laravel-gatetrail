@@ -91,6 +91,81 @@ final class AuditContextBuilderTest extends TestCase
         );
     }
 
+    public function test_permission_definition_context_has_exact_version_one_shape(): void
+    {
+        $context = app(AuditContextBuilder::class)->permissionDefinition(
+            'web',
+            'documents.approve',
+            app(MetadataNormalizer::class)->normalize([
+                'ticket' => 'SEC-42',
+            ]),
+        );
+
+        $this->assertSame(
+            '{"schema_version":1,"guard_name":"web",'
+            .'"permission_name":"documents.approve",'
+            .'"metadata":{"ticket":"SEC-42"}}',
+            $context,
+        );
+    }
+
+    public function test_empty_permission_definition_metadata_remains_an_object(): void
+    {
+        $context = app(AuditContextBuilder::class)->permissionDefinition(
+            'web',
+            'documents.approve',
+            app(MetadataNormalizer::class)->normalize([]),
+        );
+
+        $this->assertSame(
+            '{"schema_version":1,"guard_name":"web",'
+            .'"permission_name":"documents.approve","metadata":{}}',
+            $context,
+        );
+    }
+
+    public function test_empty_permission_definition_guard_is_rejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('guard name cannot be empty');
+
+        app(AuditContextBuilder::class)->permissionDefinition(
+            '',
+            'documents.approve',
+            app(MetadataNormalizer::class)->normalize([]),
+        );
+    }
+
+    public function test_empty_permission_definition_name_is_rejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('permission name cannot be empty');
+
+        app(AuditContextBuilder::class)->permissionDefinition(
+            'web',
+            '',
+            app(MetadataNormalizer::class)->normalize([]),
+        );
+    }
+
+    public function test_permission_definition_context_carries_no_role_name(): void
+    {
+        $context = app(AuditContextBuilder::class)->permissionDefinition(
+            'web',
+            'documents.approve',
+            app(MetadataNormalizer::class)->normalize([]),
+        );
+
+        /** @var array<string, mixed> $decoded */
+        $decoded = json_decode($context, true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(
+            ['schema_version', 'guard_name', 'permission_name', 'metadata'],
+            array_keys($decoded),
+        );
+        $this->assertArrayNotHasKey('role_name', $decoded);
+    }
+
     public function test_role_permission_context_has_both_natural_names(): void
     {
         $context = app(AuditContextBuilder::class)

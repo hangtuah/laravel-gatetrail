@@ -98,7 +98,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 52% | In progress |
+| 4 | Mutation services | 57% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -624,7 +624,7 @@ additional progress items.
 
 #### Permission-definition mutations
 
-- [ ] `PermissionManager::create()`.
+- [x] `PermissionManager::create()`.
 - [ ] `PermissionManager::update()`.
 - [ ] `PermissionManager::deactivate()`.
 - [ ] `PermissionManager::restore()`.
@@ -640,9 +640,9 @@ additional progress items.
 - [ ] Consumer documentation and pre-v1 API freeze.
 
 ```text
-Completed: 11
+Completed: 12
 Total:     21
-Progress:  52.381%, reported as 52%
+Progress:  57.142%, reported as 57%
 ```
 
 ### Required strict-audit flow
@@ -795,12 +795,32 @@ audit write.
   unrevoked assignments become eligible again on their own merits and revoked
   assignments keep their full revocation tuple. Canonical `role.restored`
   before/after evidence is persisted atomically.
+- The first permission-definition slice exposes strict
+  `PermissionManager::create()` through a thin public adapter that owns only
+  the creation handler and the package clock. It reuses the shared definition
+  input validator, so names and guards are trimmed, case-preserving, bounded
+  to 191 Unicode characters, and required — the guard is never inferred from
+  authentication state and never defaults during creation — while descriptions
+  stay untrimmed, untruncated, and distinguish `null` from `''`. Active and
+  deactivated `(name, guard_name)` collisions are both rejected as
+  `DuplicatePermission` under a `withTrashed()` row-locked pre-check, so
+  creation never resurrects a deactivated definition, and a concurrent race is
+  translated only when the narrow portable classifier confirms the
+  `acl_perm_name_guard_uq` identity. Primary-key collisions and missing-table
+  failures surface untranslated. The exception carries a hashed namespace only,
+  with no SQL, bindings, or chained driver exception. Canonical version 1
+  permission snapshots reload persisted state through a model-bound unscoped
+  primary-key query, so deactivated rows already reconstruct before the
+  remaining lifecycle slices exist, and `permission.created` evidence is
+  persisted atomically with its purpose-specific permission-definition context.
 
 `RoleManager` is now 4 of 4 complete — `create()`, `update()`, `deactivate()`,
 and `restore()` each have a real single-use-case handler and no stub exists.
 The contract remains pre-v1, but its accepted role-definition surface is
-complete. `PermissionManager` and the remaining cross-cutting mutation
-behaviors keep Phase 4 open.
+complete. `PermissionManager` currently exposes `create()` only: `update()`,
+`deactivate()`, and `restore()` are absent from both the contract and the
+default adapter rather than stubbed. That remaining permission work and the
+outstanding cross-cutting mutation behaviors keep Phase 4 open.
 
 ### Pre-v1 assignment-manager contract gate
 
