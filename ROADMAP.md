@@ -951,13 +951,15 @@ mutation transaction so a discarded attempt can never reach the after-commit
 audit, cache and event work, keeps definition namespace races as terminal
 domain exceptions, refuses to restart a caller-owned transaction, and defers
 backoff together with lock-timeout recovery. Its terminal
-`ConcurrencyRetryExhausted` chains a sanitized classified cause rather than the
-raw driver exception, so no SQL or binding can escape through it. Owner review
-resolved its three open decisions — no raw exception chaining, no lock-timeout
-or SQLite busy retry, and no definition deadlock retry — and it remains
-Proposed pending review of the design as a whole. It changes no behavior, so
-the checklist item above stays unchecked and `StrictMutationTransaction` still
-runs with `attempts: 1`.
+`ConcurrencyRetryExhausted` carries safe scalar diagnostics and an empty
+`previous` chain — no raw or sanitized driver exception is retained anywhere —
+and one internal `MutationName` vocabulary becomes the single source of the
+fourteen canonical names shared by audit events, mutation events and the retry
+operation. Owner review resolved its three open decisions — no previous
+exception at all, no lock-timeout or SQLite busy retry, and no definition
+deadlock retry — and it remains Proposed pending review of the design as a
+whole. It changes no behavior, so the checklist item above stays unchecked and
+`StrictMutationTransaction` still runs with `attempts: 1`.
 
 ### Pre-v1 assignment-manager contract gate
 
