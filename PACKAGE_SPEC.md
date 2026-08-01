@@ -1572,13 +1572,31 @@ InvalidSubject
 InvalidActor
 ReasonRequired
 InvalidAuditMetadata
+InvalidConcurrencyConfiguration
 UnsupportedAfterCommitBoundary
 AuditWriteFailed
+ConcurrencyRetryExhausted
 UnauthorizedMutation
 ```
 
 Exceptions must provide safe diagnostic context without exposing sensitive
 data.
+
+`ConcurrencyRetryExhausted` is raised only when a positively classified
+assignment concurrency failure cannot be retried, or exhausts its bounded
+attempts. It exposes `operation` as a canonical assignment mutation name,
+`attempts` as the attempts actually made, and `callerOwned` to distinguish an
+unavailable retry inside a caller-owned transaction. Its safe diagnostics are
+the driver name, a normalized failure category, a nullable SQLSTATE and a
+nullable numeric vendor code. `getPrevious()` is always `null`, and it neither
+exposes nor retains raw SQL, bindings, driver prose, identifiers, reasons,
+metadata or credentials. Domain exceptions and unclassified infrastructure
+exceptions are never converted into it. The complete contract is defined by
+[ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md).
+
+`InvalidConcurrencyConfiguration` reports an invalid
+`assignments.concurrency_attempts` value. It names the configuration key and
+never echoes the rejected value.
 
 ## 16. Events
 
@@ -1627,7 +1645,10 @@ return [
             // App\Models\Admin::class => 'admin',
         ],
     ],
-    'assignments' => [],
+    'assignments' => [
+        'require_reason' => true,
+        'concurrency_attempts' => 3,
+    ],
     'audit' => [
         'enabled' => true,
         'strict' => true,
@@ -1644,6 +1665,22 @@ return [
     'sensitive_fields' => [],
 ];
 ```
+
+The `assignments` section configures the reason requirement and
+`concurrency_attempts`, the bounded retry limit for assignment coordination.
+
+`concurrency_attempts` must be a real PHP integer between `1` and `10`
+inclusive, defaulting to `3`. It is never coerced: booleans, floats, numeric
+strings, `null`, arrays, objects, zero, negatives and values above `10` are
+invalid, and invalid configuration fails before an assignment transaction
+begins. A value of `1` means one attempt with no automatic retry, while
+preserving the typed exhaustion contract for classified concurrency failures.
+
+It applies only to the six `AssignmentManager` mutations and never enables
+retry for role or permission definition mutations. The initial accepted design
+has no package-level backoff, and lock wait timeouts and SQLite `BUSY`/`LOCKED`
+conditions remain non-retryable. The complete contract is defined by
+[ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md).
 
 The `audit` section configures:
 
@@ -1961,6 +1998,10 @@ Direct database mutation and diagnostic behavior are accepted in
 The successful mutation event contract is accepted in
 [ADR 0010](docs/decisions/0010-after-commit-mutation-events.md) and
 implemented.
+
+Bounded concurrency retry for assignment coordination is accepted in
+[ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md). It is not
+implemented yet.
 
 Architecture decisions will be stored under:
 

@@ -1,7 +1,8 @@
 # ADR 0011: Retry Only Assignment Coordination, Only on Confirmed Transient Failures
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-07-31
+- Owner approval date: 2026-08-02
 - Decision owners: GateTrail maintainers
 
 ## Context
@@ -536,7 +537,7 @@ Each piece has exactly one job, and none overlaps another:
 | retry orchestrator | `@internal` | Counts attempts, reruns the transaction, decides exhaustion. Knows nothing about SQLSTATE or vendor codes. |
 | `ConcurrencyRetryExhausted` | **public** | The terminal exception when attempts are exhausted or unavailable. |
 
-Only one of the seven is public API.
+Only one of the eight is public API.
 
 ### The coordination-race marker
 
@@ -986,13 +987,23 @@ unique constraint".
 
 ## Specification alignment
 
-If this ADR is accepted, two documentation updates follow and are **not** made
-by this proposal:
+`PACKAGE_SPEC.md` was updated when this ADR was accepted to:
 
-- `PACKAGE_SPEC.md` section 15 should add `ConcurrencyRetryExhausted` and
-  `InvalidConcurrencyConfiguration` to the exception list;
-- `PACKAGE_SPEC.md` section 17 should note that
-  `assignments.concurrency_attempts` is a bounded integer from `1` to `10`.
+- add `ConcurrencyRetryExhausted` and `InvalidConcurrencyConfiguration` to the
+  section 15 exception list, with their accepted contracts;
+- document `assignments.concurrency_attempts` in section 17 as a real integer
+  bounded to `1`–`10`, defaulting to `3`, applying only to the six
+  `AssignmentManager` mutations, with no package-level backoff and no
+  retry for lock timeouts or SQLite `BUSY`/`LOCKED`;
+- record this ADR in the section 24 accepted-decision list.
+
+Retry is not implemented. `PACKAGE_SPEC.md` and `ROADMAP.md` continue to
+describe bounded concurrency retry as outstanding work, and
+`StrictMutationTransaction` still runs with `attempts: 1`.
+
+Only the internal component names belong to this ADR; `MutationName`,
+`ClassifiedConcurrencyFailure` and `CoordinationInsertRace` are `@internal` and
+are deliberately absent from the specification's public exception list.
 
 No contradiction with the accepted specification was found. ADR 0001's adapter
 table describes MySQL and SQL Server recovery after "a duplicate-key" failure;
@@ -1024,8 +1035,8 @@ the reasoning is not lost.
    this increment and surfaces as its existing infrastructure exception.
    Definition deadlock recovery is future hardening, driven by evidence.
 
-No unresolved decisions remain. This ADR is Proposed pending review of the
-design as a whole, not pending any further owner input on these three points.
+No unresolved decisions remain. The design was reviewed as a whole and
+accepted on 2026-08-02.
 
 ## References
 

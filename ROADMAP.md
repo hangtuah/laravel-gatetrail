@@ -138,6 +138,7 @@ Completed documents:
 - `docs/decisions/0008-audit-snapshot-and-failure-modes.md`
 - `docs/decisions/0009-direct-database-mutation-and-diagnostics.md`
 - `docs/decisions/0010-after-commit-mutation-events.md`
+- `docs/decisions/0011-bounded-concurrency-retry.md`
 
 Accepted architecture decisions:
 
@@ -153,6 +154,7 @@ Accepted architecture decisions:
 | 0008 | Version audit snapshots and separate audit failure modes | Accepted |
 | 0009 | Treat direct database mutation as unsupported and diagnostic-only | Accepted |
 | 0010 | Dispatch one generic after-commit mutation event | Accepted |
+| 0011 | Retry only assignment coordination on confirmed transient failures | Accepted |
 
 ## 5. Roadmap adherence
 
@@ -638,9 +640,9 @@ additional progress items.
 - [x] Disabled audit behavior.
 - [ ] After-commit cache invalidation.
 - [x] After-commit event dispatch.
-- [ ] Bounded concurrency retry. Design drafted in
-      [ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md), which is
-      Proposed and not implemented.
+- [ ] Bounded concurrency retry. Contract accepted in
+      [ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md); the
+      implementation is outstanding.
 - [ ] Consumer documentation and pre-v1 API freeze.
 
 ```text
@@ -941,8 +943,8 @@ three cross-cutting mutation behaviors — after-commit cache invalidation,
 bounded concurrency retry, and the consumer documentation and pre-v1 API
 freeze — are still outstanding.
 
-Bounded concurrency retry is designed but unimplemented.
-[ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md) proposes retrying
+The bounded concurrency retry contract is accepted but unimplemented.
+[ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md) specifies retrying
 only the six assignment mutations, only when GateTrail owns the outermost
 transaction, and only for positively classified transient failures: a
 coordination-row insert race confirmed against the lock table's own primary
@@ -957,9 +959,10 @@ and one internal `MutationName` vocabulary becomes the single source of the
 fourteen canonical names shared by audit events, mutation events and the retry
 operation. Owner review resolved its three open decisions — no previous
 exception at all, no lock-timeout or SQLite busy retry, and no definition
-deadlock retry — and it remains Proposed pending review of the design as a
-whole. It changes no behavior, so the checklist item above stays unchecked and
-`StrictMutationTransaction` still runs with `attempts: 1`.
+deadlock retry — and the ADR was accepted on 2026-08-02. None of it is built:
+no retry loop, no classifier, no vocabulary class and no exception exist, and
+`StrictMutationTransaction` still runs with `attempts: 1`, so the checklist
+item above stays unchecked.
 
 ### Pre-v1 assignment-manager contract gate
 
