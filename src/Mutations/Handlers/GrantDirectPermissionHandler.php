@@ -23,6 +23,7 @@ use HangTuah\GateTrail\Mutations\ActorIdentity;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\GrantDirectPermissionCommand;
+use HangTuah\GateTrail\Mutations\MutationName;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
 use HangTuah\GateTrail\Mutations\PermissionInputResolver;
 use HangTuah\GateTrail\Mutations\PreparedMutation;
@@ -88,7 +89,7 @@ final readonly class GrantDirectPermissionHandler
                 $subjectType, $subjectId, $permissionId, $actor, $reason, $command,
             );
             $audit = new PendingAuditRecord(
-                event: 'permission.granted_to_subject',
+                event: MutationName::PERMISSION_GRANTED_TO_SUBJECT,
                 actor: $actor,
                 subjectType: $subjectType,
                 subjectId: $subjectId,

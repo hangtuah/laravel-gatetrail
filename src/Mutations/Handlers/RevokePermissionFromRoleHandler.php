@@ -18,6 +18,7 @@ use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\RevokePermissionFromRoleCommand;
+use HangTuah\GateTrail\Mutations\MutationName;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
 use HangTuah\GateTrail\Mutations\PreparedMutation;
 use HangTuah\GateTrail\Mutations\RolePermissionInputResolver;
@@ -99,7 +100,7 @@ final readonly class RevokePermissionFromRoleHandler
                 }
 
                 $audit = new PendingAuditRecord(
-                    event: 'permission.revoked_from_role',
+                    event: MutationName::PERMISSION_REVOKED_FROM_ROLE,
                     actor: $actor,
                     subjectType: null,
                     subjectId: null,

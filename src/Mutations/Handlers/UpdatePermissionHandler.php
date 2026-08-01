@@ -16,6 +16,7 @@ use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\UpdatePermissionCommand;
 use HangTuah\GateTrail\Mutations\DefinitionInputValidator;
+use HangTuah\GateTrail\Mutations\MutationName;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
 use HangTuah\GateTrail\Mutations\PermissionDefinitionInputResolver;
 use HangTuah\GateTrail\Mutations\PreparedMutation;
@@ -80,7 +81,7 @@ final readonly class UpdatePermissionHandler
                 $permission->save();
 
                 $audit = new PendingAuditRecord(
-                    event: 'permission.updated',
+                    event: MutationName::PERMISSION_UPDATED,
                     actor: $actor,
                     subjectType: null,
                     subjectId: null,

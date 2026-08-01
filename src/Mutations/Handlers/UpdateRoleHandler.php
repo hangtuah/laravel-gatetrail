@@ -16,6 +16,7 @@ use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\UpdateRoleCommand;
 use HangTuah\GateTrail\Mutations\DefinitionInputValidator;
+use HangTuah\GateTrail\Mutations\MutationName;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
 use HangTuah\GateTrail\Mutations\PreparedMutation;
 use HangTuah\GateTrail\Mutations\RoleDefinitionInputResolver;
@@ -78,7 +79,7 @@ final readonly class UpdateRoleHandler
                 $role->save();
 
                 $audit = new PendingAuditRecord(
-                    event: 'role.updated',
+                    event: MutationName::ROLE_UPDATED,
                     actor: $actor,
                     subjectType: null,
                     subjectId: null,

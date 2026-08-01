@@ -23,6 +23,7 @@ use HangTuah\GateTrail\Mutations\ActorIdentity;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\GrantPermissionToRoleCommand;
+use HangTuah\GateTrail\Mutations\MutationName;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
 use HangTuah\GateTrail\Mutations\PreparedMutation;
 use HangTuah\GateTrail\Mutations\RolePermissionDefinitionResolver;
@@ -121,7 +122,7 @@ final readonly class GrantPermissionToRoleHandler
                 $command,
             );
             $audit = new PendingAuditRecord(
-                event: 'permission.granted_to_role',
+                event: MutationName::PERMISSION_GRANTED_TO_ROLE,
                 actor: $actor,
                 subjectType: null,
                 subjectId: null,

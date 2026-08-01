@@ -959,10 +959,26 @@ and one internal `MutationName` vocabulary becomes the single source of the
 fourteen canonical names shared by audit events, mutation events and the retry
 operation. Owner review resolved its three open decisions — no previous
 exception at all, no lock-timeout or SQLite busy retry, and no definition
-deadlock retry — and the ADR was accepted on 2026-08-02. None of it is built:
-no retry loop, no classifier, no vocabulary class and no exception exist, and
-`StrictMutationTransaction` still runs with `attempts: 1`, so the checklist
-item above stays unchecked.
+deadlock retry — and the ADR was accepted on 2026-08-02.
+
+Its first foundation increment is now implemented: the shared internal
+`MutationName` vocabulary owns all fourteen canonical names, every handler
+takes its `PendingAuditRecord` event from it, and `MutationCommitted` validates
+through it instead of a private duplicate list; `RetryPolicy` validates
+`assignments.concurrency_attempts` fail-closed as a real integer from `1` to
+`10`, raising `InvalidConcurrencyConfiguration` without echoing the rejected
+value; `ClassifiedConcurrencyFailure` is a non-`Throwable` immutable value
+carrying only driver, category, nullable SQLSTATE and nullable vendor code; and
+the public `ConcurrencyRetryExhausted` reports operation, attempts and
+caller-owned state with those four diagnostics and an always-empty previous
+chain.
+
+Retry itself does not exist. There is no retry loop, no `QueryException`
+classification, no `CoordinationRaceClassifier` or `TransientFailureClassifier`,
+no `CoordinationInsertRace` marker and no `runCoordinated()`.
+`AssignmentLockStore` is unchanged and intercepts nothing, every handler still
+uses the single-attempt transaction path, and `StrictMutationTransaction` still
+runs with `attempts: 1`, so the checklist item above stays unchecked.
 
 ### Pre-v1 assignment-manager contract gate
 

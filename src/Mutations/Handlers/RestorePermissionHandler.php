@@ -16,6 +16,7 @@ use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\RestorePermissionCommand;
 use HangTuah\GateTrail\Mutations\DeactivatedPermissionDefinitionInputResolver;
+use HangTuah\GateTrail\Mutations\MutationName;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
 use HangTuah\GateTrail\Mutations\PreparedMutation;
 use Illuminate\Database\Eloquent\Model;
@@ -80,7 +81,7 @@ final readonly class RestorePermissionHandler
                 $permission->save();
 
                 $audit = new PendingAuditRecord(
-                    event: 'permission.restored',
+                    event: MutationName::PERMISSION_RESTORED,
                     actor: $actor,
                     subjectType: null,
                     subjectId: null,

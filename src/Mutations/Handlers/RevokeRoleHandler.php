@@ -18,6 +18,7 @@ use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\RevokeRoleCommand;
+use HangTuah\GateTrail\Mutations\MutationName;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
 use HangTuah\GateTrail\Mutations\PreparedMutation;
 use HangTuah\GateTrail\Mutations\RoleAssignmentInputResolver;
@@ -91,7 +92,7 @@ final readonly class RevokeRoleHandler
                 }
 
                 $audit = new PendingAuditRecord(
-                    event: 'role.revoked',
+                    event: MutationName::ROLE_REVOKED,
                     actor: $actor,
                     subjectType: $this->requiredString(
                         $assignment,

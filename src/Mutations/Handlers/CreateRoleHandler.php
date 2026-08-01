@@ -19,6 +19,7 @@ use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\CreateRoleCommand;
 use HangTuah\GateTrail\Mutations\DefinitionInputValidator;
+use HangTuah\GateTrail\Mutations\MutationName;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
 use HangTuah\GateTrail\Mutations\PreparedMutation;
 use HangTuah\GateTrail\Support\ModelRegistry;
@@ -112,7 +113,7 @@ final readonly class CreateRoleHandler
                 }
 
                 $audit = new PendingAuditRecord(
-                    event: 'role.created',
+                    event: MutationName::ROLE_CREATED,
                     actor: $actor,
                     subjectType: null,
                     subjectId: null,

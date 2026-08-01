@@ -16,6 +16,7 @@ use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\RestoreRoleCommand;
 use HangTuah\GateTrail\Mutations\DeactivatedRoleDefinitionInputResolver;
+use HangTuah\GateTrail\Mutations\MutationName;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
 use HangTuah\GateTrail\Mutations\PreparedMutation;
 use Illuminate\Database\Eloquent\Model;
@@ -76,7 +77,7 @@ final readonly class RestoreRoleHandler
                 $role->save();
 
                 $audit = new PendingAuditRecord(
-                    event: 'role.restored',
+                    event: MutationName::ROLE_RESTORED,
                     actor: $actor,
                     subjectType: null,
                     subjectId: null,

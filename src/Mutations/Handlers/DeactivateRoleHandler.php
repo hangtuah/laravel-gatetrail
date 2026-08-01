@@ -15,6 +15,7 @@ use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\DeactivateRoleCommand;
+use HangTuah\GateTrail\Mutations\MutationName;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
 use HangTuah\GateTrail\Mutations\PreparedMutation;
 use HangTuah\GateTrail\Mutations\RoleDefinitionInputResolver;
@@ -75,7 +76,7 @@ final readonly class DeactivateRoleHandler
                 $role->save();
 
                 $audit = new PendingAuditRecord(
-                    event: 'role.deactivated',
+                    event: MutationName::ROLE_DEACTIVATED,
                     actor: $actor,
                     subjectType: null,
                     subjectId: null,

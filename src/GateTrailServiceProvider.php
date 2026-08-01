@@ -20,6 +20,7 @@ use HangTuah\GateTrail\Audit\RolePermissionSnapshotBuilder;
 use HangTuah\GateTrail\Audit\RoleSnapshotBuilder;
 use HangTuah\GateTrail\Audit\SensitiveAuditValueRedactor;
 use HangTuah\GateTrail\Audit\SensitiveMetadataRedactor;
+use HangTuah\GateTrail\Concurrency\RetryPolicy;
 use HangTuah\GateTrail\Contracts\AssignmentManager;
 use HangTuah\GateTrail\Contracts\PermissionManager;
 use HangTuah\GateTrail\Contracts\RoleManager;
@@ -117,6 +118,7 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(DefinitionIdentifierNormalizer::class);
         $this->app->singleton(DefinitionInputValidator::class);
         $this->app->singleton(UniqueConstraintViolationClassifier::class);
+        $this->app->singleton(RetryPolicy::class);
         $this->app->singleton(AssignRoleHandler::class);
         $this->app->singleton(CreatePermissionHandler::class);
         $this->app->singleton(CreateRoleHandler::class);

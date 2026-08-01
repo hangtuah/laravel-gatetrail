@@ -17,6 +17,7 @@ use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\RevokeDirectPermissionCommand;
+use HangTuah\GateTrail\Mutations\MutationName;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
 use HangTuah\GateTrail\Mutations\PermissionAssignmentInputResolver;
 use HangTuah\GateTrail\Mutations\PreparedMutation;
@@ -61,7 +62,7 @@ final readonly class RevokeDirectPermissionHandler
             if (! is_string($guard) || ! is_string($name)) {
                 throw new LogicException('GateTrail permission identity is invalid.');
             }
-            $audit = new PendingAuditRecord(event: 'permission.revoked_from_subject', actor: $actor, subjectType: $subjectType, subjectId: $subjectId, targetType: 'permission_assignment', targetId: $id, before: $before, after: $this->snapshots->build($a, 'after'), reason: $this->redactor->auditReason($reason), context: $this->contexts->directPermissionAssignment($guard, $name, $metadata), ipAddress: null, userAgent: null, requestId: null, createdAt: $command->requestedAt);
+            $audit = new PendingAuditRecord(event: MutationName::PERMISSION_REVOKED_FROM_SUBJECT, actor: $actor, subjectType: $subjectType, subjectId: $subjectId, targetType: 'permission_assignment', targetId: $id, before: $before, after: $this->snapshots->build($a, 'after'), reason: $this->redactor->auditReason($reason), context: $this->contexts->directPermissionAssignment($guard, $name, $metadata), ipAddress: null, userAgent: null, requestId: null, createdAt: $command->requestedAt);
 
             return new PreparedMutation($a, MutationOutcome::Revoked, $audit);
         });

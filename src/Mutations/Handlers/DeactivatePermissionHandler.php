@@ -15,6 +15,7 @@ use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\DeactivatePermissionCommand;
+use HangTuah\GateTrail\Mutations\MutationName;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
 use HangTuah\GateTrail\Mutations\PermissionDefinitionInputResolver;
 use HangTuah\GateTrail\Mutations\PreparedMutation;
@@ -78,7 +79,7 @@ final readonly class DeactivatePermissionHandler
                 $permission->save();
 
                 $audit = new PendingAuditRecord(
-                    event: 'permission.deactivated',
+                    event: MutationName::PERMISSION_DEACTIVATED,
                     actor: $actor,
                     subjectType: null,
                     subjectId: null,

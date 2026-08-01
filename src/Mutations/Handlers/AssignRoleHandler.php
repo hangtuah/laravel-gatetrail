@@ -23,6 +23,7 @@ use HangTuah\GateTrail\Mutations\ActorIdentity;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\AssignRoleCommand;
+use HangTuah\GateTrail\Mutations\MutationName;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
 use HangTuah\GateTrail\Mutations\PreparedMutation;
 use HangTuah\GateTrail\Mutations\RoleInputResolver;
@@ -132,7 +133,7 @@ final readonly class AssignRoleHandler
                     $command,
                 );
                 $audit = new PendingAuditRecord(
-                    event: 'role.assigned',
+                    event: MutationName::ROLE_ASSIGNED,
                     actor: $actor,
                     subjectType: $subjectType,
                     subjectId: $subjectId,

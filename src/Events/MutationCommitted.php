@@ -7,6 +7,7 @@ namespace HangTuah\GateTrail\Events;
 use DateTimeImmutable;
 use HangTuah\GateTrail\Contracts\GateTrailEvent;
 use HangTuah\GateTrail\MutationOutcome;
+use HangTuah\GateTrail\Mutations\MutationName;
 use InvalidArgumentException;
 
 /**
@@ -22,35 +23,16 @@ use InvalidArgumentException;
  * failure, or disabled auditing. It never means the mutation failed: the
  * event's existence is the success signal.
  *
+ * The accepted mutation vocabulary lives in
+ * {@see MutationName}, so an event name, its
+ * audit row and a concurrency exhaustion always describe the same mutation.
+ *
  * Consumers receive instances and never construct them.
  *
  * @see docs/decisions/0010-after-commit-mutation-events.md
  */
 final readonly class MutationCommitted implements GateTrailEvent
 {
-    /**
-     * Every mutation GateTrail dispatches, using the canonical audit event
-     * vocabulary so an event and its audit row join on one value.
-     *
-     * @var list<string>
-     */
-    private const MUTATIONS = [
-        'role.assigned',
-        'role.revoked',
-        'permission.granted_to_subject',
-        'permission.revoked_from_subject',
-        'permission.granted_to_role',
-        'permission.revoked_from_role',
-        'role.created',
-        'role.updated',
-        'role.deactivated',
-        'role.restored',
-        'permission.created',
-        'permission.updated',
-        'permission.deactivated',
-        'permission.restored',
-    ];
-
     private function __construct(
         public string $mutation,
         public MutationOutcome $outcome,
@@ -81,7 +63,7 @@ final readonly class MutationCommitted implements GateTrailEvent
         DateTimeImmutable $occurredAt,
         ?string $requestId,
     ): self {
-        if (! in_array($mutation, self::MUTATIONS, true)) {
+        if (! MutationName::isKnown($mutation)) {
             throw new InvalidArgumentException(
                 'GateTrail cannot dispatch an unknown mutation event.',
             );

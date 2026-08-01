@@ -19,6 +19,7 @@ use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
 use HangTuah\GateTrail\Mutations\AuditedMutationTransaction;
 use HangTuah\GateTrail\Mutations\Commands\CreatePermissionCommand;
 use HangTuah\GateTrail\Mutations\DefinitionInputValidator;
+use HangTuah\GateTrail\Mutations\MutationName;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
 use HangTuah\GateTrail\Mutations\PreparedMutation;
 use HangTuah\GateTrail\Support\ModelRegistry;
@@ -115,7 +116,7 @@ final readonly class CreatePermissionHandler
                 }
 
                 $audit = new PendingAuditRecord(
-                    event: 'permission.created',
+                    event: MutationName::PERMISSION_CREATED,
                     actor: $actor,
                     subjectType: null,
                     subjectId: null,
