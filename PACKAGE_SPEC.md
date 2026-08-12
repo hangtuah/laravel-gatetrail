@@ -1703,6 +1703,9 @@ Every managed assignment creation and revocation serializes through the
 coordination row. A revocation derives its scope from the assignment's persisted
 identity rather than from a caller-supplied model instance.
 
+This behavior is implemented and verified on the supported live MySQL matrix.
+Section 20.5 records the evidence.
+
 The `audit` section configures:
 
 ```text
@@ -1946,12 +1949,24 @@ integration suite runs each version against Laravel 12/Testbench 10 and Laravel
 - physical `LONGTEXT`, fixed `CHAR(64)` hash, collation, unsigned ID, index,
   foreign-key rule, and check-expression metadata;
 - detection of missing indexes, changed exact-name collation, and cascading
-  foreign keys without automatic repair.
+  foreign keys without automatic repair;
+- parallel writers on separate processes and separate connections contending for
+  one assignment scope, exercising bounded concurrency retry under real
+  contention.
 
-This evidence verifies the minimum supported and current MySQL 8.0 reference
-endpoints locally. The GitHub Actions workflow declares the same four-lane
-matrix. Release-level CI evidence requires a successful remote workflow run;
-workflow configuration alone is not treated as a passing run.
+The schema, inspection, and drift evidence above verifies the minimum supported
+and current MySQL 8.0 reference endpoints locally. The GitHub Actions workflow
+declares the same four-lane matrix. Release-level CI evidence requires a
+successful remote workflow run; workflow configuration alone is not treated as a
+passing run.
+
+Bounded concurrency retry has that remote evidence, and it is remote only. Run
+`CI #82` passes all four live MySQL lanes — Laravel 12 and Laravel 13, each
+against MySQL 8.0.16 and MySQL 8.0.45 — including the parallel assignment-scope
+contention test. Those lanes run in CI against disposable MySQL service
+containers. Local runs of the default SQLite suite and the static quality gates
+are separate quality-gate evidence and are never treated as live-database
+results.
 
 ## 21. Performance requirements
 
@@ -2021,7 +2036,8 @@ The successful mutation event contract is accepted in
 implemented.
 
 Bounded concurrency retry for assignment coordination is accepted in
-[ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md) and implemented.
+[ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md), implemented, and
+verified on the supported live MySQL matrix. Section 20.5 records the evidence.
 
 Architecture decisions will be stored under:
 

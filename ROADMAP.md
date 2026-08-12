@@ -1,6 +1,6 @@
 # GateTrail Roadmap and Implementation Guide
 
-Last updated: 2026-07-29
+Last updated: 2026-08-12
 
 ## 1. Purpose
 
@@ -56,8 +56,8 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | Approximately 33% | Equal-phase progress across Phases 0–13 |
-| Deliverable tracker | 10 of 32, approximately 31% | Completed concrete package deliverables |
+| Overall roadmap by primary phases | Approximately 34% | Equal-phase progress across Phases 0–13 |
+| Deliverable tracker | 11 of 32, approximately 34% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
 
@@ -98,7 +98,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 86% | In progress |
+| 4 | Mutation services | 90% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -640,18 +640,17 @@ additional progress items.
 - [x] Disabled audit behavior.
 - [ ] After-commit cache invalidation.
 - [x] After-commit event dispatch.
-- [ ] Bounded concurrency retry. Contract accepted in
+- [x] Bounded concurrency retry. Contract accepted in
       [ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md). The runtime
-      implementation is complete and covered by unit and single-process
-      integration tests, but the acceptance evidence ADR 0011 requires — a live
-      parallel MySQL run on both supported versions — has not been observed
-      passing, so this item stays unchecked.
+      implementation is complete, and the acceptance evidence ADR 0011 requires
+      — a live parallel MySQL run on both supported versions — has been observed
+      passing in `CI #82` for commit `c5822a0`.
 - [ ] Consumer documentation and pre-v1 API freeze.
 
 ```text
-Completed: 18
+Completed: 19
 Total:     21
-Progress:  85.714%, reported as 86%
+Progress:  90.476%, reported as 90%
 ```
 
 ### Required strict-audit flow
@@ -940,13 +939,14 @@ audit write.
 `create()`, `update()`, `deactivate()`, and `restore()` on both contracts have
 a real single-use-case handler and no stub exists. Every definition mutation
 accepted by ADR 0002 is therefore implemented, bound, and tested. Both
-contracts remain pre-v1. All three accepted audit modes and the accepted
-after-commit mutation event are now implemented. Phase 4 stays open because
-three cross-cutting mutation behaviors — after-commit cache invalidation,
-bounded concurrency retry, and the consumer documentation and pre-v1 API
-freeze — are still outstanding. Bounded concurrency retry is the closest of the
-three: its runtime is complete, and only its live acceptance evidence is
-missing.
+contracts remain pre-v1. All three accepted audit modes, the accepted
+after-commit mutation event, and bounded concurrency retry are now implemented
+and accepted. Phase 4 stays open because two cross-cutting mutation behaviors —
+after-commit cache invalidation, and the consumer documentation and pre-v1 API
+freeze — are still outstanding. After-commit cache invalidation remains pending
+and unstarted: its cache store, TTL, and fan-out strategy are still an open
+architecture decision, and no cache behavior may be introduced before that
+decision is accepted.
 
 Bounded concurrency retry is implemented.
 [ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md) is accepted and now
@@ -1045,25 +1045,34 @@ never reaching a consumer; and every listed domain exception, `AuditWriteFailed`
 `InvalidAuditMetadata`, unclassified `QueryException`s, lock timeouts, SQLite
 `BUSY`/`LOCKED` and unsupported drivers never being retried.
 
-**Acceptance evidence: incomplete.** ADR 0011 also requires real-concurrency
+**Acceptance evidence: complete.** ADR 0011 also requires real-concurrency
 evidence: parallel writers against one assignment scope on the disposable MySQL
-service. That test now exists — `tests/Integration/MySql/ParallelCoordinationTest`
-spawns separate PHP processes on separate MySQL connections, releases them from
-a database barrier, and asserts the final invariant — but **it has not been
-observed passing on either supported MySQL version.** Docker was unavailable in
-the environment where it was written, so the MySQL suite could not be run
-locally, and the GitHub Actions matrix result has not been read back. Its
-process harness was validated end to end against a shared SQLite file, which
-exercises the worker bootstrap, the barrier, the timeouts, the cleanup and the
-result collection, but not MySQL's own error surface.
+service. `tests/Integration/MySql/ParallelCoordinationTest` spawns separate PHP
+processes on separate MySQL connections, releases them from a database barrier,
+and asserts the final invariant. GitHub Actions run `CI #82` for commit
+`c5822a0` passes, and with it all four live MySQL integration lanes:
 
-Until that run is observed passing on **both** MySQL 8.0.16 and MySQL 8.0.45,
-the checklist item stays unchecked, Phase 4 stays at 18 of 21, and the Quality
-deliverable "Concurrency tests" stays unchecked. Two limits explain why the
-local suite cannot substitute: ADR 0011 gives SQLite no retryable deadlock or
-serialization shape, so those two matrix rows are covered only by driver-shape
-vectors and by connections that report another driver without opening one; and a
-single-process test cannot produce genuine inter-process contention.
+```text
+Laravel 12 / MySQL 8.0.16 — pass
+Laravel 12 / MySQL 8.0.45 — pass
+Laravel 13 / MySQL 8.0.16 — pass
+Laravel 13 / MySQL 8.0.45 — pass
+```
+
+That run is the acceptance criterion, so the checklist item is now checked,
+Phase 4 moves to 19 of 21, and the Quality deliverable "Concurrency tests" is
+checked.
+
+**The two kinds of evidence stay separate.** Live MySQL ran only in CI, against
+the workflow's disposable MySQL service containers; it was not executed locally.
+The local gates for the same commit — PHPUnit at 970 tests and 5926 assertions
+on the default SQLite suite, PHPStan at level max, Pint, `composer validate` and
+`git diff --check` — are quality-gate evidence, not live-database evidence. Two
+limits explain why they cannot substitute: ADR 0011 gives SQLite no retryable
+deadlock or serialization shape, so those two matrix rows are covered only by
+driver-shape vectors and by connections that report another driver without
+opening one; and a single-process test cannot produce genuine inter-process
+contention.
 
 One detail bounds what the coordination race can affect. Only `assignRole()`,
 `grantDirectPermission()` and `grantPermissionToRole()` insert a coordination
@@ -1516,11 +1525,11 @@ Progress: **2 of 10**
 - [ ] Unit tests
 - [ ] Integration tests
 - [ ] Security tests
-- [ ] Concurrency tests
+- [x] Concurrency tests
 - [ ] Verified compatibility matrix
 - [ ] Performance benchmark
 
-Progress: **0 of 6**
+Progress: **1 of 6**
 
 ### Delivery
 
@@ -1538,9 +1547,9 @@ Progress: **0 of 8**
 ### Total
 
 ```text
-Completed: 10
+Completed: 11
 Total:     32
-Progress:  31.250%, reported as approximately 31%
+Progress:  34.375%, reported as approximately 34%
 ```
 
 ## 25. Progress update rules

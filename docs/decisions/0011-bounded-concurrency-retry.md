@@ -6,6 +6,9 @@
 - Owner-approved portability clarification: 2026-08-12, narrowing only the
   Oracle coordination-race SQLSTATE. See
   [Oracle SQLSTATE portability clarification](#oracle-sqlstate-portability-clarification).
+- Implementation status: Complete
+- Acceptance status: Complete, 2026-08-12. See
+  [Acceptance evidence](#acceptance-evidence).
 - Decision owners: GateTrail maintainers
 
 ## Context
@@ -933,6 +936,9 @@ exactly one active assignment, with the loser either succeeding on retry or
 failing closed. Oracle, PostgreSQL and SQL Server coverage runs in CI; the
 golden-vector suite keeps their classification honest locally.
 
+This real-concurrency requirement is satisfied. The observed run is recorded in
+[Acceptance evidence](#acceptance-evidence).
+
 ## 11. Consequences
 
 ### Positive
@@ -1039,6 +1045,59 @@ coordination race". MySQL remains the weakest case, because servers older than
 rule depends on locale-specific prose such as "duplicate key" or "violates
 unique constraint".
 
+## Acceptance evidence
+
+Recorded 2026-08-12 for commit `c5822a0`. **Implementation is complete and
+acceptance is complete.** Every behaviour this ADR specifies exists in code,
+and the real-concurrency evidence section 10 requires has been observed
+passing.
+
+The two kinds of evidence below are deliberately kept apart. Live MySQL
+evidence comes from CI only. Local evidence comes from the default SQLite
+package suite and the static quality gates, and is not live-database evidence.
+
+### Live MySQL concurrency evidence — CI only
+
+GitHub Actions run `CI #82` for commit `c5822a0` passes, including all four
+live MySQL integration lanes:
+
+| Laravel lane | MySQL version | Result |
+|---|---|---|
+| Laravel 12 / Testbench 10 | 8.0.16 | pass |
+| Laravel 12 / Testbench 10 | 8.0.45 | pass |
+| Laravel 13 / Testbench 11 | 8.0.16 | pass |
+| Laravel 13 / Testbench 11 | 8.0.45 | pass |
+
+`tests/Integration/MySql/ParallelCoordinationTest` — separate PHP processes on
+separate MySQL connections, released together from a database barrier against
+one assignment scope — was therefore observed passing on the minimum supported
+MySQL 8.0.16 endpoint and on the current MySQL 8.0.45 endpoint, on both
+supported Laravel majors. Exactly one active assignment survives, and a losing
+writer either succeeds on retry or fails closed.
+
+Live MySQL was executed in CI, on the workflow's disposable MySQL service
+containers. It was not executed locally, and no local result is offered as live
+MySQL evidence.
+
+### Local quality-gate evidence — SQLite and static analysis only
+
+For the same commit, the local gates pass:
+
+| Gate | Result |
+|---|---|
+| PHPUnit, default SQLite suite | 970 tests, 5926 assertions |
+| PHPStan | level max |
+| Pint | clean |
+| `composer validate` | passes |
+| `git diff --check` | clean |
+
+These gates prove classification against the recorded golden vectors,
+orchestration, and single-process integration behaviour. They cannot stand in
+for the live evidence above, for two reasons this ADR already states: SQLite has
+no retryable deadlock or serialization shape here, so those matrix rows are
+exercised only by driver-shape vectors; and a single-process suite cannot
+produce genuine inter-process contention.
+
 ## Specification alignment
 
 `PACKAGE_SPEC.md` was updated when this ADR was accepted to:
@@ -1058,14 +1117,14 @@ revocations, restored the unsupported-driver contract, and added the live
 parallel MySQL test.
 
 **Implementation status is not the same as acceptance status, and this ADR
-records both.** The runtime is complete and covered by unit and single-process
-integration tests. The real-concurrency evidence required by section 10 —
-parallel writers against one assignment scope on the disposable MySQL service —
-exists as `tests/Integration/MySql/ParallelCoordinationTest` but has **not yet
-been observed passing** on MySQL 8.0.16 or MySQL 8.0.45. Until it has, `ROADMAP.md`
-keeps the bounded-concurrency-retry item unchecked. `PACKAGE_SPEC.md` describes
-the runtime semantics, which are real; it does not claim the acceptance evidence
-is complete.
+records both.** Both are now complete. The runtime is complete and covered by
+unit and single-process integration tests, and the real-concurrency evidence
+required by section 10 — parallel writers against one assignment scope on the
+disposable MySQL service — has been observed passing on MySQL 8.0.16 and MySQL
+8.0.45 across both supported Laravel majors, in `CI #82`. See
+[Acceptance evidence](#acceptance-evidence). `ROADMAP.md` therefore checks the
+bounded-concurrency-retry item, and `PACKAGE_SPEC.md` records the behaviour as
+implemented and verified on the supported MySQL matrix.
 
 `StrictMutationTransaction` still runs with `attempts: 1`, deliberately and
 permanently: attempt counting belongs to one place, and Laravel's own retry
