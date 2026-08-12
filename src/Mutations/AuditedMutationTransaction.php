@@ -10,12 +10,17 @@ use HangTuah\GateTrail\Audit\AuditFailureReporter;
 use HangTuah\GateTrail\Audit\AuditMode;
 use HangTuah\GateTrail\Audit\AuditModeResolver;
 use HangTuah\GateTrail\Audit\PendingAuditRecord;
+use HangTuah\GateTrail\Concurrency\CoordinationPlan;
+use HangTuah\GateTrail\Concurrency\RetryOrchestrator;
+use HangTuah\GateTrail\Concurrency\RetryPolicy;
 use HangTuah\GateTrail\Events\MutationEventDispatcher;
+use HangTuah\GateTrail\Exceptions\ConcurrencyRetryExhausted;
 use HangTuah\GateTrail\Exceptions\UnsupportedAfterCommitBoundary;
 use HangTuah\GateTrail\MutationOutcome;
 use HangTuah\GateTrail\MutationResult;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Model;
+use InvalidArgumentException;
 use Throwable;
 
 /**
@@ -49,9 +54,22 @@ use Throwable;
  * callback rather than several, so ordering never depends on the framework's
  * callback order.
  *
+ * # Two entry points
+ *
+ * {@see self::run()} is the single-attempt path every definition mutation uses
+ * and is unchanged. {@see self::runCoordinated()} adds ADR 0011's bounded retry
+ * around the mutation transaction attempt for the six assignment mutations, and
+ * only that: the loop is inside this class, wrapping the step that opens and
+ * commits the mutation transaction. Wrapping the whole method would put the
+ * after-commit announcement inside the retried region, which ADR 0010 forbids.
+ * Because the loop is inner, a discarded attempt provably cannot announce
+ * anything — {@see self::announce()} is not reachable until the loop has
+ * produced a committed attempt.
+ *
  * @internal
  *
  * @see docs/decisions/0010-after-commit-mutation-events.md
+ * @see docs/decisions/0011-bounded-concurrency-retry.md
  */
 final readonly class AuditedMutationTransaction
 {
@@ -62,9 +80,18 @@ final readonly class AuditedMutationTransaction
         private AccessAuditWriter $audits,
         private AuditFailureReporter $failures,
         private MutationEventDispatcher $events,
+        private RetryPolicy $policy,
+        private RetryOrchestrator $orchestrator,
     ) {}
 
     /**
+     * Runs one mutation exactly once.
+     *
+     * Definition mutations use this and are structurally incapable of
+     * retrying: their expected race is semantic rather than transient, and
+     * retrying a namespace collision only re-derives the same `DuplicateRole`
+     * more slowly.
+     *
      * @template TResource of \Illuminate\Database\Eloquent\Model
      *
      * @param  Closure(): PreparedMutation<TResource>  $operation
@@ -72,11 +99,63 @@ final readonly class AuditedMutationTransaction
      */
     public function run(Closure $operation): MutationResult
     {
-        return match ($this->modes->resolve()) {
-            AuditMode::Strict => $this->runStrict($operation),
-            AuditMode::NonStrict => $this->runNonStrict($operation),
-            AuditMode::Disabled => $this->runUnaudited($operation),
-        };
+        return $this->dispatch($this->begin(), $operation, null);
+    }
+
+    /**
+     * Runs one coordinated assignment mutation with ADR 0011's bounded retry.
+     *
+     * Everything that decides whether retry is possible happens here, before
+     * any transaction opens, so an invalid name or an invalid attempt count
+     * fails with no database work performed:
+     *
+     * 1. the mutation name must be one of the six coordinated assignments. It
+     *    is an explicit parameter rather than something derived later, because
+     *    `ConcurrencyRetryExhausted::$operation` must be populated when no
+     *    attempt succeeded — and a first attempt can fail during reference
+     *    resolution, when no `PreparedMutation` and no `PendingAuditRecord`
+     *    exist to read it from;
+     * 2. `RetryPolicy` validates `assignments.concurrency_attempts` fail-closed;
+     * 3. the connection is resolved and ownership decided once;
+     * 4. the existing after-commit boundary rule still applies.
+     *
+     * @template TResource of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  string  $mutation  A coordinated name from {@see MutationName}.
+     * @param  Closure(): PreparedMutation<TResource>  $operation
+     * @return MutationResult<TResource>
+     *
+     * @throws InvalidArgumentException When the name is not coordinated.
+     * @throws ConcurrencyRetryExhausted When every permitted attempt met a
+     *                                   classified transient failure.
+     */
+    public function runCoordinated(
+        string $mutation,
+        Closure $operation,
+    ): MutationResult {
+        if (! MutationName::isAssignment($mutation)) {
+            throw new InvalidArgumentException(
+                'GateTrail can only coordinate an assignment mutation.',
+            );
+        }
+
+        $attempts = $this->policy->attempts();
+        $connection = $this->begin();
+
+        return $this->dispatch(
+            $connection,
+            $operation,
+            new CoordinationPlan(
+                $mutation,
+                $attempts,
+                // A caller who already holds a transaction gets one attempt.
+                // Rolling back to a savepoint would not restore the isolation
+                // snapshot, release the caller's earlier locks, or undo work
+                // performed before the call, so GateTrail never claims a retry
+                // it cannot actually perform.
+                $connection->transactionLevel() > 0,
+            ),
+        );
     }
 
     /**
@@ -85,12 +164,59 @@ final readonly class AuditedMutationTransaction
      * @param  Closure(): PreparedMutation<TResource>  $operation
      * @return MutationResult<TResource>
      */
-    private function runStrict(Closure $operation): MutationResult
-    {
-        $connection = $this->begin();
+    private function dispatch(
+        Connection $connection,
+        Closure $operation,
+        ?CoordinationPlan $plan,
+    ): MutationResult {
+        return match ($this->modes->resolve()) {
+            AuditMode::Strict => $this->runStrict($connection, $operation, $plan),
+            AuditMode::NonStrict => $this->runNonStrict($connection, $operation, $plan),
+            AuditMode::Disabled => $this->runUnaudited($connection, $operation, $plan),
+        };
+    }
 
+    /**
+     * Runs the mutation transaction: once for an uncoordinated mutation, or
+     * under the bounded retry loop for a coordinated one.
+     *
+     * This is the only place the two paths differ, which is why the loop is not
+     * duplicated across the three audit modes. Whatever it wraps is the whole
+     * transaction-bound operation and nothing else — no non-strict audit write,
+     * no cache slot, no event dispatch and no post-commit reporting is inside
+     * it.
+     *
+     * @template TValue
+     *
+     * @param  Closure(): TValue  $attempt
+     * @return TValue
+     */
+    private function transact(
+        Connection $connection,
+        Closure $attempt,
+        ?CoordinationPlan $plan,
+    ): mixed {
+        if ($plan === null) {
+            return $this->transaction->run($attempt);
+        }
+
+        return $this->orchestrator->run($plan, $connection, $attempt);
+    }
+
+    /**
+     * @template TResource of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Closure(): PreparedMutation<TResource>  $operation
+     * @return MutationResult<TResource>
+     */
+    private function runStrict(
+        Connection $connection,
+        Closure $operation,
+        ?CoordinationPlan $plan,
+    ): MutationResult {
         /** @var array{PreparedMutation<TResource>, int|string|null} $completed */
-        $completed = $this->transaction->run(
+        $completed = $this->transact(
+            $connection,
             function () use ($operation): array {
                 $prepared = $operation();
 
@@ -101,6 +227,7 @@ final readonly class AuditedMutationTransaction
                         : $this->audits->append($prepared->audit),
                 ];
             },
+            $plan,
         );
         [$prepared, $auditId] = $completed;
 
@@ -123,10 +250,12 @@ final readonly class AuditedMutationTransaction
      * @param  Closure(): PreparedMutation<TResource>  $operation
      * @return MutationResult<TResource>
      */
-    private function runNonStrict(Closure $operation): MutationResult
-    {
-        $connection = $this->begin();
-        $prepared = $this->transaction->run($operation);
+    private function runNonStrict(
+        Connection $connection,
+        Closure $operation,
+        ?CoordinationPlan $plan,
+    ): MutationResult {
+        $prepared = $this->transact($connection, $operation, $plan);
         $audit = $prepared->audit;
 
         if ($audit === null) {
@@ -184,10 +313,12 @@ final readonly class AuditedMutationTransaction
      * @param  Closure(): PreparedMutation<TResource>  $operation
      * @return MutationResult<TResource>
      */
-    private function runUnaudited(Closure $operation): MutationResult
-    {
-        $connection = $this->begin();
-        $prepared = $this->transaction->run($operation);
+    private function runUnaudited(
+        Connection $connection,
+        Closure $operation,
+        ?CoordinationPlan $plan,
+    ): MutationResult {
+        $prepared = $this->transact($connection, $operation, $plan);
 
         $this->announce(
             $connection,

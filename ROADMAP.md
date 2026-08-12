@@ -56,7 +56,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | Approximately 33% | Equal-phase progress across Phases 0–13 |
+| Overall roadmap by primary phases | Approximately 34% | Equal-phase progress across Phases 0–13 |
 | Deliverable tracker | 10 of 32, approximately 31% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
@@ -98,7 +98,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 86% | In progress |
+| 4 | Mutation services | 90% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -640,15 +640,15 @@ additional progress items.
 - [x] Disabled audit behavior.
 - [ ] After-commit cache invalidation.
 - [x] After-commit event dispatch.
-- [ ] Bounded concurrency retry. Contract accepted in
-      [ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md); the
-      implementation is outstanding.
+- [x] Bounded concurrency retry. Contract accepted in
+      [ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md) and
+      implemented for the six `AssignmentManager` mutations.
 - [ ] Consumer documentation and pre-v1 API freeze.
 
 ```text
-Completed: 18
+Completed: 19
 Total:     21
-Progress:  85.714%, reported as 86%
+Progress:  90.476%, reported as 90%
 ```
 
 ### Required strict-audit flow
@@ -938,113 +938,105 @@ audit write.
 a real single-use-case handler and no stub exists. Every definition mutation
 accepted by ADR 0002 is therefore implemented, bound, and tested. Both
 contracts remain pre-v1. All three accepted audit modes and the accepted
-after-commit mutation event are now implemented. Phase 4 stays open because
-three cross-cutting mutation behaviors — after-commit cache invalidation,
-bounded concurrency retry, and the consumer documentation and pre-v1 API
+after-commit mutation event are now implemented, as is bounded concurrency
+retry. Phase 4 stays open because two cross-cutting mutation behaviors —
+after-commit cache invalidation, and the consumer documentation and pre-v1 API
 freeze — are still outstanding.
 
-The bounded concurrency retry contract is accepted but unimplemented.
-[ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md) specifies retrying
-only the six assignment mutations, only when GateTrail owns the outermost
-transaction, and only for positively classified transient failures: a
-coordination-row insert race confirmed against the lock table's own primary
-key, plus deadlock and serialization rollbacks. It places the loop inside the
-mutation transaction so a discarded attempt can never reach the after-commit
-audit, cache and event work, keeps definition namespace races as terminal
-domain exceptions, refuses to restart a caller-owned transaction, and defers
-backoff together with lock-timeout recovery. Its terminal
-`ConcurrencyRetryExhausted` carries safe scalar diagnostics and an empty
-`previous` chain — no raw or sanitized driver exception is retained anywhere —
-and one internal `MutationName` vocabulary becomes the single source of the
-fourteen canonical names shared by audit events, mutation events and the retry
-operation. Owner review resolved its three open decisions — no previous
-exception at all, no lock-timeout or SQLite busy retry, and no definition
-deadlock retry — and the ADR was accepted on 2026-08-02.
+Bounded concurrency retry is implemented.
+[ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md) is accepted and now
+realised in code: GateTrail retries only the six assignment mutations, only when
+it owns the outermost transaction, and only for positively classified transient
+failures — a coordination-row insert race confirmed against the lock table's own
+primary key, plus deadlock and serialization rollbacks. Owner review resolved its
+three open decisions — no previous exception at all, no lock-timeout or SQLite
+busy retry, and no definition deadlock retry — and the ADR was accepted on
+2026-08-02, with the Oracle SQLSTATE portability clarification approved on
+2026-08-12.
 
-Its first foundation increment is now implemented: the shared internal
-`MutationName` vocabulary owns all fourteen canonical names, every handler
-takes its `PendingAuditRecord` event from it, and `MutationCommitted` validates
-through it instead of a private duplicate list; `RetryPolicy` validates
-`assignments.concurrency_attempts` fail-closed as a real integer from `1` to
-`10`, raising `InvalidConcurrencyConfiguration` without echoing the rejected
-value; `ClassifiedConcurrencyFailure` is a non-`Throwable` immutable value
-carrying only driver, category, nullable SQLSTATE and nullable vendor code; and
-the public `ConcurrencyRetryExhausted` reports operation, attempts and
-caller-owned state with those four diagnostics and an always-empty previous
-chain.
+The first increment delivered the foundation types: the shared internal
+`MutationName` vocabulary owns all fourteen canonical names, `RetryPolicy`
+validates `assignments.concurrency_attempts` fail-closed as a real integer from
+`1` to `10`, `ClassifiedConcurrencyFailure` is a non-`Throwable` immutable value
+carrying four safe scalars, and the public `ConcurrencyRetryExhausted` reports
+operation, attempts and caller-owned state with an always-empty previous chain.
 
-Its second increment — portable database failure classification and the inert
-coordination-race marker — is now implemented:
+The second increment delivered portable classification: canonical uppercase
+SQLSTATE hardening, `TransientFailureClassifier` for driver-aware deadlock and
+serialization shapes, `CoordinationRaceClassifier` for the assignment-lock
+insert race alone, and the then-inert `CoordinationInsertRace` marker.
 
-- **Canonical SQLSTATE hardening.** `ClassifiedConcurrencyFailure` accepts a
-  SQLSTATE only as exactly five uppercase alphanumeric characters, or null.
-  Lowercase, whitespace, punctuation, short and long strings and arbitrary
-  prose are rejected rather than normalized, because silently uppercasing a
-  consumer's input would hide a value that no driver produced.
-- **`TransientFailureClassifier`.** An internal classifier that confirms
-  deadlock and serialization rollbacks from SQLSTATE and vendor code alone:
-  PostgreSQL `40001` and `40P01`, MySQL and MariaDB `40001` with `1213`, SQL
-  Server `40001` with `1205`, Oracle `61000` with `60` and `72000` with `8177`.
-  SQLite has no accepted shape in this increment. A generic `40001` is not
-  sufficient on every driver, no rule reads driver prose, and lock wait
-  timeouts, SQLite `BUSY` and `LOCKED`, every integrity violation and every
-  infrastructure failure stay unclassified.
-- **`CoordinationRaceClassifier`.** An internal classifier that confirms only
-  the assignment-lock coordination `INSERT` race, against the resolved lock
-  table and its physical primary key. Expected identity comes from the existing
-  sources of truth — `SchemaManifest` for the logical primary key and its
-  columns, `SchemaContext` for the configured prefix and schema, and the schema
-  adapters for the canonical driver and physical primary-key name — so no
-  second manifest and no literal table name exists. Identity is read only from
-  the driver's own `errorInfo[2]`, never from the Laravel-formatted exception
-  message that carries SQL and bindings. Its positional precondition is
-  documented prominently and tested as a caller contract; it becomes structural
-  in the next increment.
-- **Inert `CoordinationInsertRace`.** The internal control-flow marker exists,
-  is final, carries exactly one `coordination_race`
-  `ClassifiedConcurrencyFailure`, accepts and chains no `Throwable`, always has
-  a null `previous`, and has a fixed safe message. It is created by nothing on
-  any production path.
-- **Oracle SQLSTATE clarification.** ADR 0011 gained an owner-approved
-  portability clarification dated 2026-08-12: Oracle coordination-race
-  classification accepts SQLSTATE `23000` **or** `HY000`, because PDO's Oracle
-  drivers disagree about which carries `ORA-00001` and this repository's own
-  recorded Oracle vectors use `HY000`. Every other Oracle condition is
-  unchanged and still required together, so an arbitrary `HY000` failure such
-  as `ORA-00942` or `ORA-00054` remains non-retryable. The ADR stays Accepted
-  and no other decision was reopened.
-- **Driver-shape and false-positive coverage.** Golden vectors model real PDO
-  `errorInfo` triples rather than Laravel exception messages, and cover driver
-  alias canonicalization, every accepted and rejected matrix row, both Oracle
-  SQLSTATEs, PostgreSQL and SQL Server exact constraint matching, SQLite exact
-  column-set equality, MySQL qualified and bare `PRIMARY` behaviour, a
-  configured table prefix, a configured schema qualifier, token-boundary
-  rejection of similar-prefix and similar-suffix names, localized-prose
-  independence, and malformed and overflowing driver codes. These are unit
-  driver-shape evidence and are explicitly not live portability evidence; live
-  behaviour remains the province of the disposable MySQL and Oracle integration
-  suites.
+The third increment activates retry, landing the marker's production throw site
+and its catch site atomically:
 
-Retry itself still does not exist:
+- **`AssignmentLockStore` is wired at the exact insert boundary.** The
+  coordination-row `INSERT` is the only statement wrapped in a `QueryException`
+  catch. A confirmed race becomes `CoordinationInsertRace`; anything the
+  classifier does not positively recognise is rethrown as the same object with
+  its own chain intact. The initial `SELECT ... FOR UPDATE` and the re-read are
+  deliberately outside the catch, so
+  `CoordinationRaceClassifier`'s positional precondition is now structurally
+  true rather than a caller convention. `AssignmentScopeCollision` is unchanged.
+- **`AuditedMutationTransaction::runCoordinated()` is the second entry point.**
+  Before any transaction opens it validates the mutation name against the six
+  coordinated assignments, resolves the bounded attempt count, decides ownership
+  from the connection's transaction level, and applies the existing
+  after-commit boundary rule. An unknown name, a definition name, an empty
+  string or an invalid attempt count fails with no database work performed and
+  the operation closure never runs.
+- **The loop sits inside the class, around the mutation transaction attempt
+  only.** One private seam serves all three audit modes, so the loop is not
+  duplicated across strict, non-strict and disabled. It wraps no validation, no
+  non-strict audit write, no cache slot, no event dispatch and no post-commit
+  reporting. `announce()` remains outside it, which is what makes ADR 0010's
+  exactly-once guarantee structural: a discarded attempt cannot reach the
+  announcement, because the announcement is not reachable until the loop has
+  produced a committed attempt.
+- **`RetryOrchestrator` counts attempts and decides exhaustion.** It catches
+  exactly two types and never `Throwable`. A classified driver exception is
+  reduced to safe scalars and explicitly dropped inside the `catch`, so nothing
+  stores, chains, logs or forwards it; only the latest
+  `ClassifiedConcurrencyFailure` survives between attempts. It refuses to retry
+  on a connection that a failed attempt did not leave at transaction level zero,
+  failing closed with typed exhaustion rather than replaying onto state it
+  cannot vouch for.
+- **The six assignment handlers opt in with the same constant they audit
+  with**, so the exhaustion operation, the audit `event` column and
+  `MutationCommitted` can never describe different mutations. All eight
+  definition handlers still call `run()`.
+- **`StrictMutationTransaction` still runs with `attempts: 1`**, asserted
+  behaviourally: Laravel's own message-matching retry never becomes active, and
+  GateTrail owns all attempt counting and classification.
 
-- there is no retry loop and no attempt counter anywhere in a mutation path;
-- `AuditedMutationTransaction` has no `runCoordinated()`, and no source file
-  mentions one;
-- `AssignmentLockStore` is not wired. It is behaviourally unchanged, catches
-  nothing, and references neither classifier nor the marker. Wiring it before
-  the orchestrator exists could let an internal control-flow exception escape to
-  a consumer, so the store's catch and the retry loop must land atomically in
-  the next increment;
-- the marker cannot escape, because no production path creates one. Only its
-  own definition mentions it, and only its unit test constructs it;
-- all fourteen handlers still call `run()`;
-- `StrictMutationTransaction` still runs with `attempts: 1`, asserted
-  behaviourally rather than by inspection;
-- both classifiers are registered as singletons under the package's
-  explicit-singleton convention, and no service consumes either of them yet.
+Evidence is unit plus single-connection integration on SQLite. Races are real
+rather than stubbed: the coordination row is planted immediately before the
+store's own insert, so the engine raises a genuine duplicate-key failure at the
+exact statement and the production classifier confirms it unaided. Coverage
+proves one attempt on success; retry-then-commit producing exactly one mutation,
+one audit row and one event; exhaustion leaving no mutation, no audit, no
+coordination row and no event; `concurrency_attempts` of `1` still raising typed
+exhaustion; caller-owned transactions making exactly one attempt and reporting
+`callerOwned: true`; the marker never reaching a consumer; unclassified
+`QueryException`s, domain exceptions, `AuditWriteFailed`, lock timeouts, SQLite
+`BUSY`/`LOCKED` and arbitrary `Throwable`s never being retried; and no SQL,
+binding, reason, metadata or credential reaching the terminal exception.
 
-The checklist item above therefore stays unchecked and Phase 4 progress is
-unchanged at 18 of 21.
+Two limits of that evidence are worth stating plainly. First, deadlock and
+serialization retry cannot be exercised against SQLite, because ADR 0011 gives
+SQLite no retryable deadlock or serialization shape; those paths are covered by
+driver-shape unit vectors, and real portability evidence remains the province of
+the disposable MySQL and Oracle suites. Second, the real-concurrency evidence
+ADR 0011 asks for — parallel writers against one assignment scope on the
+disposable MySQL service — is not yet written, which is why the Quality
+deliverable "Concurrency tests" stays unchecked and the deliverable tracker
+remains at 10 of 32.
+
+One pre-existing detail is worth recording because it bounds what the
+coordination race can affect: only `assignRole()`, `grantDirectPermission()` and
+`grantPermissionToRole()` acquire a coordination row. The three revocations
+target an already-identified assignment row and take no scope lock, so they
+cannot lose the insert race. All six are still coordinated and would still retry
+a classified deadlock or serialization rollback.
 
 ### Pre-v1 assignment-manager contract gate
 

@@ -68,7 +68,8 @@ final readonly class AssignRoleHandler
             $command->requestedAt,
         );
 
-        return $this->mutations->run(
+        return $this->mutations->runCoordinated(
+            MutationName::ROLE_ASSIGNED,
             function () use (
                 $command,
                 $metadata,

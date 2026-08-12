@@ -62,100 +62,103 @@ final readonly class GrantPermissionToRoleHandler
             $command->requestedAt,
         );
 
-        return $this->mutations->run(function () use (
-            $command,
-            $metadata,
-            $actor,
-            $reason,
-            $candidate,
-        ): PreparedMutation {
-            [$role, $permission, $guard] = $this->definitions->resolve(
-                $command->role,
-                $command->permission,
-            );
-            $roleId = $this->identifier($role, 'role');
-            $permissionId = $this->identifier(
-                $permission,
-                'permission',
-            );
-            $scope = AssignmentScope::forRolePermission(
-                $roleId,
-                $permissionId,
-            );
-
-            $this->locks->acquire($scope, $command->requestedAt);
-
-            $decision = $this->decisions->decide(
-                $command->period,
+        return $this->mutations->runCoordinated(
+            MutationName::PERMISSION_GRANTED_TO_ROLE,
+            function () use (
+                $command,
+                $metadata,
+                $actor,
+                $reason,
                 $candidate,
-                $this->conflicts->find($scope, $candidate),
-            );
+            ): PreparedMutation {
+                [$role, $permission, $guard] = $this->definitions->resolve(
+                    $command->role,
+                    $command->permission,
+                );
+                $roleId = $this->identifier($role, 'role');
+                $permissionId = $this->identifier(
+                    $permission,
+                    'permission',
+                );
+                $scope = AssignmentScope::forRolePermission(
+                    $roleId,
+                    $permissionId,
+                );
 
-            if ($decision->outcome
-                === AssignmentDecisionOutcome::Unchanged) {
-                if (! $decision->existingAssignment instanceof Model
-                    || ! $decision->existingAssignment
-                        instanceof RolePermissionContract) {
-                    throw new LogicException(
-                        'GateTrail unchanged role-permission assignment '
-                        .'has no existing model.',
+                $this->locks->acquire($scope, $command->requestedAt);
+
+                $decision = $this->decisions->decide(
+                    $command->period,
+                    $candidate,
+                    $this->conflicts->find($scope, $candidate),
+                );
+
+                if ($decision->outcome
+                    === AssignmentDecisionOutcome::Unchanged) {
+                    if (! $decision->existingAssignment instanceof Model
+                        || ! $decision->existingAssignment
+                            instanceof RolePermissionContract) {
+                        throw new LogicException(
+                            'GateTrail unchanged role-permission assignment '
+                            .'has no existing model.',
+                        );
+                    }
+
+                    return new PreparedMutation(
+                        $decision->existingAssignment,
+                        MutationOutcome::Unchanged,
+                        null,
                     );
                 }
 
-                return new PreparedMutation(
-                    $decision->existingAssignment,
-                    MutationOutcome::Unchanged,
-                    null,
+                if ($decision->outcome
+                    === AssignmentDecisionOutcome::Conflict) {
+                    throw DuplicateActiveAssignment::forScope($scope);
+                }
+
+                $assignment = $this->createAssignment(
+                    $roleId,
+                    $permissionId,
+                    $actor,
+                    $reason,
+                    $command,
                 );
-            }
-
-            if ($decision->outcome
-                === AssignmentDecisionOutcome::Conflict) {
-                throw DuplicateActiveAssignment::forScope($scope);
-            }
-
-            $assignment = $this->createAssignment(
-                $roleId,
-                $permissionId,
-                $actor,
-                $reason,
-                $command,
-            );
-            $audit = new PendingAuditRecord(
-                event: MutationName::PERMISSION_GRANTED_TO_ROLE,
-                actor: $actor,
-                subjectType: null,
-                subjectId: null,
-                targetType: 'role_permission',
-                targetId: $this->identifier(
-                    $assignment,
-                    'role-permission assignment',
-                ),
-                before: null,
-                after: $this->snapshots->build($assignment),
-                reason: $this->redactor->auditReason($reason),
-                context: $this->contexts->rolePermissionAssignment(
-                    $guard,
-                    $this->requiredString($role, 'name', 'role'),
-                    $this->requiredString(
-                        $permission,
-                        'name',
-                        'permission',
+                $audit = new PendingAuditRecord(
+                    event: MutationName::PERMISSION_GRANTED_TO_ROLE,
+                    actor: $actor,
+                    subjectType: null,
+                    subjectId: null,
+                    targetType: 'role_permission',
+                    targetId: $this->identifier(
+                        $assignment,
+                        'role-permission assignment',
                     ),
-                    $metadata,
-                ),
-                ipAddress: null,
-                userAgent: null,
-                requestId: null,
-                createdAt: $command->requestedAt,
-            );
+                    before: null,
+                    after: $this->snapshots->build($assignment),
+                    reason: $this->redactor->auditReason($reason),
+                    context: $this->contexts->rolePermissionAssignment(
+                        $guard,
+                        $this->requiredString($role, 'name', 'role'),
+                        $this->requiredString(
+                            $permission,
+                            'name',
+                            'permission',
+                        ),
+                        $metadata,
+                    ),
+                    ipAddress: null,
+                    userAgent: null,
+                    requestId: null,
+                    createdAt: $command->requestedAt,
+                );
 
-            return new PreparedMutation(
-                $assignment,
-                MutationOutcome::Created,
-                $audit,
-            );
-        });
+                return new PreparedMutation(
+                    $assignment,
+                    MutationOutcome::Created,
+                    $audit,
+                );
+            },
+        );
     }
 
     private function identifier(

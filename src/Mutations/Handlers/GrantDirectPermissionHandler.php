@@ -60,57 +60,60 @@ final readonly class GrantDirectPermissionHandler
         [$subjectType, $subjectId] = $this->subjectIdentity($command->subject);
         $candidate = EffectiveAssignmentPeriod::fromAssignment($command->period, $command->requestedAt);
 
-        return $this->mutations->run(function () use (
-            $command, $metadata, $actor, $reason, $subjectType, $subjectId, $candidate,
-        ): PreparedMutation {
-            $permission = $this->permissions->resolve($command->subject, $command->permission);
-            $permissionId = $this->identifier($permission, 'permission');
-            $scope = AssignmentScope::forPermission($subjectType, $subjectId, $permissionId);
-            $this->locks->acquire($scope, $command->requestedAt);
-            $decision = $this->decisions->decide(
-                $command->period,
-                $candidate,
-                $this->conflicts->find($scope, $candidate),
-            );
+        return $this->mutations->runCoordinated(
+            MutationName::PERMISSION_GRANTED_TO_SUBJECT,
+            function () use (
+                $command, $metadata, $actor, $reason, $subjectType, $subjectId, $candidate,
+            ): PreparedMutation {
+                $permission = $this->permissions->resolve($command->subject, $command->permission);
+                $permissionId = $this->identifier($permission, 'permission');
+                $scope = AssignmentScope::forPermission($subjectType, $subjectId, $permissionId);
+                $this->locks->acquire($scope, $command->requestedAt);
+                $decision = $this->decisions->decide(
+                    $command->period,
+                    $candidate,
+                    $this->conflicts->find($scope, $candidate),
+                );
 
-            if ($decision->outcome === AssignmentDecisionOutcome::Unchanged) {
-                if (! $decision->existingAssignment instanceof Model
-                    || ! $decision->existingAssignment instanceof PermissionAssignmentContract) {
-                    throw new LogicException('GateTrail unchanged permission assignment has no existing model.');
+                if ($decision->outcome === AssignmentDecisionOutcome::Unchanged) {
+                    if (! $decision->existingAssignment instanceof Model
+                        || ! $decision->existingAssignment instanceof PermissionAssignmentContract) {
+                        throw new LogicException('GateTrail unchanged permission assignment has no existing model.');
+                    }
+
+                    return new PreparedMutation($decision->existingAssignment, MutationOutcome::Unchanged, null);
+                }
+                if ($decision->outcome === AssignmentDecisionOutcome::Conflict) {
+                    throw DuplicateActiveAssignment::forScope($scope);
                 }
 
-                return new PreparedMutation($decision->existingAssignment, MutationOutcome::Unchanged, null);
-            }
-            if ($decision->outcome === AssignmentDecisionOutcome::Conflict) {
-                throw DuplicateActiveAssignment::forScope($scope);
-            }
+                $assignment = $this->createAssignment(
+                    $subjectType, $subjectId, $permissionId, $actor, $reason, $command,
+                );
+                $audit = new PendingAuditRecord(
+                    event: MutationName::PERMISSION_GRANTED_TO_SUBJECT,
+                    actor: $actor,
+                    subjectType: $subjectType,
+                    subjectId: $subjectId,
+                    targetType: 'permission_assignment',
+                    targetId: $this->identifier($assignment, 'permission assignment'),
+                    before: null,
+                    after: $this->snapshots->build($assignment),
+                    reason: $this->redactor->auditReason($reason),
+                    context: $this->contexts->directPermissionAssignment(
+                        $this->requiredString($permission, 'guard_name'),
+                        $this->requiredString($permission, 'name'),
+                        $metadata,
+                    ),
+                    ipAddress: null,
+                    userAgent: null,
+                    requestId: null,
+                    createdAt: $command->requestedAt,
+                );
 
-            $assignment = $this->createAssignment(
-                $subjectType, $subjectId, $permissionId, $actor, $reason, $command,
-            );
-            $audit = new PendingAuditRecord(
-                event: MutationName::PERMISSION_GRANTED_TO_SUBJECT,
-                actor: $actor,
-                subjectType: $subjectType,
-                subjectId: $subjectId,
-                targetType: 'permission_assignment',
-                targetId: $this->identifier($assignment, 'permission assignment'),
-                before: null,
-                after: $this->snapshots->build($assignment),
-                reason: $this->redactor->auditReason($reason),
-                context: $this->contexts->directPermissionAssignment(
-                    $this->requiredString($permission, 'guard_name'),
-                    $this->requiredString($permission, 'name'),
-                    $metadata,
-                ),
-                ipAddress: null,
-                userAgent: null,
-                requestId: null,
-                createdAt: $command->requestedAt,
-            );
-
-            return new PreparedMutation($assignment, MutationOutcome::Created, $audit);
-        });
+                return new PreparedMutation($assignment, MutationOutcome::Created, $audit);
+            },
+        );
     }
 
     /** @return array{string, int|string} */

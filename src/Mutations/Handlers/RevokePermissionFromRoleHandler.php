@@ -51,7 +51,8 @@ final readonly class RevokePermissionFromRoleHandler
         $actor = $this->actors->resolve($command->actor);
         $reason = $this->reasons->assignment($command->reason);
 
-        return $this->mutations->run(
+        return $this->mutations->runCoordinated(
+            MutationName::PERMISSION_REVOKED_FROM_ROLE,
             function () use (
                 $command,
                 $metadata,

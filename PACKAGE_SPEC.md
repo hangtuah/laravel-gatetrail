@@ -2000,8 +2000,7 @@ The successful mutation event contract is accepted in
 implemented.
 
 Bounded concurrency retry for assignment coordination is accepted in
-[ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md). It is not
-implemented yet.
+[ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md) and implemented.
 
 Architecture decisions will be stored under:
 

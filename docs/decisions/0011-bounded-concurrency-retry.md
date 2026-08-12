@@ -1051,13 +1051,18 @@ unique constraint".
   retry for lock timeouts or SQLite `BUSY`/`LOCKED`;
 - record this ADR in the section 24 accepted-decision list.
 
-Retry is not implemented. `PACKAGE_SPEC.md` and `ROADMAP.md` continue to
-describe bounded concurrency retry as outstanding work, and
-`StrictMutationTransaction` still runs with `attempts: 1`.
+Retry is now implemented, in three increments: the foundation types, then the
+portable classifiers and the inert marker, then the activation that landed the
+marker's throw site and the retry loop together. `PACKAGE_SPEC.md` and
+`ROADMAP.md` record it as implemented. `StrictMutationTransaction` still runs
+with `attempts: 1`, deliberately and permanently: attempt counting belongs to
+one place, and Laravel's own retry cannot distinguish a coordination race from a
+foreign-key violation.
 
 Only the internal component names belong to this ADR; `MutationName`,
-`ClassifiedConcurrencyFailure` and `CoordinationInsertRace` are `@internal` and
-are deliberately absent from the specification's public exception list.
+`ClassifiedConcurrencyFailure`, `CoordinationPlan`, `RetryOrchestrator` and
+`CoordinationInsertRace` are `@internal` and are deliberately absent from the
+specification's public exception list.
 
 No contradiction with the accepted specification was found. ADR 0001's adapter
 table describes MySQL and SQL Server recovery after "a duplicate-key" failure;

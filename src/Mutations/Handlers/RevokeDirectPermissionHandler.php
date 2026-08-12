@@ -36,35 +36,38 @@ final readonly class RevokeDirectPermissionHandler
         $actor = $this->actors->resolve($command->actor);
         $reason = $this->reasons->assignment($command->reason);
 
-        return $this->mutations->run(function () use ($command, $metadata, $actor, $reason): PreparedMutation {
-            $a = $this->assignments->resolve($command->assignment);
-            $id = $a->getKey();
-            if (! is_int($id) && ! is_string($id)) {
-                throw new LogicException('GateTrail permission assignment has no identifier.');
-            }
-            $expiry = $a->getAttribute('expires_at');
-            if ($a->getAttribute('revoked_at') !== null || ($expiry !== null && (! $expiry instanceof DateTimeInterface || $expiry <= $command->requestedAt))) {
-                throw AssignmentNotActive::forPermission($id);
-            }
-            $before = $this->snapshots->build($a, 'before');
-            $a->forceFill(['revoked_at' => $command->requestedAt, 'revoked_by_type' => $actor->type, 'revoked_by_id' => $actor->id, 'revocation_reason' => $reason, 'updated_at' => $command->requestedAt])->save();
-            $permission = $a->permission()->first();
-            if (! $permission instanceof Model) {
-                throw new LogicException('GateTrail permission assignment has no related permission.');
-            }
-            $subjectType = $a->getAttribute('subject_type');
-            $subjectId = $a->getAttribute('subject_id');
-            if (! is_string($subjectType) || (! is_int($subjectId) && ! is_string($subjectId))) {
-                throw new LogicException('GateTrail permission assignment subject is invalid.');
-            }
-            $guard = $permission->getAttribute('guard_name');
-            $name = $permission->getAttribute('name');
-            if (! is_string($guard) || ! is_string($name)) {
-                throw new LogicException('GateTrail permission identity is invalid.');
-            }
-            $audit = new PendingAuditRecord(event: MutationName::PERMISSION_REVOKED_FROM_SUBJECT, actor: $actor, subjectType: $subjectType, subjectId: $subjectId, targetType: 'permission_assignment', targetId: $id, before: $before, after: $this->snapshots->build($a, 'after'), reason: $this->redactor->auditReason($reason), context: $this->contexts->directPermissionAssignment($guard, $name, $metadata), ipAddress: null, userAgent: null, requestId: null, createdAt: $command->requestedAt);
+        return $this->mutations->runCoordinated(
+            MutationName::PERMISSION_REVOKED_FROM_SUBJECT,
+            function () use ($command, $metadata, $actor, $reason): PreparedMutation {
+                $a = $this->assignments->resolve($command->assignment);
+                $id = $a->getKey();
+                if (! is_int($id) && ! is_string($id)) {
+                    throw new LogicException('GateTrail permission assignment has no identifier.');
+                }
+                $expiry = $a->getAttribute('expires_at');
+                if ($a->getAttribute('revoked_at') !== null || ($expiry !== null && (! $expiry instanceof DateTimeInterface || $expiry <= $command->requestedAt))) {
+                    throw AssignmentNotActive::forPermission($id);
+                }
+                $before = $this->snapshots->build($a, 'before');
+                $a->forceFill(['revoked_at' => $command->requestedAt, 'revoked_by_type' => $actor->type, 'revoked_by_id' => $actor->id, 'revocation_reason' => $reason, 'updated_at' => $command->requestedAt])->save();
+                $permission = $a->permission()->first();
+                if (! $permission instanceof Model) {
+                    throw new LogicException('GateTrail permission assignment has no related permission.');
+                }
+                $subjectType = $a->getAttribute('subject_type');
+                $subjectId = $a->getAttribute('subject_id');
+                if (! is_string($subjectType) || (! is_int($subjectId) && ! is_string($subjectId))) {
+                    throw new LogicException('GateTrail permission assignment subject is invalid.');
+                }
+                $guard = $permission->getAttribute('guard_name');
+                $name = $permission->getAttribute('name');
+                if (! is_string($guard) || ! is_string($name)) {
+                    throw new LogicException('GateTrail permission identity is invalid.');
+                }
+                $audit = new PendingAuditRecord(event: MutationName::PERMISSION_REVOKED_FROM_SUBJECT, actor: $actor, subjectType: $subjectType, subjectId: $subjectId, targetType: 'permission_assignment', targetId: $id, before: $before, after: $this->snapshots->build($a, 'after'), reason: $this->redactor->auditReason($reason), context: $this->contexts->directPermissionAssignment($guard, $name, $metadata), ipAddress: null, userAgent: null, requestId: null, createdAt: $command->requestedAt);
 
-            return new PreparedMutation($a, MutationOutcome::Revoked, $audit);
-        });
+                return new PreparedMutation($a, MutationOutcome::Revoked, $audit);
+            },
+        );
     }
 }
