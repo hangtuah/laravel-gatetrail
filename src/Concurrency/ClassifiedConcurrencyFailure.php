@@ -87,15 +87,20 @@ final readonly class ClassifiedConcurrencyFailure
             );
         }
 
-        // SQLSTATE is exactly five alphanumeric characters by the SQL
-        // standard. Requiring the canonical form keeps driver prose out of a
-        // field that is meant to be a code.
+        // SQLSTATE is exactly five characters from the SQL standard's
+        // uppercase alphanumeric alphabet: `40001`, `40P01`, `HY000`. Every
+        // supported driver reports it in that canonical form, so a lowercase
+        // value is not a SQLSTATE that needs folding — it is a value that did
+        // not come from where the caller thinks it did. It is rejected rather
+        // than normalized, because silently uppercasing consumer input would
+        // hide exactly that mistake, and because a classifier must emit the
+        // canonical form it actually observed.
         if (
             $sqlState !== null
-            && preg_match('/^[0-9A-Za-z]{5}$/D', $sqlState) !== 1
+            && preg_match('/^[0-9A-Z]{5}$/D', $sqlState) !== 1
         ) {
             throw new InvalidArgumentException(
-                'GateTrail concurrency SQLSTATE must be five alphanumeric characters.',
+                'GateTrail concurrency SQLSTATE must be five uppercase alphanumeric characters.',
             );
         }
 

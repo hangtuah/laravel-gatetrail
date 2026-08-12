@@ -3,6 +3,9 @@
 - Status: Accepted
 - Date: 2026-07-31
 - Owner approval date: 2026-08-02
+- Owner-approved portability clarification: 2026-08-12, narrowing only the
+  Oracle coordination-race SQLSTATE. See
+  [Oracle SQLSTATE portability clarification](#oracle-sqlstate-portability-clarification).
 - Decision owners: GateTrail maintainers
 
 ## Context
@@ -277,13 +280,61 @@ Token matching rules:
 | Driver | SQLSTATE | Vendor code | Identity token to confirm | Where the token appears |
 |---|---|---|---|---|
 | PostgreSQL | `23505` | — | `acl_asgn_locks_pk` | diagnostic text |
-| Oracle | `23000` | `1` (`ORA-00001`) | `ACL_ASGN_LOCKS_PK`, optional schema prefix | diagnostic text |
+| Oracle | `23000` or `HY000` (see the clarification below) | `1` (`ORA-00001`) | `ACL_ASGN_LOCKS_PK`, optional schema prefix | diagnostic text |
 | SQL Server | `23000` | `2627` | `acl_asgn_locks_pk` | diagnostic text |
 | SQLite | `23000` | `19` | `{table}.assignment_kind` and `{table}.scope_hash` | diagnostic text |
 | MySQL / MariaDB | `23000` | `1062` | `PRIMARY`, plus the resolved table where the server qualifies it | diagnostic text |
 
 The "where the token appears" column deliberately reads the same for every
 row: there is no driver where PDO hands GateTrail a constraint field.
+
+#### Oracle SQLSTATE portability clarification
+
+**Owner-approved portability clarification, 2026-08-12. Status remains
+Accepted; no other decision is reopened.**
+
+This ADR was accepted listing the Oracle coordination insert race as SQLSTATE
+`23000` only. That is incomplete. The repository's own Oracle evidence —
+`tests/Database/UniqueConstraintViolationClassifierTest.php`, whose Oracle
+driver shapes are the recorded `ORA-00001` vectors this package already
+matches — reports `ORA-00001` with SQLSTATE `HY000`, not `23000`. PDO's Oracle
+drivers do not agree on which of the two they map `ORA-00001` to, and GateTrail
+cannot control which one a given deployment installs. Accepting only `23000`
+would therefore silently fail to classify a real coordination race on Oracle,
+which is the failure mode this ADR exists to recover from.
+
+Oracle coordination-race classification accepts **either**:
+
+- SQLSTATE `23000`; **or**
+- SQLSTATE `HY000`,
+
+and only when **every** other condition also holds:
+
+1. classification is invoked for the exact coordination-row `INSERT` position,
+   as required by condition 1 of the rules above;
+2. the numeric vendor code is exactly `1`;
+3. the driver diagnostic text contains `ORA-00001` as a bounded Oracle error
+   token;
+4. the driver diagnostic text contains the exact expected assignment-lock
+   primary-key constraint identity, matched with identifier-token boundaries;
+5. schema-qualified and quoted forms of that identity are accepted;
+6. token boundaries reject similar-prefix and similar-suffix names;
+7. another Oracle constraint is rejected;
+8. an arbitrary `HY000` failure remains non-retryable.
+
+Widening the SQLSTATE alternatives does not widen the classification. `HY000`
+is Oracle's general-error catch-all and carries no meaning by itself: an
+`ORA-00942` missing table and an `ORA-00054` resource-busy failure are both
+`HY000` too. What confirms the race is the conjunction — the position, the
+vendor code `1`, the bounded `ORA-00001` token, and the exact constraint
+identity. Any one of them failing means "not a coordination race", exactly as
+before. The alternative is not "trust `HY000`"; it is "stop rejecting a
+confirmed race because a driver chose the other SQLSTATE for the same error".
+
+This clarification changes the Oracle row of the coordination-race table only.
+The deadlock and serialization matrix is untouched: Oracle deadlock remains
+`61000` with vendor code `60`, and Oracle serialization failure remains `72000`
+with vendor code `8177`. No other driver gains an alternative SQLSTATE.
 
 **MySQL remains the weakest row**, and the reason is specific rather than
 general. MySQL cannot name a primary key at all —
@@ -776,6 +827,9 @@ Required unit evidence — **classification and identity**:
   `acl_asgn_locks_pk_2`, `x_acl_asgn_locks_pk`, `acl_asgn_locks_pkey`;
 - schema-qualified, table-qualified, double-quoted, backtick-quoted and
   bracket-quoted forms of the expected name are each accepted;
+- the Oracle coordination race classifies identically under SQLSTATE `23000`
+  and under SQLSTATE `HY000`, and an arbitrary `HY000` failure — including
+  `ORA-00942` and `ORA-00054` — is still rejected;
 - classification is unaffected by localized or reworded driver prose: the same
   SQLSTATE, vendor code and identifier token classify identically whatever the
   surrounding sentence says, and no matcher depends on phrases such as
@@ -1035,8 +1089,18 @@ the reasoning is not lost.
    this increment and surfaces as its existing infrastructure exception.
    Definition deadlock recovery is future hardening, driven by evidence.
 
+A fourth question was raised during implementation and decided on 2026-08-12:
+
+4. **Oracle coordination-race classification accepts SQLSTATE `23000` or
+   `HY000`**, because PDO's Oracle drivers disagree about which one carries
+   `ORA-00001` and the repository's own recorded Oracle vectors use `HY000`.
+   Every other Oracle condition is unchanged and still required in
+   conjunction. See
+   [Oracle SQLSTATE portability clarification](#oracle-sqlstate-portability-clarification).
+
 No unresolved decisions remain. The design was reviewed as a whole and
-accepted on 2026-08-02.
+accepted on 2026-08-02, with the Oracle SQLSTATE clarification approved on
+2026-08-12.
 
 ## References
 

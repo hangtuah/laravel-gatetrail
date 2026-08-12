@@ -973,12 +973,78 @@ the public `ConcurrencyRetryExhausted` reports operation, attempts and
 caller-owned state with those four diagnostics and an always-empty previous
 chain.
 
-Retry itself does not exist. There is no retry loop, no `QueryException`
-classification, no `CoordinationRaceClassifier` or `TransientFailureClassifier`,
-no `CoordinationInsertRace` marker and no `runCoordinated()`.
-`AssignmentLockStore` is unchanged and intercepts nothing, every handler still
-uses the single-attempt transaction path, and `StrictMutationTransaction` still
-runs with `attempts: 1`, so the checklist item above stays unchecked.
+Its second increment — portable database failure classification and the inert
+coordination-race marker — is now implemented:
+
+- **Canonical SQLSTATE hardening.** `ClassifiedConcurrencyFailure` accepts a
+  SQLSTATE only as exactly five uppercase alphanumeric characters, or null.
+  Lowercase, whitespace, punctuation, short and long strings and arbitrary
+  prose are rejected rather than normalized, because silently uppercasing a
+  consumer's input would hide a value that no driver produced.
+- **`TransientFailureClassifier`.** An internal classifier that confirms
+  deadlock and serialization rollbacks from SQLSTATE and vendor code alone:
+  PostgreSQL `40001` and `40P01`, MySQL and MariaDB `40001` with `1213`, SQL
+  Server `40001` with `1205`, Oracle `61000` with `60` and `72000` with `8177`.
+  SQLite has no accepted shape in this increment. A generic `40001` is not
+  sufficient on every driver, no rule reads driver prose, and lock wait
+  timeouts, SQLite `BUSY` and `LOCKED`, every integrity violation and every
+  infrastructure failure stay unclassified.
+- **`CoordinationRaceClassifier`.** An internal classifier that confirms only
+  the assignment-lock coordination `INSERT` race, against the resolved lock
+  table and its physical primary key. Expected identity comes from the existing
+  sources of truth — `SchemaManifest` for the logical primary key and its
+  columns, `SchemaContext` for the configured prefix and schema, and the schema
+  adapters for the canonical driver and physical primary-key name — so no
+  second manifest and no literal table name exists. Identity is read only from
+  the driver's own `errorInfo[2]`, never from the Laravel-formatted exception
+  message that carries SQL and bindings. Its positional precondition is
+  documented prominently and tested as a caller contract; it becomes structural
+  in the next increment.
+- **Inert `CoordinationInsertRace`.** The internal control-flow marker exists,
+  is final, carries exactly one `coordination_race`
+  `ClassifiedConcurrencyFailure`, accepts and chains no `Throwable`, always has
+  a null `previous`, and has a fixed safe message. It is created by nothing on
+  any production path.
+- **Oracle SQLSTATE clarification.** ADR 0011 gained an owner-approved
+  portability clarification dated 2026-08-12: Oracle coordination-race
+  classification accepts SQLSTATE `23000` **or** `HY000`, because PDO's Oracle
+  drivers disagree about which carries `ORA-00001` and this repository's own
+  recorded Oracle vectors use `HY000`. Every other Oracle condition is
+  unchanged and still required together, so an arbitrary `HY000` failure such
+  as `ORA-00942` or `ORA-00054` remains non-retryable. The ADR stays Accepted
+  and no other decision was reopened.
+- **Driver-shape and false-positive coverage.** Golden vectors model real PDO
+  `errorInfo` triples rather than Laravel exception messages, and cover driver
+  alias canonicalization, every accepted and rejected matrix row, both Oracle
+  SQLSTATEs, PostgreSQL and SQL Server exact constraint matching, SQLite exact
+  column-set equality, MySQL qualified and bare `PRIMARY` behaviour, a
+  configured table prefix, a configured schema qualifier, token-boundary
+  rejection of similar-prefix and similar-suffix names, localized-prose
+  independence, and malformed and overflowing driver codes. These are unit
+  driver-shape evidence and are explicitly not live portability evidence; live
+  behaviour remains the province of the disposable MySQL and Oracle integration
+  suites.
+
+Retry itself still does not exist:
+
+- there is no retry loop and no attempt counter anywhere in a mutation path;
+- `AuditedMutationTransaction` has no `runCoordinated()`, and no source file
+  mentions one;
+- `AssignmentLockStore` is not wired. It is behaviourally unchanged, catches
+  nothing, and references neither classifier nor the marker. Wiring it before
+  the orchestrator exists could let an internal control-flow exception escape to
+  a consumer, so the store's catch and the retry loop must land atomically in
+  the next increment;
+- the marker cannot escape, because no production path creates one. Only its
+  own definition mentions it, and only its unit test constructs it;
+- all fourteen handlers still call `run()`;
+- `StrictMutationTransaction` still runs with `attempts: 1`, asserted
+  behaviourally rather than by inspection;
+- both classifiers are registered as singletons under the package's
+  explicit-singleton convention, and no service consumes either of them yet.
+
+The checklist item above therefore stays unchecked and Phase 4 progress is
+unchanged at 18 of 21.
 
 ### Pre-v1 assignment-manager contract gate
 

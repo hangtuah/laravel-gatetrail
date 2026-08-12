@@ -130,16 +130,60 @@ final class ClassifiedConcurrencyFailureTest extends TestCase
         }
     }
 
-    public function test_only_a_canonical_sqlstate_is_accepted(): void
+    public function test_only_a_canonical_uppercase_sqlstate_is_accepted(): void
     {
         foreach ([
-            '',
-            '2350',
-            '235055',
-            '23-05',
-            'SQLSTATE[23505]',
-            'Duplicate entry for key acl_asgn_locks_pk',
+            '40001',
+            '40P01',
+            '23505',
+            '23000',
+            'HY000',
+            '61000',
+            '72000',
+            '00000',
+            'ZZZZZ',
         ] as $sqlState) {
+            $failure = ClassifiedConcurrencyFailure::classified(
+                'mysql',
+                'deadlock',
+                $sqlState,
+            );
+
+            $this->assertSame($sqlState, $failure->sqlState);
+        }
+    }
+
+    public function test_a_null_sqlstate_remains_accepted(): void
+    {
+        $failure = ClassifiedConcurrencyFailure::classified(
+            'pgsql',
+            'deadlock',
+            null,
+            null,
+        );
+
+        $this->assertNull($failure->sqlState);
+        $this->assertNull($failure->vendorCode);
+    }
+
+    public function test_a_noncanonical_sqlstate_is_rejected(): void
+    {
+        foreach ([
+            'lowercase letters' => '40p01',
+            'fully lowercase' => 'hy000',
+            'mixed case' => 'Hy000',
+            'empty' => '',
+            'four characters' => '2350',
+            'six characters' => '235055',
+            'punctuation' => '23-05',
+            'leading space' => ' 2350',
+            'trailing space' => '2350 ',
+            'inner space' => '23 05',
+            'tab' => "2300\t",
+            'newline' => "23000\n",
+            'wrapped code' => 'SQLSTATE[23505]',
+            'prose' => 'Duplicate entry for key acl_asgn_locks_pk',
+        ] as $label => $sqlState) {
             try {
                 ClassifiedConcurrencyFailure::classified(
                     'mysql',
@@ -147,14 +191,27 @@ final class ClassifiedConcurrencyFailureTest extends TestCase
                     $sqlState,
                 );
 
-                $this->fail('A malformed SQLSTATE should be rejected.');
+                $this->fail("A [$label] SQLSTATE should be rejected.");
             } catch (InvalidArgumentException $exception) {
                 $this->assertStringContainsString(
-                    'five alphanumeric characters',
+                    'five uppercase alphanumeric characters',
                     $exception->getMessage(),
                 );
             }
         }
+    }
+
+    public function test_a_lowercase_sqlstate_is_never_silently_uppercased(): void
+    {
+        // Rejecting rather than folding is the point: a lowercase value did
+        // not come from a driver, and quietly repairing it would hide that.
+        $this->expectException(InvalidArgumentException::class);
+
+        ClassifiedConcurrencyFailure::classified(
+            'pgsql',
+            'deadlock',
+            '40p01',
+        );
     }
 
     public function test_the_object_graph_holds_only_the_four_safe_scalars(): void

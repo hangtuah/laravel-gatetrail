@@ -20,7 +20,9 @@ use HangTuah\GateTrail\Audit\RolePermissionSnapshotBuilder;
 use HangTuah\GateTrail\Audit\RoleSnapshotBuilder;
 use HangTuah\GateTrail\Audit\SensitiveAuditValueRedactor;
 use HangTuah\GateTrail\Audit\SensitiveMetadataRedactor;
+use HangTuah\GateTrail\Concurrency\CoordinationRaceClassifier;
 use HangTuah\GateTrail\Concurrency\RetryPolicy;
+use HangTuah\GateTrail\Concurrency\TransientFailureClassifier;
 use HangTuah\GateTrail\Contracts\AssignmentManager;
 use HangTuah\GateTrail\Contracts\PermissionManager;
 use HangTuah\GateTrail\Contracts\RoleManager;
@@ -119,6 +121,14 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(DefinitionInputValidator::class);
         $this->app->singleton(UniqueConstraintViolationClassifier::class);
         $this->app->singleton(RetryPolicy::class);
+        // Both classifiers are constructor-injected collaborators, so the
+        // package's explicit-singleton convention applies to them exactly as it
+        // does to UniqueConstraintViolationClassifier. Nothing consumes them
+        // yet. ClassifiedConcurrencyFailure, CoordinationInsertRace and every
+        // exception stay unregistered: they are values and control flow, not
+        // services.
+        $this->app->singleton(TransientFailureClassifier::class);
+        $this->app->singleton(CoordinationRaceClassifier::class);
         $this->app->singleton(AssignRoleHandler::class);
         $this->app->singleton(CreatePermissionHandler::class);
         $this->app->singleton(CreateRoleHandler::class);
