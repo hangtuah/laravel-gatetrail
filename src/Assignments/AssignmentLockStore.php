@@ -5,12 +5,10 @@ declare(strict_types=1);
 namespace HangTuah\GateTrail\Assignments;
 
 use DateTimeInterface;
-use HangTuah\GateTrail\Concurrency\ClassifiedConcurrencyFailure;
 use HangTuah\GateTrail\Concurrency\CoordinationInsertRace;
 use HangTuah\GateTrail\Concurrency\CoordinationRaceClassifier;
 use HangTuah\GateTrail\Database\Schema\SchemaContext;
 use HangTuah\GateTrail\Exceptions\AssignmentScopeCollision;
-use HangTuah\GateTrail\Exceptions\UnsupportedDatabaseDriver;
 use Illuminate\Database\Connection;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\QueryException;
@@ -84,7 +82,16 @@ final readonly class AssignmentLockStore
                     'updated_at' => $timestamp,
                 ]);
         } catch (QueryException $exception) {
-            $failure = $this->classify($exception, $connection);
+            // An unsupported driver raises UnsupportedDatabaseDriver from here
+            // and is deliberately allowed to propagate. GateTrail cannot
+            // confirm coordination identity on a driver it does not support,
+            // and answering "not confirmed" would silently accept an unknown
+            // error surface as ordinary. The package's existing typed contract
+            // answers instead.
+            $failure = $this->races->classify(
+                $exception,
+                $connection->getDriverName(),
+            );
 
             if ($failure === null) {
                 throw $exception;
@@ -96,28 +103,6 @@ final readonly class AssignmentLockStore
             unset($exception);
 
             throw CoordinationInsertRace::confirmed($failure);
-        }
-    }
-
-    /**
-     * An unsupported driver means GateTrail cannot confirm identity, which is
-     * the same answer as "not confirmed". Raising
-     * {@see UnsupportedDatabaseDriver} from inside this `catch` would replace
-     * the deployment's real database failure with a complaint about driver
-     * support, and would do it for every insert failure rather than only this
-     * one.
-     */
-    private function classify(
-        QueryException $exception,
-        Connection $connection,
-    ): ?ClassifiedConcurrencyFailure {
-        try {
-            return $this->races->classify(
-                $exception,
-                $connection->getDriverName(),
-            );
-        } catch (UnsupportedDatabaseDriver) {
-            return null;
         }
     }
 

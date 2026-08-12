@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace HangTuah\GateTrail\Mutations\Handlers;
 
 use DateTimeInterface;
+use HangTuah\GateTrail\Assignments\AssignmentKind;
+use HangTuah\GateTrail\Assignments\RevocationCoordinator;
 use HangTuah\GateTrail\Audit\AuditContextBuilder;
 use HangTuah\GateTrail\Audit\MetadataNormalizer;
 use HangTuah\GateTrail\Audit\PendingAuditRecord;
@@ -27,7 +29,7 @@ use LogicException;
 /** @internal */
 final readonly class RevokeDirectPermissionHandler
 {
-    public function __construct(private MetadataNormalizer $metadata, private ActorIdentityResolver $actors, private MutationReasonValidator $reasons, private AuditedMutationTransaction $mutations, private PermissionAssignmentInputResolver $assignments, private PermissionAssignmentSnapshotBuilder $snapshots, private AuditContextBuilder $contexts, private SensitiveAuditValueRedactor $redactor) {}
+    public function __construct(private MetadataNormalizer $metadata, private ActorIdentityResolver $actors, private MutationReasonValidator $reasons, private AuditedMutationTransaction $mutations, private PermissionAssignmentInputResolver $assignments, private RevocationCoordinator $coordination, private PermissionAssignmentSnapshotBuilder $snapshots, private AuditContextBuilder $contexts, private SensitiveAuditValueRedactor $redactor) {}
 
     /** @return MutationResult<PermissionAssignment> */
     public function handle(RevokeDirectPermissionCommand $command): MutationResult
@@ -39,7 +41,16 @@ final readonly class RevokeDirectPermissionHandler
         return $this->mutations->runCoordinated(
             MutationName::PERMISSION_REVOKED_FROM_SUBJECT,
             function () use ($command, $metadata, $actor, $reason): PreparedMutation {
-                $a = $this->assignments->resolve($command->assignment);
+                // Coordination first, then the locked reload. See
+                // RevocationCoordinator for why the order cannot be reversed.
+                $a = $this->coordination->coordinate(
+                    AssignmentKind::Permission,
+                    $command->assignment,
+                    $command->requestedAt,
+                    fn (): PermissionAssignment => $this->assignments->resolve(
+                        $command->assignment,
+                    ),
+                );
                 $id = $a->getKey();
                 if (! is_int($id) && ! is_string($id)) {
                     throw new LogicException('GateTrail permission assignment has no identifier.');

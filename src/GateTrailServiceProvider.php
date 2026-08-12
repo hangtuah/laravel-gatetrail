@@ -7,6 +7,8 @@ namespace HangTuah\GateTrail;
 use HangTuah\GateTrail\Assignments\AssignmentConflictQuery;
 use HangTuah\GateTrail\Assignments\AssignmentDecisionMaker;
 use HangTuah\GateTrail\Assignments\AssignmentLockStore;
+use HangTuah\GateTrail\Assignments\AssignmentScopeProbe;
+use HangTuah\GateTrail\Assignments\RevocationCoordinator;
 use HangTuah\GateTrail\Audit\AccessAuditWriter;
 use HangTuah\GateTrail\Audit\AuditContextBuilder;
 use HangTuah\GateTrail\Audit\AuditFailureReporter;
@@ -116,6 +118,8 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(AssignmentConflictQuery::class);
         $this->app->singleton(AssignmentDecisionMaker::class);
         $this->app->singleton(AssignmentLockStore::class);
+        $this->app->singleton(AssignmentScopeProbe::class);
+        $this->app->singleton(RevocationCoordinator::class);
         $this->app->singleton(ActorIdentityResolver::class);
         $this->app->singleton(AssignmentIdentifierNormalizer::class);
         $this->app->singleton(DefinitionIdentifierNormalizer::class);

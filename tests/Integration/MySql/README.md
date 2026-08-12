@@ -63,3 +63,28 @@ The suite verifies:
 - missing-index detection without automatic repair;
 - exact-name collation drift;
 - cascading foreign-key drift.
+
+## Parallel coordination suite
+
+`ParallelCoordinationTest` is the only test in this package that produces real
+concurrency. It spawns separate PHP processes, each opening its own MySQL
+connection, releases them together from a database barrier, and lets the server
+decide which writer loses the coordination-row race.
+
+It is deliberately different from every other concurrency test here:
+
+- no mocked classifier, injected exception or simulated race;
+- contention is real InnoDB primary-key contention on `acl_assignment_locks`;
+- workers call the public `AssignmentManager` method, not an internal seam;
+- the barrier is bounded polling against a hard deadline, not a fixed sleep;
+- child processes are terminated and the two helper tables dropped in
+  `tearDown()`, including when the test fails.
+
+The invariant it asserts is ADR 0001's: whatever the interleaving, the scope
+ends with exactly one active assignment, one coordination row carrying the
+canonical key, and one audit row. A classified retryable failure must never
+reach the caller as a raw duplicate-key, deadlock or serialization exception.
+
+ADR 0011 treats a passing run of this suite on **both** supported MySQL
+versions as the acceptance evidence for bounded concurrency retry. Until that is
+observed, `ROADMAP.md` keeps the corresponding item unchecked.

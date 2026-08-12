@@ -94,13 +94,28 @@ final class RetryBoundaryTest extends TestCase
         $this->assertStringNotContainsString('catch (\Throwable', $source);
         $this->assertStringNotContainsString('catch (Exception', $source);
 
-        // Exactly the two retryable types, plus the narrow unsupported-driver
-        // guard around classification.
+        // Exactly the two retryable types, and nothing else. In particular
+        // UnsupportedDatabaseDriver is not caught: the package's typed
+        // unsupported-driver contract must reach the caller unchanged rather
+        // than being downgraded to "unclassified".
+        $this->assertSame(2, substr_count($source, 'catch ('));
         $this->assertSame(1, substr_count($source, 'catch (CoordinationInsertRace'));
         $this->assertSame(1, substr_count($source, 'catch (QueryException'));
-        $this->assertSame(
-            1,
-            substr_count($source, 'catch (UnsupportedDatabaseDriver'),
+        $this->assertStringNotContainsString(
+            'UnsupportedDatabaseDriver',
+            $source,
+        );
+    }
+
+    public function test_the_lock_store_never_swallows_the_driver_contract(): void
+    {
+        $source = $this->sourceCode()['Assignments/AssignmentLockStore.php'];
+
+        $this->assertSame(1, substr_count($source, 'catch ('));
+        $this->assertSame(1, substr_count($source, 'catch (QueryException'));
+        $this->assertStringNotContainsString(
+            'UnsupportedDatabaseDriver',
+            $source,
         );
     }
 

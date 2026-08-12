@@ -1051,18 +1051,45 @@ unique constraint".
   retry for lock timeouts or SQLite `BUSY`/`LOCKED`;
 - record this ADR in the section 24 accepted-decision list.
 
-Retry is now implemented, in three increments: the foundation types, then the
-portable classifiers and the inert marker, then the activation that landed the
-marker's throw site and the retry loop together. `PACKAGE_SPEC.md` and
-`ROADMAP.md` record it as implemented. `StrictMutationTransaction` still runs
-with `attempts: 1`, deliberately and permanently: attempt counting belongs to
-one place, and Laravel's own retry cannot distinguish a coordination race from a
-foreign-key violation.
+Retry is implemented, in four increments: the foundation types; the portable
+classifiers and the inert marker; the activation that landed the marker's throw
+site and the retry loop together; and the completion that coordinated the three
+revocations, restored the unsupported-driver contract, and added the live
+parallel MySQL test.
+
+**Implementation status is not the same as acceptance status, and this ADR
+records both.** The runtime is complete and covered by unit and single-process
+integration tests. The real-concurrency evidence required by section 10 —
+parallel writers against one assignment scope on the disposable MySQL service —
+exists as `tests/Integration/MySql/ParallelCoordinationTest` but has **not yet
+been observed passing** on MySQL 8.0.16 or MySQL 8.0.45. Until it has, `ROADMAP.md`
+keeps the bounded-concurrency-retry item unchecked. `PACKAGE_SPEC.md` describes
+the runtime semantics, which are real; it does not claim the acceptance evidence
+is complete.
+
+`StrictMutationTransaction` still runs with `attempts: 1`, deliberately and
+permanently: attempt counting belongs to one place, and Laravel's own retry
+cannot distinguish a coordination race from a foreign-key violation.
 
 Only the internal component names belong to this ADR; `MutationName`,
-`ClassifiedConcurrencyFailure`, `CoordinationPlan`, `RetryOrchestrator` and
-`CoordinationInsertRace` are `@internal` and are deliberately absent from the
-specification's public exception list.
+`ClassifiedConcurrencyFailure`, `CoordinationPlan`, `RetryOrchestrator`,
+`AssignmentScopeProbe`, `RevocationCoordinator` and `CoordinationInsertRace` are
+`@internal` and are deliberately absent from the specification's public
+exception list.
+
+**Revocation coordination.** ADR 0001 requires every managed assignment creation
+*and revocation* to serialize through the coordination row. The three revocations
+now do, in the only order that cannot invert the creation path's lock order: an
+unlocked probe of the assignment's persisted identity, the coordination row, then
+the assignment row under `SELECT ... FOR UPDATE`, then a re-derivation of the
+scope from the locked row that fails closed on a mismatch. Scope components are
+always read from storage, never from a caller-supplied model's attributes.
+
+**Unsupported drivers are not retryable and are not unclassified.**
+`UnsupportedDatabaseDriver` propagates unchanged out of both classification
+paths. GateTrail cannot classify a failure on a driver it has never verified, and
+answering "not retryable" would quietly extend retry semantics to an unknown
+error surface.
 
 No contradiction with the accepted specification was found. ADR 0001's adapter
 table describes MySQL and SQL Server recovery after "a duplicate-key" failure;

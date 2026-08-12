@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace HangTuah\GateTrail\Mutations\Handlers;
 
 use DateTimeInterface;
+use HangTuah\GateTrail\Assignments\AssignmentKind;
+use HangTuah\GateTrail\Assignments\RevocationCoordinator;
 use HangTuah\GateTrail\Audit\AuditContextBuilder;
 use HangTuah\GateTrail\Audit\MetadataNormalizer;
 use HangTuah\GateTrail\Audit\PendingAuditRecord;
@@ -36,6 +38,7 @@ final readonly class RevokeRoleHandler
         private MutationReasonValidator $reasons,
         private AuditedMutationTransaction $mutations,
         private RoleAssignmentInputResolver $assignments,
+        private RevocationCoordinator $coordination,
         private RoleAssignmentSnapshotBuilder $snapshots,
         private AuditContextBuilder $contexts,
         private SensitiveAuditValueRedactor $redactor,
@@ -58,8 +61,15 @@ final readonly class RevokeRoleHandler
                 $actor,
                 $reason,
             ): PreparedMutation {
-                $assignment = $this->assignments->resolve(
+                // Coordination first, then the locked reload. See
+                // RevocationCoordinator for why the order cannot be reversed.
+                $assignment = $this->coordination->coordinate(
+                    AssignmentKind::Role,
                     $command->assignment,
+                    $command->requestedAt,
+                    fn (): RoleAssignment => $this->assignments->resolve(
+                        $command->assignment,
+                    ),
                 );
                 $assignmentId = $this->identifier(
                     $assignment,

@@ -147,16 +147,8 @@ final class AssignmentRetryIntegrationTest extends TestCase
         $this->assertDatabaseCount('acl_role_permissions', 1);
     }
 
-    public function test_the_three_revocations_take_no_coordination_row(): void
+    public function test_all_three_revocations_coordinate_through_the_lock_table(): void
     {
-        // Only the three mutations that create an assignment acquire a
-        // coordination row; a revocation targets one already-identified
-        // assignment row and takes no scope lock. That is pre-existing
-        // behaviour, and it means the coordination insert race is not
-        // reachable for them — they are still coordinated, so a classified
-        // deadlock or serialization failure would still be retried, and the
-        // structural proof that they call runCoordinated() with their own
-        // constant lives in RetryBoundaryTest.
         $granted = [
             'role' => $this->assignments()->assignRole(
                 $this->subject,
@@ -178,58 +170,60 @@ final class AssignmentRetryIntegrationTest extends TestCase
             ),
         ];
 
-        $this->assertDatabaseCount(self::LOCK_TABLE, 3);
+        $expected = [
+            'role' => AssignmentScope::forRole(
+                $this->subject->getMorphClass(),
+                (int) $this->subject->getKey(),
+                (int) Role::query()->sole()->getKey(),
+            ),
+            'direct permission' => AssignmentScope::forPermission(
+                $this->subject->getMorphClass(),
+                (int) $this->subject->getKey(),
+                (int) Permission::query()->sole()->getKey(),
+            ),
+            'role permission' => AssignmentScope::forRolePermission(
+                (int) Role::query()->sole()->getKey(),
+                (int) Permission::query()->sole()->getKey(),
+            ),
+        ];
+
+        // Clear the coordination rows the grants created, so the revocations
+        // have to take them again on their own.
         $this->reset();
         $this->app['db']->table(self::LOCK_TABLE)->delete();
 
-        $planter = new CoordinationRacePlanter(
-            $this->connection(),
-            self::LOCK_TABLE,
-            [
-                'assignment_kind' => 'role',
-                'scope_hash' => str_repeat('b', 64),
-                'scope_key' => 'unused',
-                'created_at' => '2026-08-12 11:59:00',
-                'updated_at' => '2026-08-12 11:59:00',
-            ],
-            times: 10,
+        $this->assignments()->revokeRole(
+            $granted['role']->resource,
+            SystemActor::named('test-suite'),
+            'Revoked by administrator',
         );
-        $planter->attach();
+        $this->assignments()->revokeDirectPermission(
+            $granted['direct permission']->resource,
+            SystemActor::named('test-suite'),
+            'Revoked by administrator',
+        );
+        $this->assignments()->revokePermissionFromRole(
+            $granted['role permission']->resource,
+            SystemActor::named('test-suite'),
+            'Revoked by administrator',
+        );
 
-        $revoked = [
-            'role' => $this->assignments()->revokeRole(
-                $granted['role']->resource,
-                SystemActor::named('test-suite'),
-                'Revoked by administrator',
-            ),
-            'direct permission' => $this->assignments()
-                ->revokeDirectPermission(
-                    $granted['direct permission']->resource,
-                    SystemActor::named('test-suite'),
-                    'Revoked by administrator',
-                ),
-            'role permission' => $this->assignments()
-                ->revokePermissionFromRole(
-                    $granted['role permission']->resource,
-                    SystemActor::named('test-suite'),
-                    'Revoked by administrator',
-                ),
-        ];
+        // ADR 0001 coordinates revocation as well as creation, and each
+        // revocation must land on the very scope its creation used.
+        $this->assertDatabaseCount(self::LOCK_TABLE, 3);
 
-        foreach ($revoked as $label => $result) {
+        foreach ($expected as $label => $scope) {
             $this->assertSame(
-                MutationOutcome::Revoked,
-                $result->outcome,
-                sprintf('Revoking the [%s] should succeed.', $label),
+                1,
+                $this->app['db']->table(self::LOCK_TABLE)
+                    ->where('assignment_kind', $scope->kind()->value)
+                    ->where('scope_hash', $scope->hash())
+                    ->where('scope_key', $scope->key())
+                    ->count(),
+                sprintf('The [%s] revocation must coordinate.', $label),
             );
         }
 
-        $this->assertSame(
-            0,
-            $planter->planted(),
-            'A revocation inserts no coordination row.',
-        );
-        $this->assertDatabaseCount(self::LOCK_TABLE, 0);
         $this->assertCount(3, $this->events);
         $this->assertSame(
             [
@@ -241,6 +235,43 @@ final class AssignmentRetryIntegrationTest extends TestCase
                 static fn (MutationCommitted $event): string => $event->mutation,
                 $this->events,
             ),
+        );
+    }
+
+    public function test_a_revocation_recovers_from_a_lost_race(): void
+    {
+        $granted = $this->assignments()->assignRole(
+            $this->subject,
+            'reviewer',
+            SystemActor::named('test-suite'),
+            'Assigned by administrator',
+        );
+        $this->reset();
+        $this->app['db']->table(self::LOCK_TABLE)->delete();
+
+        $planter = $this->plant(
+            AssignmentScope::forRole(
+                $this->subject->getMorphClass(),
+                (int) $this->subject->getKey(),
+                (int) Role::query()->sole()->getKey(),
+            ),
+        );
+
+        $result = $this->assignments()->revokeRole(
+            $granted->resource,
+            SystemActor::named('test-suite'),
+            'Revoked by administrator',
+        );
+
+        // Now that revocation coordinates, it can lose the insert race too —
+        // and recovers through the same bounded retry.
+        $this->assertSame(1, $planter->planted());
+        $this->assertSame(MutationOutcome::Revoked, $result->outcome);
+        $this->assertDatabaseCount('acl_access_audits', 1);
+        $this->assertCount(1, $this->events);
+        $this->assertSame(
+            MutationName::ROLE_REVOKED,
+            $this->events[0]->mutation,
         );
     }
 

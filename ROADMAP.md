@@ -56,7 +56,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | Approximately 34% | Equal-phase progress across Phases 0–13 |
+| Overall roadmap by primary phases | Approximately 33% | Equal-phase progress across Phases 0–13 |
 | Deliverable tracker | 10 of 32, approximately 31% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
@@ -98,7 +98,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 90% | In progress |
+| 4 | Mutation services | 86% | In progress |
 | 5 | Effective permission resolver | 0% | Not started |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -640,15 +640,18 @@ additional progress items.
 - [x] Disabled audit behavior.
 - [ ] After-commit cache invalidation.
 - [x] After-commit event dispatch.
-- [x] Bounded concurrency retry. Contract accepted in
-      [ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md) and
-      implemented for the six `AssignmentManager` mutations.
+- [ ] Bounded concurrency retry. Contract accepted in
+      [ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md). The runtime
+      implementation is complete and covered by unit and single-process
+      integration tests, but the acceptance evidence ADR 0011 requires — a live
+      parallel MySQL run on both supported versions — has not been observed
+      passing, so this item stays unchecked.
 - [ ] Consumer documentation and pre-v1 API freeze.
 
 ```text
-Completed: 19
+Completed: 18
 Total:     21
-Progress:  90.476%, reported as 90%
+Progress:  85.714%, reported as 86%
 ```
 
 ### Required strict-audit flow
@@ -938,10 +941,12 @@ audit write.
 a real single-use-case handler and no stub exists. Every definition mutation
 accepted by ADR 0002 is therefore implemented, bound, and tested. Both
 contracts remain pre-v1. All three accepted audit modes and the accepted
-after-commit mutation event are now implemented, as is bounded concurrency
-retry. Phase 4 stays open because two cross-cutting mutation behaviors —
-after-commit cache invalidation, and the consumer documentation and pre-v1 API
-freeze — are still outstanding.
+after-commit mutation event are now implemented. Phase 4 stays open because
+three cross-cutting mutation behaviors — after-commit cache invalidation,
+bounded concurrency retry, and the consumer documentation and pre-v1 API
+freeze — are still outstanding. Bounded concurrency retry is the closest of the
+three: its runtime is complete, and only its live acceptance evidence is
+missing.
 
 Bounded concurrency retry is implemented.
 [ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md) is accepted and now
@@ -966,7 +971,7 @@ SQLSTATE hardening, `TransientFailureClassifier` for driver-aware deadlock and
 serialization shapes, `CoordinationRaceClassifier` for the assignment-lock
 insert race alone, and the then-inert `CoordinationInsertRace` marker.
 
-The third increment activates retry, landing the marker's production throw site
+The third increment activated retry, landing the marker's production throw site
 and its catch site atomically:
 
 - **`AssignmentLockStore` is wired at the exact insert boundary.** The
@@ -975,68 +980,96 @@ and its catch site atomically:
   classifier does not positively recognise is rethrown as the same object with
   its own chain intact. The initial `SELECT ... FOR UPDATE` and the re-read are
   deliberately outside the catch, so
-  `CoordinationRaceClassifier`'s positional precondition is now structurally
-  true rather than a caller convention. `AssignmentScopeCollision` is unchanged.
+  `CoordinationRaceClassifier`'s positional precondition is structurally true
+  rather than a caller convention. `AssignmentScopeCollision` is unchanged.
 - **`AuditedMutationTransaction::runCoordinated()` is the second entry point.**
   Before any transaction opens it validates the mutation name against the six
   coordinated assignments, resolves the bounded attempt count, decides ownership
   from the connection's transaction level, and applies the existing
-  after-commit boundary rule. An unknown name, a definition name, an empty
-  string or an invalid attempt count fails with no database work performed and
-  the operation closure never runs.
+  after-commit boundary rule.
 - **The loop sits inside the class, around the mutation transaction attempt
-  only.** One private seam serves all three audit modes, so the loop is not
-  duplicated across strict, non-strict and disabled. It wraps no validation, no
-  non-strict audit write, no cache slot, no event dispatch and no post-commit
-  reporting. `announce()` remains outside it, which is what makes ADR 0010's
-  exactly-once guarantee structural: a discarded attempt cannot reach the
-  announcement, because the announcement is not reachable until the loop has
-  produced a committed attempt.
+  only.** One private seam serves all three audit modes. `announce()` remains
+  outside it, which is what makes ADR 0010's exactly-once guarantee structural.
 - **`RetryOrchestrator` counts attempts and decides exhaustion.** It catches
-  exactly two types and never `Throwable`. A classified driver exception is
-  reduced to safe scalars and explicitly dropped inside the `catch`, so nothing
-  stores, chains, logs or forwards it; only the latest
-  `ClassifiedConcurrencyFailure` survives between attempts. It refuses to retry
-  on a connection that a failed attempt did not leave at transaction level zero,
-  failing closed with typed exhaustion rather than replaying onto state it
-  cannot vouch for.
-- **The six assignment handlers opt in with the same constant they audit
-  with**, so the exhaustion operation, the audit `event` column and
-  `MutationCommitted` can never describe different mutations. All eight
-  definition handlers still call `run()`.
-- **`StrictMutationTransaction` still runs with `attempts: 1`**, asserted
-  behaviourally: Laravel's own message-matching retry never becomes active, and
-  GateTrail owns all attempt counting and classification.
+  exactly two types and never `Throwable`, reduces a classified driver
+  exception to safe scalars and drops it inside the `catch`, and refuses to
+  retry on a connection a failed attempt did not leave at transaction level
+  zero.
+- **The six assignment handlers opt in with the same constant they audit with.**
+  All eight definition handlers still call `run()`, and
+  `StrictMutationTransaction` still runs with `attempts: 1`.
 
-Evidence is unit plus single-connection integration on SQLite. Races are real
-rather than stubbed: the coordination row is planted immediately before the
-store's own insert, so the engine raises a genuine duplicate-key failure at the
-exact statement and the production classifier confirms it unaided. Coverage
-proves one attempt on success; retry-then-commit producing exactly one mutation,
-one audit row and one event; exhaustion leaving no mutation, no audit, no
-coordination row and no event; `concurrency_attempts` of `1` still raising typed
-exhaustion; caller-owned transactions making exactly one attempt and reporting
-`callerOwned: true`; the marker never reaching a consumer; unclassified
-`QueryException`s, domain exceptions, `AuditWriteFailed`, lock timeouts, SQLite
-`BUSY`/`LOCKED` and arbitrary `Throwable`s never being retried; and no SQL,
-binding, reason, metadata or credential reaching the terminal exception.
+The fourth increment completed and hardened the contract:
 
-Two limits of that evidence are worth stating plainly. First, deadlock and
-serialization retry cannot be exercised against SQLite, because ADR 0011 gives
-SQLite no retryable deadlock or serialization shape; those paths are covered by
-driver-shape unit vectors, and real portability evidence remains the province of
-the disposable MySQL and Oracle suites. Second, the real-concurrency evidence
-ADR 0011 asks for — parallel writers against one assignment scope on the
-disposable MySQL service — is not yet written, which is why the Quality
-deliverable "Concurrency tests" stays unchecked and the deliverable tracker
-remains at 10 of 32.
+- **Revocation coordinates.** ADR 0001 requires every managed assignment
+  creation *and revocation* to serialize through `acl_assignment_locks`.
+  `revokeRole()`, `revokeDirectPermission()` and `revokePermissionFromRole()`
+  entered `runCoordinated()` in the third increment but took no coordination
+  row, so two writers could still interleave a creation and a revocation on one
+  scope. All three now coordinate through a shared `RevocationCoordinator` in
+  the one order that cannot deadlock against the creation path: probe the
+  assignment's persisted identity **without** a lock, derive the canonical
+  scope from those persisted values, acquire the coordination row, reload the
+  assignment `FOR UPDATE`, re-derive the scope from the locked row, and fail
+  closed with `AssignmentScopeCollision` if it moved. Locking the assignment row
+  first — the obvious single-read version — would invert the lock order against
+  creation, which takes coordination first and equivalent assignment rows
+  second.
+- **Caller-supplied models are never trusted for scope.** Only the identifier is
+  taken from an incoming Eloquent model; `subject_type`, `subject_id`,
+  `role_id` and `permission_id` are read back from the database by primary key,
+  so a stale or edited in-memory attribute cannot steer GateTrail onto the wrong
+  coordination row. Identifiers reuse the existing normalizer, so a malformed
+  numeric identifier never reaches a PostgreSQL, Oracle or SQL Server binding.
+- **The unsupported-driver contract is restored.** Both classification paths
+  previously swallowed `UnsupportedDatabaseDriver` and treated it as an
+  unclassified failure. That silently extended retry semantics to drivers whose
+  error surface GateTrail has never verified. Both now let the typed exception
+  propagate unchanged, with zero retry.
 
-One pre-existing detail is worth recording because it bounds what the
-coordination race can affect: only `assignRole()`, `grantDirectPermission()` and
-`grantPermissionToRole()` acquire a coordination row. The three revocations
-target an already-identified assignment row and take no scope lock, so they
-cannot lose the insert race. All six are still coordinated and would still retry
-a classified deadlock or serialization rollback.
+### Bounded concurrency retry: implementation versus acceptance evidence
+
+These are deliberately reported as two different things.
+
+**Runtime implementation: complete.** Every behaviour ADR 0011 specifies exists
+in code and is covered by unit and single-process integration tests. Races in
+those tests are real rather than stubbed — the coordination row is planted
+immediately before the store's own insert, so the engine raises a genuine
+duplicate-key failure at the exact statement and the production classifier
+confirms it unaided. Coverage proves one attempt on success; retry-then-commit
+producing exactly one mutation, one audit row and one event; a fresh transaction
+per attempt; re-resolution of transaction-bound state on every attempt; the
+configured maximum of ten; exhaustion leaving no mutation, audit, coordination
+row or event; caller-owned transactions making exactly one attempt; the marker
+never reaching a consumer; and every listed domain exception, `AuditWriteFailed`,
+`InvalidAuditMetadata`, unclassified `QueryException`s, lock timeouts, SQLite
+`BUSY`/`LOCKED` and unsupported drivers never being retried.
+
+**Acceptance evidence: incomplete.** ADR 0011 also requires real-concurrency
+evidence: parallel writers against one assignment scope on the disposable MySQL
+service. That test now exists — `tests/Integration/MySql/ParallelCoordinationTest`
+spawns separate PHP processes on separate MySQL connections, releases them from
+a database barrier, and asserts the final invariant — but **it has not been
+observed passing on either supported MySQL version.** Docker was unavailable in
+the environment where it was written, so the MySQL suite could not be run
+locally, and the GitHub Actions matrix result has not been read back. Its
+process harness was validated end to end against a shared SQLite file, which
+exercises the worker bootstrap, the barrier, the timeouts, the cleanup and the
+result collection, but not MySQL's own error surface.
+
+Until that run is observed passing on **both** MySQL 8.0.16 and MySQL 8.0.45,
+the checklist item stays unchecked, Phase 4 stays at 18 of 21, and the Quality
+deliverable "Concurrency tests" stays unchecked. Two limits explain why the
+local suite cannot substitute: ADR 0011 gives SQLite no retryable deadlock or
+serialization shape, so those two matrix rows are covered only by driver-shape
+vectors and by connections that report another driver without opening one; and a
+single-process test cannot produce genuine inter-process contention.
+
+One detail bounds what the coordination race can affect. Only `assignRole()`,
+`grantDirectPermission()` and `grantPermissionToRole()` insert a coordination
+row on a scope that has never been used; a revocation normally finds the row its
+creation left behind and takes it without inserting. All six coordinate, and all
+six retry a classified deadlock or serialization rollback.
 
 ### Pre-v1 assignment-manager contract gate
 

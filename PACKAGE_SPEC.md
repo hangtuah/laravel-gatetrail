@@ -1682,6 +1682,27 @@ has no package-level backoff, and lock wait timeouts and SQLite `BUSY`/`LOCKED`
 conditions remain non-retryable. The complete contract is defined by
 [ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md).
 
+Retry is bounded to three positively classified conditions and nothing else:
+
+- a coordination-row insert race, confirmed against the assignment-lock table's
+  own primary key at the exact insert statement;
+- a deadlock rollback;
+- a serialization failure.
+
+Everything else is terminal on the first attempt. Domain failures such as
+`DuplicateActiveAssignment`, `AssignmentNotActive`, `AssignmentScopeCollision`,
+`GuardMismatch`, `RoleNotFound`, `PermissionNotFound`, `ReasonRequired` and
+`InvalidActor`; validation failures, including an invalid mutation name or an
+invalid `concurrency_attempts` value, which are rejected before any transaction
+opens; audit failures such as `AuditWriteFailed` and `InvalidAuditMetadata`;
+unclassified infrastructure `QueryException`s; and `UnsupportedDatabaseDriver`
+are all non-retryable and propagate unchanged. GateTrail never retries inside a
+caller-owned transaction: that call makes exactly one attempt.
+
+Every managed assignment creation and revocation serializes through the
+coordination row. A revocation derives its scope from the assignment's persisted
+identity rather than from a caller-supplied model instance.
+
 The `audit` section configures:
 
 ```text

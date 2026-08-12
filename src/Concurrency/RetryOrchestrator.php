@@ -6,7 +6,6 @@ namespace HangTuah\GateTrail\Concurrency;
 
 use Closure;
 use HangTuah\GateTrail\Exceptions\ConcurrencyRetryExhausted;
-use HangTuah\GateTrail\Exceptions\UnsupportedDatabaseDriver;
 use HangTuah\GateTrail\Mutations\StrictMutationTransaction;
 use Illuminate\Database\Connection;
 use Illuminate\Database\QueryException;
@@ -33,6 +32,14 @@ use Illuminate\Database\QueryException;
  * — is never caught here, so it ends the attempt immediately and propagates
  * unchanged. There is deliberately no `catch (Throwable)` anywhere in this
  * class.
+ *
+ * {@see UnsupportedDatabaseDriver} is a third thing that leaves this class
+ * unchanged. Classification asks the schema adapters to canonicalize the
+ * driver, and an unsupported one raises that typed failure from inside the
+ * `QueryException` handler. It is deliberately not caught: the package already
+ * has one answer for an unsupported driver, and pretending the failure was
+ * merely unclassified would quietly extend retry semantics to a driver whose
+ * error surface GateTrail has never verified.
  *
  * # Raw exception lifetime
  *
@@ -97,7 +104,16 @@ final readonly class RetryOrchestrator
                 // further than this frame.
                 unset($race);
             } catch (QueryException $exception) {
-                $classified = $this->classify($exception, $connection);
+                // An unsupported driver raises UnsupportedDatabaseDriver from
+                // here and is deliberately allowed to propagate. GateTrail
+                // cannot classify a failure on a driver it does not support,
+                // and guessing "unclassified" would silently extend retry
+                // semantics to a driver whose error surface is unknown. The
+                // package's existing typed contract answers instead.
+                $classified = $this->classifier->classify(
+                    $exception,
+                    $connection->getDriverName(),
+                );
 
                 if ($classified === null) {
                     // Not retryable, not ours to reinterpret: the original
@@ -139,31 +155,6 @@ final readonly class RetryOrchestrator
                     $failure,
                 );
             }
-        }
-    }
-
-    /**
-     * Asks the transient classifier about a driver exception.
-     *
-     * An unsupported driver is treated as unclassifiable rather than as a
-     * reason to raise {@see UnsupportedDatabaseDriver} here. This runs inside a
-     * `catch`: replacing the caller's real database failure with a complaint
-     * about driver support would destroy the diagnostic that matters and would
-     * change what an unsupported deployment sees for every failure, not just
-     * this one. Unclassified means "not retryable", and the original exception
-     * propagates unchanged.
-     */
-    private function classify(
-        QueryException $exception,
-        Connection $connection,
-    ): ?ClassifiedConcurrencyFailure {
-        try {
-            return $this->classifier->classify(
-                $exception,
-                $connection->getDriverName(),
-            );
-        } catch (UnsupportedDatabaseDriver) {
-            return null;
         }
     }
 }
