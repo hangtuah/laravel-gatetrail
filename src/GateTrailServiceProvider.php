@@ -74,6 +74,7 @@ use HangTuah\GateTrail\Mutations\RoleInputResolver;
 use HangTuah\GateTrail\Mutations\RolePermissionDefinitionResolver;
 use HangTuah\GateTrail\Mutations\RolePermissionInputResolver;
 use HangTuah\GateTrail\Mutations\StrictMutationTransaction;
+use HangTuah\GateTrail\Subjects\SubjectIdentityResolver;
 use HangTuah\GateTrail\Support\ModelRegistry;
 use HangTuah\GateTrail\Time\SystemClock;
 use Illuminate\Contracts\Foundation\Application;
@@ -121,6 +122,10 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(AssignmentScopeProbe::class);
         $this->app->singleton(RevocationCoordinator::class);
         $this->app->singleton(ActorIdentityResolver::class);
+        // One shared subject-identity rule for every path that derives one,
+        // so a read and a write can never disagree about who the subject is.
+        // Stateless, so the package's explicit-singleton convention applies.
+        $this->app->singleton(SubjectIdentityResolver::class);
         $this->app->singleton(AssignmentIdentifierNormalizer::class);
         $this->app->singleton(DefinitionIdentifierNormalizer::class);
         $this->app->singleton(DefinitionInputValidator::class);

@@ -27,9 +27,9 @@ use HangTuah\GateTrail\Mutations\MutationName;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
 use HangTuah\GateTrail\Mutations\PreparedMutation;
 use HangTuah\GateTrail\Mutations\RoleInputResolver;
+use HangTuah\GateTrail\Subjects\SubjectIdentityResolver;
 use HangTuah\GateTrail\Support\ModelRegistry;
 use Illuminate\Database\Eloquent\Model;
-use InvalidArgumentException;
 use LogicException;
 
 /**
@@ -43,6 +43,7 @@ final readonly class AssignRoleHandler
         private MutationReasonValidator $reasons,
         private AuditedMutationTransaction $mutations,
         private RoleInputResolver $roles,
+        private SubjectIdentityResolver $subjects,
         private AssignmentLockStore $locks,
         private AssignmentConflictQuery $conflicts,
         private AssignmentDecisionMaker $decisions,
@@ -60,9 +61,9 @@ final readonly class AssignRoleHandler
         $metadata = $this->metadata->normalize($command->metadata);
         $actor = $this->actors->resolve($command->actor);
         $reason = $this->reasons->assignment($command->reason);
-        [$subjectType, $subjectId] = $this->subjectIdentity(
-            $command->subject,
-        );
+        $subject = $this->subjects->resolve($command->subject);
+        $subjectType = $subject->type;
+        $subjectId = $subject->id;
         $candidate = EffectiveAssignmentPeriod::fromAssignment(
             $command->period,
             $command->requestedAt,
@@ -169,32 +170,6 @@ final readonly class AssignRoleHandler
         );
     }
 
-    /**
-     * @return array{string, int|string}
-     */
-    private function subjectIdentity(Model $subject): array
-    {
-        if (! $subject->exists) {
-            throw new InvalidArgumentException(
-                'GateTrail role assignment subject must be persisted.',
-            );
-        }
-
-        $type = $subject->getMorphClass();
-        $id = $subject->getKey();
-
-        if (
-            $type === ''
-            || (! is_int($id) && ! is_string($id))
-        ) {
-            throw new InvalidArgumentException(
-                'GateTrail role assignment subject identity is invalid.',
-            );
-        }
-
-        return [$type, $id];
-    }
-
     private function modelIdentifier(
         Model $model,
         string $label,
@@ -215,7 +190,7 @@ final readonly class AssignRoleHandler
 
     private function createAssignment(
         string $subjectType,
-        int|string $subjectId,
+        int $subjectId,
         int|string $roleId,
         ActorIdentity $actor,
         ?string $reason,

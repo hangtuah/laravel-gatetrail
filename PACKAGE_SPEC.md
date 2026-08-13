@@ -1074,9 +1074,12 @@ defined by
 
 The resolver architecture is accepted in
 [ADR 0012](docs/decisions/0012-effective-access-resolution.md). This section
-records the accepted design. **No resolver is implemented yet.** Phase 5 of the
-roadmap remains not started, and nothing in this section describes behavior
-that has been built or evidence that has been produced.
+records the accepted design. **No resolver is implemented yet.**
+
+One part of this section is built: the shared subject identity of section 11.8,
+which the assignment mutations already use. Everything else — the contracts,
+the shared snapshot, the queries, the query budget and the memoization — is
+accepted design with no implementation and no evidence behind it.
 
 ### 11.1 Responsibility
 
@@ -1253,6 +1256,10 @@ A shared internal `SubjectIdentityResolver` derives the (subject type, subject
 identifier) pair. **The same rule applies to authorization reads and to
 subject-assignment mutations**, so a read and a write can never disagree about
 who the subject is.
+
+This component is implemented and is used by the assignment mutations today.
+The canonical identifier is a native integer, so `7`, `'7'` and `'007'` are one
+subject rather than three values that merely compare equal.
 
 - the subject must be a **persisted** `Model`;
 - the morph type is the subject's morph class and must be **non-empty**;

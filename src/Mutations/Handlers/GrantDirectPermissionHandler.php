@@ -27,9 +27,9 @@ use HangTuah\GateTrail\Mutations\MutationName;
 use HangTuah\GateTrail\Mutations\MutationReasonValidator;
 use HangTuah\GateTrail\Mutations\PermissionInputResolver;
 use HangTuah\GateTrail\Mutations\PreparedMutation;
+use HangTuah\GateTrail\Subjects\SubjectIdentityResolver;
 use HangTuah\GateTrail\Support\ModelRegistry;
 use Illuminate\Database\Eloquent\Model;
-use InvalidArgumentException;
 use LogicException;
 
 /** @internal */
@@ -41,6 +41,7 @@ final readonly class GrantDirectPermissionHandler
         private MutationReasonValidator $reasons,
         private AuditedMutationTransaction $mutations,
         private PermissionInputResolver $permissions,
+        private SubjectIdentityResolver $subjects,
         private AssignmentLockStore $locks,
         private AssignmentConflictQuery $conflicts,
         private AssignmentDecisionMaker $decisions,
@@ -57,7 +58,9 @@ final readonly class GrantDirectPermissionHandler
         $metadata = $this->metadata->normalize($command->metadata);
         $actor = $this->actors->resolve($command->actor);
         $reason = $this->reasons->assignment($command->reason);
-        [$subjectType, $subjectId] = $this->subjectIdentity($command->subject);
+        $subject = $this->subjects->resolve($command->subject);
+        $subjectType = $subject->type;
+        $subjectId = $subject->id;
         $candidate = EffectiveAssignmentPeriod::fromAssignment($command->period, $command->requestedAt);
 
         return $this->mutations->runCoordinated(
@@ -116,17 +119,6 @@ final readonly class GrantDirectPermissionHandler
         );
     }
 
-    /** @return array{string, int|string} */
-    private function subjectIdentity(Model $subject): array
-    {
-        $id = $subject->getKey();
-        if (! $subject->exists || (! is_int($id) && ! is_string($id))) {
-            throw new InvalidArgumentException('GateTrail permission assignment subject must be persisted.');
-        }
-
-        return [$subject->getMorphClass(), $id];
-    }
-
     private function identifier(Model $model, string $label): int|string
     {
         $id = $model->getKey();
@@ -139,7 +131,7 @@ final readonly class GrantDirectPermissionHandler
 
     private function createAssignment(
         string $subjectType,
-        int|string $subjectId,
+        int $subjectId,
         int|string $permissionId,
         ActorIdentity $actor,
         ?string $reason,

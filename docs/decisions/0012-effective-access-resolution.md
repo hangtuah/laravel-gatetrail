@@ -4,8 +4,10 @@
 - Proposed: 2026-08-12
 - Accepted: 2026-08-13
 - Decision owners: GateTrail maintainers
-- Implementation status: **Not started**
-- Acceptance evidence: **defined but not yet produced** — see
+- Implementation status: **In progress** — Increment 1 of 10 complete,
+  2026-08-13. See [Implementation increments](#16-implementation-increments).
+- Acceptance evidence: **partially produced.** Increment 1's evidence exists;
+  the resolver acceptance matrix does not — see
   [Acceptance criteria](#17-acceptance-criteria)
 - Supersedes: nothing
 - Blocks: Phase 5 implementation, and the Phase 6 Gate, concern and middleware
@@ -16,9 +18,14 @@
 **What "Accepted" means here.** The *architectural decision* is accepted: the
 contracts, the shared snapshot, the lifecycle algorithm, the query
 architecture, the memoization rules and the evidence matrix below are settled
-and no longer awaiting maintainer approval. No resolver code exists yet. The
-acceptance criteria in section 17 are the definition of done for Phase 5, not a
-record of tests that have run.
+and no longer awaiting maintainer approval.
+
+**Implementation is separate and has only begun.** Increment 1 — the shared
+subject-identity foundation — is complete and evidenced. **No resolver,
+snapshot, contract, authorization query, memoization or cache behaviour
+exists**, and no resolver acceptance evidence has been produced. The acceptance
+criteria in section 17 remain the definition of done for Phase 5; only the
+subject-identity portion of that matrix has been satisfied.
 
 ## Context
 
@@ -563,7 +570,7 @@ connection:
 final readonly class SubjectIdentity
 {
     public string $type;       // from getMorphClass()
-    public int|string $id;     // ONE canonical unsigned decimal value
+    public int $id;            // ONE canonical unsigned decimal value
 }
 ```
 
@@ -590,10 +597,22 @@ runtime it must **represent an unsigned decimal integer**:
 | `''` | `InvalidSubject` |
 | Any other non-decimal value | `InvalidSubject` |
 
-`SubjectIdentity` may store `int|string` internally — the persisted column type
-and the driver decide which binding shape is appropriate — but it always
-represents **one canonical unsigned decimal value**. `'007'`, `'7'` and `7` are
-the same subject and must produce the same identity on every path.
+`SubjectIdentity` always represents **one canonical unsigned decimal value**.
+`'007'`, `'7'` and `7` are the same subject and must produce the same identity
+on every path.
+
+**Implemented as a native `int`** (Increment 1). A `int|string` field would let
+`7` and `'7'` produce identities that differ only by PHP scalar type — equal
+under `==`, distinct under `===` — which is exactly the ambiguity this rule
+exists to remove. A native integer makes the canonical form unrepresentable in
+two ways, and the `subject_id` column is an unsigned integer on every supported
+engine, so no binding fidelity is lost.
+
+The cost is an explicit upper bound: identifiers above `PHP_INT_MAX` are
+**rejected**, never saturated. That is narrower than an unsigned 64-bit column
+can hold, and it is the documented boundary of the initial runtime rather than
+an oversight. Widening it is part of the same future coordinated design as
+UUID/ULID support below.
 
 **The resolver and the mutation paths use this same rule**, because they are
 the same component (section 3.1).
@@ -1975,6 +1994,8 @@ percentages.
 
 ### Increment 1 — Shared subject identity foundation and mutation alignment
 
+**Status: Complete, 2026-08-13.**
+
 - **Scope.** Introduce `SubjectIdentityResolver`, the immutable
   `SubjectIdentity` value, and `InvalidSubject`. Replace the two private
   `subjectIdentity()` copies in `AssignRoleHandler` and
@@ -1989,6 +2010,35 @@ percentages.
   UUID/ULID subject support** — section 3.1.1 keeps that for a future
   coordinated design.
 - **Required before the resolver is considered complete.**
+
+#### Increment 1 evidence
+
+Delivered in `src/Subjects/SubjectIdentity.php`,
+`src/Subjects/SubjectIdentityResolver.php` and
+`src/Exceptions/InvalidSubject.php`, bound as a singleton and consumed by both
+assignment handlers.
+
+| Requirement | Evidence |
+|---|---|
+| One rule for reads and writes | `SharedSubjectIdentityTest` asserts both handlers depend on `SubjectIdentityResolver`, that neither retains a private `subjectIdentity()`, and that one shared rejection table holds for the resolver and both mutation paths |
+| `'007'`, `'7'` and `7` are one subject | The canonical identifier is a **native `int`**, so the three inputs are identical by `assertSame()`, not merely equal; both mutation paths persist the same `subject_id` |
+| Full rejection table | `'-1'`, `'+1'`, `' 1'`, `'1 '`, `"1\n"`, `'1.0'`, `'1e3'`, `'0x1f'`, `''`, non-ASCII digits, UUID, ULID, unsupported key types, unsaved subject, dirty key and empty or whitespace-only morph type |
+| No saturation above the boundary | Digit-string comparison against `PHP_INT_MAX`, with a test asserting the same value casts to `PHP_INT_MAX` and is nonetheless rejected |
+| `InvalidSubject` carries no raw identifier | `InvalidSubjectTest` reflects over the class: private constructor, exactly two `readonly string` properties, the five-term vocabulary, no factory parameter other than a safe type label, `getPrevious()` null, and sensitive identifiers absent from the message, the string cast and the object vars |
+| Failure precedes all side effects | A rejected subject issues **zero database statements**, leaves the assignment, coordination-lock and audit tables empty, dispatches no `MutationCommitted`, and leaves `transactionLevel()` at zero |
+| Existing behaviour unchanged | The full suite passes; public manager signatures asserted unchanged by reflection |
+
+Two findings were recorded rather than silently absorbed:
+
+- **`GrantDirectPermissionHandler` previously accepted an empty morph type**
+  and wrote it into `subject_type`, while `AssignRoleHandler` rejected it. The
+  paths now agree. This is a deliberate behaviour change, not a refactor.
+- **A key rewritten to its own persisted value in a different scalar type is
+  not a mutation.** Eloquent compares the primary key through its cast, so
+  `$subject->id = '1'` on a subject persisted as `1` is not dirty, and
+  canonicalization collapses both shapes to one identity. The dirty rule
+  protects against a key pointing at a *different* subject, which is what the
+  test now pins.
 
 ### Increment 2 — Value objects and public contracts
 

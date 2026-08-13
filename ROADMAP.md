@@ -43,7 +43,8 @@ Phase 1 — Complete
 Phase 2 — Complete
 Phase 3 — In progress
 Phase 4 — In progress
-Phase 5 onward — Not started
+Phase 5 — In progress
+Phase 6 onward — Not started
 ```
 
 The package specification is accepted for implementation. Repository tooling
@@ -99,7 +100,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
 | 4 | Mutation services | 90% | In progress |
-| 5 | Effective permission resolver | 0% | Not started |
+| 5 | Effective permission resolver | 0% | In progress |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
 | 8 | Cache and performance | 0% | Not started |
@@ -161,7 +162,8 @@ Accepted architecture decisions:
 No proposed architecture decision is currently outstanding.
 
 Acceptance records an architectural decision, not implementation. ADR 0012 is
-accepted and **not implemented**: Phase 5 remains not started.
+accepted, and its implementation is **in progress**: Increment 1 of 10 is
+complete, and no resolver exists yet.
 
 ## 5. Roadmap adherence
 
@@ -1155,6 +1157,22 @@ The correction changes the denominator from eight to ten while the numerator
 stays at zero. **Accepting an architecture is not implementation evidence**, so
 this phase remains at 0% with no deliverable checked.
 
+### Implementation status
+
+Implementation has begun. **Increment 1 of ADR 0012 — the shared
+subject-identity foundation — is complete**: `SubjectIdentity`,
+`SubjectIdentityResolver` and `InvalidSubject` exist, are container-bound, and
+have replaced the two divergent private `subjectIdentity()` copies in
+`AssignRoleHandler` and `GrantDirectPermissionHandler`. A subject now resolves
+to one canonical identity, or is rejected identically, on every path.
+
+**No deliverable above is checked, and this phase stays at 0%.** That is not an
+oversight. Under section 3.2, shared infrastructure is counted through the
+capability that consumes it, and no resolver capability exists yet: there is no
+`PermissionResolver`, no `RoleResolver`, no snapshot, no authorization query
+and no memoization. Increment 1 hardened the existing mutation paths and laid a
+foundation; it completed none of the ten deliverables.
+
 ```text
 Completed: 0
 Total:     10
@@ -1166,7 +1184,7 @@ Progress:  0%
 The complete resolver test matrix passes without Laravel Gate, middleware, or
 cross-request caching.
 
-Status: **Not started**
+Status: **In progress**
 
 ## 13. Phase 6 — Laravel integration
 
