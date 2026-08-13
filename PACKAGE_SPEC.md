@@ -1072,15 +1072,27 @@ defined by
 
 ## 11. Authorization resolvers
 
+The resolver architecture is accepted in
+[ADR 0012](docs/decisions/0012-effective-access-resolution.md). This section
+records the accepted design. **No resolver is implemented yet.** Phase 5 of the
+roadmap remains not started, and nothing in this section describes behavior
+that has been built or evidence that has been produced.
+
 ### 11.1 Responsibility
 
-One `PermissionResolver` is the source of truth for:
+`PermissionResolver` is the source of truth for:
 
 - direct permission checks;
 - permissions inherited through roles;
 - effective permission collections;
 - Gate integration;
 - middleware integration.
+
+`RoleResolver` is the source of truth for role membership, under section 11.5.
+
+Both are thin projections over one shared internal evaluation, defined in
+section 11.6. Neither contract carries a lifecycle rule, a guard rule, a query,
+or an ordering rule of its own.
 
 ### 11.2 Resolution algorithm
 
@@ -1098,27 +1110,44 @@ For a subject and permission:
 9. Allow when any active source is found.
 10. Deny otherwise.
 
-### 11.3 Initial resolver contract
+The check is a membership test against the evaluated state of section 11.6:
+
+- the caller's requested permission is **never bound into a statement**, so a
+  check issues no separate definition-lookup query;
+- a cold check builds the snapshot under the section 11.10 query budget;
+- a warm check performs **zero queries**;
+- steps 1 to 3 run before any snapshot work, so a malformed or cross-guard
+  reference denies without reaching the database.
+
+### 11.3 Resolver contract
 
 ```php
 interface PermissionResolver
 {
     public function allows(
-        mixed $subject,
+        Model $subject,
         PermissionContract|PermissionReference|string|int $permission,
     ): bool;
 
-    public function effectivePermissions(mixed $subject): Collection;
+    /** @return Collection<int, EffectivePermission> */
+    public function effectivePermissions(Model $subject): Collection;
 }
 ```
 
-The implementation may use more specific contracts than the illustrative
-signature above. Public input types must be finalized before `0.1.0`.
+`$subject` is `Illuminate\Database\Eloquent\Model`, not `mixed`. Guard
+resolution already requires a model, so a wider public type would narrow
+immediately and would force every Laravel adapter to repeat the same runtime
+check.
 
 ### 11.4 Time source
 
 Time-based authorization uses an injectable clock abstraction. Tests must not
 depend on the machine's current time.
+
+**One evaluation reads the clock exactly once.** Every lifecycle comparison in
+a single resolution uses that one instant, so a resolution cannot observe an
+assignment as both active and expired. The instant is normalized to whole
+seconds in UTC.
 
 Point-in-time historical permission queries are not part of the initial public
 API.
@@ -1143,17 +1172,18 @@ identifier, or reference resolving outside the subject's guard also returns
 false. Mutation operations remain different and throw `GuardMismatch` for
 cross-guard input.
 
-The initial illustrative contract is:
+The contract is:
 
 ```php
 interface RoleResolver
 {
     public function has(
-        mixed $subject,
+        Model $subject,
         RoleContract|RoleReference|string|int $role,
     ): bool;
 
-    public function effectiveRoles(mixed $subject): Collection;
+    /** @return Collection<int, EffectiveRole> */
+    public function effectiveRoles(Model $subject): Collection;
 }
 ```
 
@@ -1161,6 +1191,195 @@ Any and all checks derive from the same effective-role set. They must not
 implement independent lifecycle or guard rules. The exact active-role behavior
 aligns with
 [ADR 0004](docs/decisions/0004-middleware-any-all-syntax.md).
+
+A batch check must resolve **one** state and test every parameter against it.
+Calling `allows()` or `has()` once per parameter is not an acceptable
+implementation of an any or all check: separate calls may observe different
+snapshots, which makes an all check able to report success for a set that was
+never simultaneously held.
+
+### 11.6 Shared internal resolution
+
+An internal `EffectiveAccessResolver` builds one immutable
+`EffectiveAccessSnapshot` per (subject identity, guard, evaluation instant).
+`PermissionResolver` and `RoleResolver` are thin projections over it.
+
+- boolean checks and effective collections read the **same evaluated state**,
+  so a `true` from `allows()` and the presence of that permission in
+  `effectivePermissions()` cannot disagree within one snapshot;
+- the snapshot holds the subject identity, the resolved guard, the evaluation
+  instant, and the ordered unique effective role and permission lists;
+- `EffectiveAccessResolver` and `EffectiveAccessSnapshot` are internal. They
+  are not public API and are not part of the compatibility surface.
+
+Parity is **per snapshot**. Two separate public calls may legitimately differ
+when the evaluation second advances between them, when a mutation commits
+between them, when the subject's guard changes, or when the memo is bypassed
+inside a caller-owned transaction. This is not a parity violation; it is the
+absence of a linearizability claim, stated in section 11.11.
+
+### 11.7 Effective access value objects
+
+`effectivePermissions()` and `effectiveRoles()` return collections of
+`EffectivePermission` and `EffectiveRole`. Both carry the identical shape:
+
+```text
+id
+name
+guardName
+```
+
+- both are `final readonly`;
+- **construction is package-controlled**: private constructors, an `@internal`
+  named factory used by the package, and **no public consumer factory**.
+  Consumers receive instances through the two collection methods and do not
+  construct them. Constructor parameters are not compatibility surface;
+- each public projection returns a **fresh `Collection`**, so a consumer may
+  mutate the returned collection without affecting a later check;
+- results are unique by definition primary key, so a permission reachable
+  through two roles and a direct grant appears once;
+- results are ordered ascending by name, compared as raw bytes in PHP rather
+  than by SQL `ORDER BY`, because collation makes engine ordering
+  non-portable;
+- these objects are **output only**. Neither resolver accepts them as input,
+  and they appear in no input union in sections 11.3 and 11.5;
+- **no source attribution in v1.** The objects do not report which role or
+  direct grant produced a permission. Adding it later requires a separate
+  compatibility decision.
+
+### 11.8 Subject identity
+
+A shared internal `SubjectIdentityResolver` derives the (subject type, subject
+identifier) pair. **The same rule applies to authorization reads and to
+subject-assignment mutations**, so a read and a write can never disagree about
+who the subject is.
+
+- the subject must be a **persisted** `Model`;
+- the morph type is the subject's morph class and must be **non-empty**;
+- the subject identifier must canonicalize to an **unsigned decimal integer**
+  in the initial runtime;
+- leading zeros are canonicalized, so `'007'` and `7` are the same subject;
+- a **dirty subject key** is rejected with `InvalidSubject`. An unsaved change
+  to the primary key would otherwise resolve against an identity that is not
+  the persisted one;
+- **UUID and ULID subject identifiers remain unsupported** in the initial
+  runtime. Supporting them is a coordinated design across the schema, the morph
+  columns, and the assignment tables, not a migration-publishing exercise;
+- `InvalidSubject` reports the failure reason and the subject type. It **never
+  carries the raw subject identifier**.
+
+### 11.9 Lifecycle and resolution rules
+
+- one injected-clock instant per evaluation, under section 11.4;
+- assignment periods are **half-open**:
+  `[starts_at ?? assigned_at, expires_at ?? +infinity)`, so an assignment is
+  inactive exactly at its expiry instant;
+- **definition lifecycle and guard filtering are explicit predicates.** The
+  role and permission `deleted_at` and `guard_name` conditions are written onto
+  the joined definition table. They are not inherited from an Eloquent global
+  scope, which applies only to a query's root model, and not from the
+  definition relations, which are deliberately `withTrashed()` so that
+  assignment history stays reachable;
+- **role-derived permission resolution revalidates the complete path.** Role
+  identifiers carried from an earlier query are candidates for narrowing and
+  chunking only, never evidence that the assignment is still active;
+- that revalidation uses a **correlated `EXISTS` subquery** over the role
+  assignment table rather than a further join, so each lifecycle predicate
+  binds unambiguously to its own table;
+- names are compared **exactly**, in PHP, case-sensitively, never through a SQL
+  `WHERE name = ?` whose semantics vary by collation;
+- results are unique by definition primary key;
+- ordering is deterministic in PHP by byte comparison (`strcmp`);
+- **default deny**;
+- no wildcard permissions;
+- no explicit deny;
+- no implicit super administrator.
+
+### 11.10 Query budget
+
+Cold resolution of one subject:
+
+| Case | Queries |
+|---|---|
+| Subject holds no effective role | **2** |
+| Common path, subject holds roles | **3** |
+| Chunked path | **2 + ceil(role count / 900)** |
+| Warm memo hit | **0** |
+
+- the 900-identifier chunk is fixed on every engine, with no driver branching.
+  It sits below Oracle's 1000-expression `IN` limit and well below SQL Server's
+  2100-parameter limit;
+- **no N+1.** The budget does not grow with the number of permissions, and
+  grows with role count only through the chunk bound;
+- the budget must be verified by **actual connection-level instrumentation** —
+  a listener counting the statements the connection executed — not by a
+  self-reported counter on the resolver.
+
+### 11.11 Request-local memoization
+
+- memoization is **scoped and bounded**, held for the current container scope
+  rather than for the process lifetime, so a queue worker or Octane request
+  cannot inherit another request's authorization state;
+- the memo key includes the subject type, the subject identifier, the resolved
+  guard, and the evaluation instant truncated to a **whole second**;
+- a `MutationCommitted` event observed **in the same process and current
+  scope** clears the **whole** memo. Definition-level mutations carry no
+  subject, so there is no key to invalidate selectively;
+- a **caller-owned transaction bypasses memoization**. While one is active the
+  resolver reads through and stores nothing;
+- **transaction-local snapshots are never retained**, so a rollback cannot
+  leave authorization derived from discarded writes in the memo;
+- **a rollback produces no event.** `MutationCommitted` fires only after a
+  successful outermost commit;
+- **another process cannot clear this process's request memo.** The event is an
+  in-process Laravel event;
+- there is therefore **no distributed invalidation claim**. Within a bounded
+  request memo, the exposure is bounded by the whole-second key and the scope
+  lifetime;
+- **no cross-request cache, TTL, tags, fan-out, or shared-cache implementation
+  exists yet.** Section 14 items 2 and 3 remain undesigned and are governed by
+  a future cache ADR.
+
+Authorization reads are read-only. They take no lock and open no package-owned
+transaction, so a check can never block a writer. GateTrail does **not** claim
+linearizable authorization: a check reflects committed state visible to its
+connection at its evaluation instant.
+
+### 11.12 Resolver failure taxonomy
+
+- an unsupported, unpersisted, or dirty-keyed subject raises `InvalidSubject`;
+- an unresolvable guard raises `InvalidGuard`;
+- a missing permission or role **denies** and does not throw. A not-found
+  definition is an authorization answer, not an error;
+- a definition reference resolving to another guard **denies**. Mutations
+  remain different and throw `GuardMismatch`;
+- a model implementing `PermissionContract` or `RoleContract` that is not an
+  instance of the configured definition model, or a subclass of it, **denies**
+  rather than throwing. It is not permitted to match by identifier;
+- an internal invariant failure **raises rather than denying**, so a defect
+  cannot be mistaken for a deny. The final exception boundary for that case is
+  decided before the public API freeze;
+- database failures are not converted into denials.
+
+### 11.13 Resolver portability evidence
+
+Evidence is proportional to what is claimed for each engine, and no evidence
+exists yet.
+
+| Engine | Required before Phase 5 completion |
+|---|---|
+| SQLite | Full resolver behavioral matrix |
+| MySQL | Live resolver integration on the existing four-lane matrix |
+| Oracle | Targeted live resolver integration through the existing cost-controlled harness |
+| PostgreSQL | Query-compilation and schema-adapter inspection only |
+| SQL Server | Query-compilation and schema-adapter inspection only |
+
+**No live PostgreSQL or SQL Server resolver evidence may be claimed before a
+dedicated runtime harness exists.** Compilation inspection proves the emitted
+SQL is well-formed for the grammar; it does not prove runtime behavior.
+
+The resolver emits **no raw database-specific SQL**. The same query shape must
+compile under every supported grammar with no driver branching.
 
 ## 12. Laravel integration
 
@@ -1511,6 +1730,19 @@ GateTrail initially provides:
 2. optional Laravel cache for effective permissions;
 3. automatic invalidation through managed mutations.
 
+Item 1 is designed and accepted in
+[ADR 0012](docs/decisions/0012-effective-access-resolution.md), and specified
+in section 11.11: a scoped, bounded, request-local memo keyed on subject type,
+subject identifier, resolved guard and the evaluation instant truncated to a
+whole second; cleared wholesale by a same-process `MutationCommitted`; bypassed
+entirely inside a caller-owned transaction; and released with its container
+scope. It makes no cross-process or cross-request claim.
+
+Items 2 and 3 are **undesigned**. Nothing in section 11.11 implies a store, a
+TTL, a tag strategy, a role-change fan-out, or any cross-request invalidation
+behavior. Sections 14.3 to 14.6 describe requirements the future cache ADR must
+satisfy, not accepted behavior.
+
 ### 14.3 Cache keys
 
 Cache keys include:
@@ -1597,6 +1829,14 @@ exceptions are never converted into it. The complete contract is defined by
 `InvalidConcurrencyConfiguration` reports an invalid
 `assignments.concurrency_attempts` value. It names the configuration key and
 never echoes the rejected value.
+
+`InvalidSubject` reports a subject that cannot be resolved to a stable
+identity: not persisted, an empty morph type, an identifier that does not
+canonicalize to an unsigned decimal integer in the initial runtime, or a dirty
+primary key. It exposes the failure reason and the subject type, and **never
+carries the raw subject identifier**. The same rule raises it on authorization
+reads and on subject-assignment mutations, under section 11.8 and
+[ADR 0012](docs/decisions/0012-effective-access-resolution.md).
 
 ## 16. Events
 
@@ -1839,7 +2079,20 @@ GateTrail must:
 - assignment-period value objects;
 - mutation outcomes.
 - canonical audit snapshot serialization;
-- metadata normalization, size, depth, and redaction rules.
+- metadata normalization, size, depth, and redaction rules;
+- subject identity canonicalization, leading-zero handling, dirty-key
+  rejection, and the absence of the raw identifier from `InvalidSubject`;
+- boolean-check and effective-collection parity within one snapshot;
+- effective ordering by byte comparison and uniqueness by definition primary
+  key;
+- value-object shape, immutability, private constructors, and the absence of a
+  public consumer factory;
+- returned collections being fresh per call and safe to mutate;
+- effective value objects being absent from every resolver input union;
+- a definition model that is not the configured class, or a subclass, denying
+  rather than matching by identifier;
+- half-open assignment activity exactly at the expiry instant;
+- a single clock read per evaluation.
 
 ### 20.2 Integration tests
 
@@ -1868,7 +2121,19 @@ GateTrail must:
 - middleware parameter normalization and route-cache compatibility;
 - Blade through Gate;
 - cache invalidation;
-- domain events after commit.
+- domain events after commit;
+- explicit joined-definition `deleted_at` and `guard_name` filtering, asserted
+  against a deactivated and a cross-guard definition;
+- role-derived permission resolution granting nothing when the role assignment
+  is revoked, and nothing when the role-permission grant is revoked, so each
+  lifecycle predicate is pinned to its own table;
+- the section 11.10 query budget measured by connection-level statement
+  instrumentation, on the two-query, three-query, chunked, and warm paths;
+- request-memo clearing on a same-process `MutationCommitted`, memo bypass
+  inside a caller-owned transaction, and no retained snapshot after a rollback;
+- a second container scope not clearing the first scope's memo;
+- resolver queries compiling under every supported grammar without driver
+  branching.
 
 ### 20.3 Security regression tests
 
@@ -1968,6 +2233,14 @@ containers. Local runs of the default SQLite suite and the static quality gates
 are separate quality-gate evidence and are never treated as live-database
 results.
 
+Authorization resolution has **no live evidence of any kind yet**, because no
+resolver exists. Section 11.13 defines the proportional matrix it must satisfy
+before Phase 5 can be called complete: full behavioral coverage on SQLite, live
+integration on the four MySQL lanes, targeted live Oracle through the existing
+cost-controlled harness, and compilation with adapter inspection for PostgreSQL
+and SQL Server until live harnesses exist. Compilation evidence is never
+reported as live-database evidence.
+
 ## 21. Performance requirements
 
 - Permission checks must avoid an N+1 query per role.
@@ -1990,6 +2263,12 @@ No performance claim may be published without a reproducible benchmark.
   extension point is intended.
 - Public manager signatures, named parameters, reference interpretation,
   mutation results, and documented value objects are compatibility surface.
+- For a value object whose construction is package-controlled, the
+  compatibility surface is what a consumer can **read** — its class name, its
+  readable fields, and their types. A constructor or named factory marked
+  `@internal` is excluded, even when PHP visibility rules make it technically
+  callable, because PHP has no package-private visibility. Calling one is
+  depending on unsupported surface.
 - Internal commands, handlers, repositories, adapters, and orchestration
   services are not public API.
 - Breaking changes require changelog entries and an upgrade guide.
@@ -2038,6 +2317,14 @@ implemented.
 Bounded concurrency retry for assignment coordination is accepted in
 [ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md), implemented, and
 verified on the supported live MySQL matrix. Section 20.5 records the evidence.
+
+Effective access resolution — the shared snapshot, the two resolver contracts,
+subject identity, the lifecycle and query architecture, request-local
+memoization, and the proportional portability evidence matrix — is accepted in
+[ADR 0012](docs/decisions/0012-effective-access-resolution.md). It is
+**accepted as a design and is not implemented**. Section 11 records the
+accepted contracts; no resolver code, live evidence, or query-budget
+measurement exists yet.
 
 Architecture decisions will be stored under:
 

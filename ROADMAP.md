@@ -1,6 +1,6 @@
 # GateTrail Roadmap and Implementation Guide
 
-Last updated: 2026-08-12
+Last updated: 2026-08-13
 
 ## 1. Purpose
 
@@ -139,6 +139,7 @@ Completed documents:
 - `docs/decisions/0009-direct-database-mutation-and-diagnostics.md`
 - `docs/decisions/0010-after-commit-mutation-events.md`
 - `docs/decisions/0011-bounded-concurrency-retry.md`
+- `docs/decisions/0012-effective-access-resolution.md`
 
 Accepted architecture decisions:
 
@@ -155,6 +156,12 @@ Accepted architecture decisions:
 | 0009 | Treat direct database mutation as unsupported and diagnostic-only | Accepted |
 | 0010 | Dispatch one generic after-commit mutation event | Accepted |
 | 0011 | Retry only assignment coordination on confirmed transient failures | Accepted |
+| 0012 | Resolve effective access once and expose it through two thin contracts | Accepted |
+
+No proposed architecture decision is currently outstanding.
+
+Acceptance records an architectural decision, not implementation. ADR 0012 is
+accepted and **not implemented**: Phase 5 remains not started.
 
 ## 5. Roadmap adherence
 
@@ -1108,8 +1115,10 @@ Implement one source of truth for every GateTrail authorization decision.
 ### Deliverables
 
 - [ ] `PermissionResolver` contract and implementation.
+- [ ] `RoleResolver` contract and implementation.
 - [ ] Direct permission resolution.
 - [ ] Role-derived permission resolution.
+- [ ] Effective role collection.
 - [ ] Subject guard resolution.
 - [ ] Lifecycle filtering.
 - [ ] Effective permission collection.
@@ -1124,6 +1133,33 @@ Implement one source of truth for every GateTrail authorization decision.
 - apply guard, start, expiry, revoke, and deactivation filters;
 - preserve parity between boolean checks and effective collections;
 - avoid N+1 queries.
+
+### Design status
+
+Design is complete and accepted. Effective access resolution is specified in
+[ADR 0012](docs/decisions/0012-effective-access-resolution.md), which is
+**Accepted** as of 2026-08-13, with all ten review questions resolved.
+
+The deliverable list above was corrected from eight items to ten at acceptance.
+`PACKAGE_SPEC.md` sections 11.1 and 11.5 define both a `PermissionResolver` and
+a `RoleResolver`, while the earlier list named only `PermissionResolver` and
+placed the role resolver in no phase at all. The corrected list adds
+`RoleResolver` and the effective role collection.
+
+`EffectiveAccessSnapshot`, `EffectiveAccessResolver` and
+`SubjectIdentityResolver` are **not** counted separately. Under section 3.2,
+shared infrastructure is included in the acceptance criteria of the capability
+that uses it and is not counted again as separate progress.
+
+The correction changes the denominator from eight to ten while the numerator
+stays at zero. **Accepting an architecture is not implementation evidence**, so
+this phase remains at 0% with no deliverable checked.
+
+```text
+Completed: 0
+Total:     10
+Progress:  0%
+```
 
 ### Exit criteria
 
