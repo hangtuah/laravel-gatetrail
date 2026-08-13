@@ -1076,10 +1076,17 @@ The resolver architecture is accepted in
 [ADR 0012](docs/decisions/0012-effective-access-resolution.md). This section
 records the accepted design. **No resolver is implemented yet.**
 
-One part of this section is built: the shared subject identity of section 11.8,
-which the assignment mutations already use. Everything else — the contracts,
-the shared snapshot, the queries, the query budget and the memoization — is
-accepted design with no implementation and no evidence behind it.
+Two parts of this section are built. The shared subject identity of section
+11.8 exists and the assignment mutations already use it. The contracts of
+sections 11.3 and 11.5 and the value objects of section 11.7 exist as declared
+types, so their shapes are frozen — but **nothing implements the contracts**,
+and they are intentionally left unbound in the container until a real
+implementation exists. Resolving either contract fails rather than returning a
+placeholder.
+
+Everything else — the shared snapshot, the queries, the query budget and the
+memoization — is accepted design with no implementation and no evidence behind
+it.
 
 ### 11.1 Responsibility
 

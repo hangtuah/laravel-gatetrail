@@ -162,8 +162,8 @@ Accepted architecture decisions:
 No proposed architecture decision is currently outstanding.
 
 Acceptance records an architectural decision, not implementation. ADR 0012 is
-accepted, and its implementation is **in progress**: Increment 1 of 10 is
-complete, and no resolver exists yet.
+accepted, and its implementation is **in progress**: Increments 1 and 2 of 10
+are complete, and no resolver implementation exists yet.
 
 ## 5. Roadmap adherence
 
@@ -1159,19 +1159,31 @@ this phase remains at 0% with no deliverable checked.
 
 ### Implementation status
 
-Implementation has begun. **Increment 1 of ADR 0012 — the shared
-subject-identity foundation — is complete**: `SubjectIdentity`,
+Implementation has begun. **Increments 1 and 2 of ADR 0012 are complete.**
+
+**Increment 1 — shared subject identity.** `SubjectIdentity`,
 `SubjectIdentityResolver` and `InvalidSubject` exist, are container-bound, and
 have replaced the two divergent private `subjectIdentity()` copies in
 `AssignRoleHandler` and `GrantDirectPermissionHandler`. A subject now resolves
 to one canonical identity, or is rejected identically, on every path.
 
+**Increment 2 — value objects and public contracts.** `EffectivePermission`
+and `EffectiveRole` exist as `final readonly` output types with
+package-controlled construction, and the `PermissionResolver` and
+`RoleResolver` interfaces carry the accepted signatures. The contracts are
+**deliberately left unbound**: they have no implementation yet, and a binding
+without one would mean a fake, a placeholder or a null object. Their bindings
+arrive in Increment 7 alongside the real default adapters.
+
 **No deliverable above is checked, and this phase stays at 0%.** That is not an
-oversight. Under section 3.2, shared infrastructure is counted through the
-capability that consumes it, and no resolver capability exists yet: there is no
-`PermissionResolver`, no `RoleResolver`, no snapshot, no authorization query
-and no memoization. Increment 1 hardened the existing mutation paths and laid a
-foundation; it completed none of the ten deliverables.
+oversight. `PermissionResolver contract and implementation` and
+`RoleResolver contract and implementation` are **atomic** deliverables: an item
+is 0% until its acceptance criteria and implementation evidence are both
+complete, and only the contract half of each exists. Under section 3.2, shared
+infrastructure is counted through the capability that consumes it, and no
+resolver capability exists yet — no snapshot, no authorization query, no
+memoization, no binding. The first two increments hardened the mutation paths
+and froze the public surface; they completed none of the ten deliverables.
 
 ```text
 Completed: 0

@@ -4,10 +4,10 @@
 - Proposed: 2026-08-12
 - Accepted: 2026-08-13
 - Decision owners: GateTrail maintainers
-- Implementation status: **In progress** — Increment 1 of 10 complete,
+- Implementation status: **In progress** — Increments 1 and 2 of 10 complete,
   2026-08-13. See [Implementation increments](#16-implementation-increments).
-- Acceptance evidence: **partially produced.** Increment 1's evidence exists;
-  the resolver acceptance matrix does not — see
+- Acceptance evidence: **partially produced.** The Increment 1 and 2 evidence
+  exists; the resolver acceptance matrix does not — see
   [Acceptance criteria](#17-acceptance-criteria)
 - Supersedes: nothing
 - Blocks: Phase 5 implementation, and the Phase 6 Gate, concern and middleware
@@ -21,11 +21,13 @@ architecture, the memoization rules and the evidence matrix below are settled
 and no longer awaiting maintainer approval.
 
 **Implementation is separate and has only begun.** Increment 1 — the shared
-subject-identity foundation — is complete and evidenced. **No resolver,
-snapshot, contract, authorization query, memoization or cache behaviour
-exists**, and no resolver acceptance evidence has been produced. The acceptance
-criteria in section 17 remain the definition of done for Phase 5; only the
-subject-identity portion of that matrix has been satisfied.
+subject-identity foundation — and Increment 2 — the value objects and the two
+public contracts — are complete and evidenced. **No resolver implementation,
+snapshot, authorization query, memoization or cache behaviour exists**, the two
+contracts are deliberately unbound, and no resolver acceptance evidence has
+been produced. The acceptance criteria in section 17 remain the definition of
+done for Phase 5; only the subject-identity portion of that matrix has been
+satisfied.
 
 ## Context
 
@@ -2042,8 +2044,10 @@ Two findings were recorded rather than silently absorbed:
 
 ### Increment 2 — Value objects and public contracts
 
-- **Scope.** `EffectivePermission`, `EffectiveRole`, `PermissionResolver` and
-  `RoleResolver` interfaces, with container bindings. Both value objects are
+**Status: Complete, 2026-08-13.**
+
+- **Scope.** `EffectivePermission`, `EffectiveRole`, and the
+  `PermissionResolver` and `RoleResolver` interfaces. Both value objects are
   `final readonly` with a **private constructor** and an `@internal` named
   factory, per section 1.4.
 - **Acceptance evidence.** Shapes and field names asserted; immutability
@@ -2051,7 +2055,48 @@ Two findings were recorded rather than silently absorbed:
   asserted `@internal`; PHPStan at level max clean; no `mixed` in the public
   surface.
 - **Non-goals.** No implementation behind the contracts yet. No public consumer
-  factory.
+  factory. **No container bindings** — see below.
+
+#### Container bindings belong to Increment 7, not here
+
+An earlier draft of this increment listed "interfaces, with container
+bindings", which contradicted its own non-goal. **This is a sequencing
+correction, not an architectural change**: nothing about the contracts, the
+value objects or the binding strategy changes, only when the binding is
+registered.
+
+An interface has no meaningful Laravel binding without a concrete class behind
+it. Binding one in this increment would require a fake resolver, a throwing
+placeholder, a null object or a closure that fails on resolution — and each of
+those is worse than no binding at all. A null object is the dangerous case: a
+resolver that answers `false` is indistinguishable from a legitimate deny, so a
+placeholder could silently satisfy `Gate::before` and look like a working
+authorization system.
+
+`PermissionResolver` and `RoleResolver` are therefore **deliberately unbound**
+until Increment 7 registers `DefaultPermissionResolver` and
+`DefaultRoleResolver`. Resolving either contract before then fails loudly,
+which is the correct behaviour for a capability that does not exist yet.
+
+#### Increment 2 evidence
+
+Delivered in `src/Access/EffectivePermission.php`,
+`src/Access/EffectiveRole.php`, `src/Contracts/PermissionResolver.php` and
+`src/Contracts/RoleResolver.php`.
+
+| Requirement | Evidence |
+|---|---|
+| Accepted value-object shape | Reflection asserts `final`, `readonly`, exactly `id` (`int\|string`), `name` (`string`), `guardName` (`string`), in that order, on both types |
+| Package-controlled construction | Constructor asserted **private**; `of()` asserted public, static and carrying `@internal Package-controlled construction. Not supported consumer API.`; `of()` asserted to be the **only** public method, so no second consumer factory can appear |
+| Identifiers preserved exactly | `7`, `'7'`, `'007'` and a UUID string each round-trip through `of()` unchanged — the value objects normalize nothing, because normalization belongs to the resolver |
+| Immutability at runtime | Writing a declared property and writing an undeclared property both raise `Error` |
+| Nothing escapes | Every held value asserted non-object and non-array, and the field list asserted to be exactly the three names |
+| Accepted contract signatures | Reflection asserts `Model` (not `mixed`) first, the exact definition unions, `bool` and `Collection` returns, and the `Collection<int, EffectivePermission>` / `Collection<int, EffectiveRole>` generics |
+| No `mixed` in the public surface | Asserted across every parameter, every return type **and every docblock** on both interfaces |
+| Output types are not inputs | Asserted that neither `EffectivePermission` nor `EffectiveRole` appears in any parameter union of its own contract |
+| Contracts carry no algorithm | Asserted interface, no properties, no constants, every method abstract |
+| No premature implementation | No declared class implements either contract, and neither `DefaultPermissionResolver` nor `DefaultRoleResolver` exists |
+| Bindings deferred | Both contracts asserted unbound and un-aliased, and `make()` asserted to throw `BindingResolutionException` rather than return a placeholder — contrasted against the three manager contracts, which **are** bound because they have implementations |
 
 ### Increment 3 — Immutable `EffectiveAccessSnapshot`
 
