@@ -145,7 +145,9 @@ final readonly class AssignmentScope
     ): string {
         $value = (string) $id;
 
-        if (preg_match('/^[0-9]+$/', $value) !== 1) {
+        // `\z` rather than `$`, because `$` also matches before a final
+        // newline and would accept "42\n" as an identifier.
+        if (preg_match('/^[0-9]+\z/', $value) !== 1) {
             throw new InvalidArgumentException(
                 sprintf(
                     'GateTrail assignment %s must be an unsigned decimal integer.',
