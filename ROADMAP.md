@@ -1,6 +1,6 @@
 # GateTrail Roadmap and Implementation Guide
 
-Last updated: 2026-08-13
+Last updated: 2026-08-17
 
 ## 1. Purpose
 
@@ -162,8 +162,8 @@ Accepted architecture decisions:
 No proposed architecture decision is currently outstanding.
 
 Acceptance records an architectural decision, not implementation. ADR 0012 is
-accepted, and its implementation is **in progress**: Increments 1 and 2 of 10
-are complete, and no resolver implementation exists yet.
+accepted, and its implementation is **in progress**: Increments 1, 2 and 3 of
+10 are complete, and no resolver implementation exists yet.
 
 ## 5. Roadmap adherence
 
@@ -1159,7 +1159,7 @@ this phase remains at 0% with no deliverable checked.
 
 ### Implementation status
 
-Implementation has begun. **Increments 1 and 2 of ADR 0012 are complete.**
+Implementation has begun. **Increments 1, 2 and 3 of ADR 0012 are complete.**
 
 **Increment 1 — shared subject identity.** `SubjectIdentity`,
 `SubjectIdentityResolver` and `InvalidSubject` exist, are container-bound, and
@@ -1175,15 +1175,27 @@ package-controlled construction, and the `PermissionResolver` and
 without one would mean a fake, a placeholder or a null object. Their bindings
 arrive in Increment 7 alongside the real default adapters.
 
+**Increment 3 — the immutable `EffectiveAccessSnapshot`.** The internal
+snapshot exists: one canonical subject identity, one resolved guard, one
+supplied evaluation instant, and the effective role and permission lists,
+deduplicated by definition primary key and ordered by raw-byte `strcmp()`. It
+projects fresh `Collection` instances and exact in-memory membership, and it
+retains no model, connection, query builder, mutable collection, counter or
+closure. It is built entirely from values handed to it: **it holds an evaluated
+state, it does not evaluate one.**
+
 **No deliverable above is checked, and this phase stays at 0%.** That is not an
 oversight. `PermissionResolver contract and implementation` and
 `RoleResolver contract and implementation` are **atomic** deliverables: an item
 is 0% until its acceptance criteria and implementation evidence are both
 complete, and only the contract half of each exists. Under section 3.2, shared
-infrastructure is counted through the capability that consumes it, and no
-resolver capability exists yet — no snapshot, no authorization query, no
-memoization, no binding. The first two increments hardened the mutation paths
-and froze the public surface; they completed none of the ten deliverables.
+infrastructure is counted through the capability that consumes it — and
+`EffectiveAccessSnapshot` is named in the design status above as exactly that,
+so it is not counted separately no matter how much of it exists. No resolver
+capability exists yet: no authorization query, no lifecycle filter, no guard
+resolution, no memoization, no binding. The first three increments hardened the
+mutation paths, froze the public surface and built the container the resolver
+will fill; they completed none of the ten deliverables.
 
 ```text
 Completed: 0

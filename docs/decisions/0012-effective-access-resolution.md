@@ -4,10 +4,10 @@
 - Proposed: 2026-08-12
 - Accepted: 2026-08-13
 - Decision owners: GateTrail maintainers
-- Implementation status: **In progress** — Increments 1 and 2 of 10 complete,
-  2026-08-13. See [Implementation increments](#16-implementation-increments).
-- Acceptance evidence: **partially produced.** The Increment 1 and 2 evidence
-  exists; the resolver acceptance matrix does not — see
+- Implementation status: **In progress** — Increments 1–3 of 10 complete,
+  2026-08-17. See [Implementation increments](#16-implementation-increments).
+- Acceptance evidence: **partially produced.** The Increment 1, 2 and 3
+  evidence exists; the resolver acceptance matrix does not — see
   [Acceptance criteria](#17-acceptance-criteria)
 - Supersedes: nothing
 - Blocks: Phase 5 implementation, and the Phase 6 Gate, concern and middleware
@@ -21,13 +21,15 @@ architecture, the memoization rules and the evidence matrix below are settled
 and no longer awaiting maintainer approval.
 
 **Implementation is separate and has only begun.** Increment 1 — the shared
-subject-identity foundation — and Increment 2 — the value objects and the two
-public contracts — are complete and evidenced. **No resolver implementation,
-snapshot, authorization query, memoization or cache behaviour exists**, the two
-contracts are deliberately unbound, and no resolver acceptance evidence has
-been produced. The acceptance criteria in section 17 remain the definition of
-done for Phase 5; only the subject-identity portion of that matrix has been
-satisfied.
+subject-identity foundation — Increment 2 — the value objects and the two
+public contracts — and Increment 3 — the immutable `EffectiveAccessSnapshot` —
+are complete and evidenced. **No resolver implementation, authorization query,
+lifecycle filter, guard resolution, memoization or cache behaviour exists.**
+The snapshot is a container for values something else must still produce: it
+holds an evaluated state, it does not evaluate one. The two contracts remain
+deliberately unbound, and no resolver acceptance evidence has been produced.
+The acceptance criteria in section 17 remain the definition of done for
+Phase 5; only the subject-identity portion of that matrix has been satisfied.
 
 ## Context
 
@@ -1990,9 +1992,14 @@ multi-engine claims that SQLite cannot evidence.
 
 ## 16. Implementation increments
 
-Planning only. **No increment below is complete, and none may be marked
-complete by this ADR.** Nothing here changes `ROADMAP.md` counts or
-percentages.
+A sequencing plan. **Accepting this ADR completed no increment below**; each
+one is marked complete only when its own implementation evidence exists, which
+is why every increment carries a status line and an evidence table rather than
+a claim. **Completing an increment does not change `ROADMAP.md` counts or
+percentages either** — the ten Phase 5 deliverables are atomic capabilities,
+and shared infrastructure is counted through the capability that consumes it.
+
+Increments 1–3 are complete. Increments 4–10 are not started.
 
 ### Increment 1 — Shared subject identity foundation and mutation alignment
 
@@ -2100,11 +2107,73 @@ Delivered in `src/Access/EffectivePermission.php`,
 
 ### Increment 3 — Immutable `EffectiveAccessSnapshot`
 
+**Status: Complete, 2026-08-17.**
+
 - **Scope.** The internal snapshot: identity, guard, instant, ordered unique
   role and permission lists, and its projection methods.
 - **Acceptance evidence.** Ordering by `strcmp`; uniqueness by primary key;
   fresh `Collection` per projection; no model, connection or counter retained.
 - **Non-goals.** No queries; the snapshot is built from in-memory fixtures.
+
+#### Increment 3 evidence
+
+Delivered in `src/Access/EffectiveAccessSnapshot.php`, asserted by
+`tests/Access/EffectiveAccessSnapshotTest.php`.
+
+**Construction shape.** Private constructor behind one `@internal` named
+factory, matching the pattern of `EffectivePermission::of()` and
+`MutationCommitted::record()`:
+
+```php
+EffectiveAccessSnapshot::of(
+    SubjectIdentity $subject,
+    string $guardName,
+    DateTimeImmutable $evaluatedAt,
+    iterable $roles,        // iterable<array-key, EffectiveRole>
+    iterable $permissions,  // iterable<array-key, EffectivePermission>
+): self
+```
+
+No parameter is `mixed`, none accepts a model or a raw row, and the element
+generics are declared for PHPStan. `iterable` is accepted rather than `array`
+so the future resolver may hand over lazily produced values; a foreign element
+is rejected with an `InvalidArgumentException` carrying **type labels only** at
+the boundary, rather than surfacing later as a `TypeError` inside the sort
+comparator.
+
+**Internal method names.** Ten public methods, no more:
+
+```text
+of()                    subject()               guardName()
+evaluatedAt()           roles()                 permissions()
+hasRoleId()             hasRoleNamed()
+hasPermissionId()       hasPermissionNamed()
+```
+
+The four membership methods are what Increment 7's thin adapters will project
+through. **Neither `PermissionResolver` nor `RoleResolver` was widened**, and
+the snapshot implements neither.
+
+| Requirement | Evidence |
+|---|---|
+| Accepted stored state | Reflection asserts exactly nine `private readonly` properties: the identity, the guard string, the instant, the two canonical `list`s and four `array<string, true>` membership indexes. The index arrays are the only addition to section 2.2's list and exist solely so a batch check is a hash lookup rather than a scan |
+| Ordering | Both lists canonicalized by `usort()` with raw-byte `strcmp()`. The fixture `zulu, Apple, Émile, _underscore, apple, Zebra` orders to `Apple, Zebra, _underscore, apple, zulu, Émile` — asserted against a literal list *and* against an independent `strcmp()` sort. `strcasecmp()` and a `strtolower()` sort each produce a different order from that fixture, so passing is evidence of byte ordering and not a coincidence. Natural ordering agrees with byte ordering on alphabetic names, so it is separated by its own fixture: `report2` and `report10` order to `report10, report2`, which is `strcmp()` and the opposite of `strnatcmp()`. No `ORDER BY`, no `strcoll()`, no collation |
+| Uniqueness by primary key | Three instances of the same permission — the realistic "reachable through two roles and a direct grant" case — collapse to one. Deduplication is first-occurrence-wins and `usort()` is stable, so one input list always yields one output list |
+| Type-stable identity key | Index keys are prefixed `int:`, `string:` and `name:`. Without the prefix PHP would rewrite the decimal-string key `'7'` to integer `7` and silently merge two distinct definitions. Asserted: identifiers `7` and `'7'` produce **two** entries; `hasRoleId(7)` is `false` for a role keyed `'7'` and vice versa; `'007'` matches nothing keyed `'7'` |
+| Separate namespaces | Role and permission indexes are separate properties, and the `name:` prefix keeps a name from ever landing in an identifier bucket — asserted with a role whose identifier is `'reviewer'` and whose name is `'7'` |
+| Not deduplicated by name | Two definitions sharing a name under one guard survive as two entries. That fixture is **synthetic**: `(name, guard_name)` is unique, so it cannot represent valid persisted state. It proves only which key deduplication uses |
+| Membership semantics | Identifier lookups preserve `int` versus `string` identity; name lookups are byte-for-byte and case-sensitive, so `reviewer`, `REVIEWER`, `' Reviewer'` and `'Reviewer '` all miss `Reviewer`. Nothing is normalized here — that belongs to the Increment 7 adapters — and nothing is looked up from a definition table |
+| Supplied instant | `evaluatedAt()` returns the **identical** `DateTimeImmutable` instance it was constructed with, preserving timezone and microseconds. The source is asserted to contain no `new DateTimeImmutable`, `Carbon`, `now()`, `time()`, `microtime(`, `date_create` or `SystemClock` |
+| Fresh `Collection` per projection | `roles()` and `permissions()` return a new `Collection` per call, asserted `assertNotSame`. `push()`, `forget()`, `pop()`, `shift()`, `transform()`, `sort()` and `filter()` on a returned collection change neither a later projection nor any membership answer. Entries are deliberately shared — they are `final readonly` — while the mutable container never is |
+| Object-graph safety | The retained graph is walked by reflection, including private properties, and asserted to contain no `Model`, `ConnectionInterface`, query or Eloquent builder, `Relation`, `Collection`, container or `Closure`. `DateTimeImmutable` is treated as an opaque leaf rather than asserted against PHP's own internals |
+| No query counter | Section 8 rejects a self-reported counter outright. Asserted structurally: no stored property name matches `/count\|quer\|statement/i`, and no stored value is an `int` |
+| No database activity | Building and exercising a snapshot under a connection listener records **zero statements** and leaves `transactionLevel()` at zero. The listener is the same mechanism `SharedSubjectIdentityTest` already uses, and no schema, migration or database dependency was added for it |
+
+**Deliberately not added.** No guard-consistency check between the snapshot
+guard and an entry's `guardName`, and no lifecycle assertion. Guard filtering
+and lifecycle filtering are Increments 4–6; validating them here would be a
+second copy of a rule that does not exist yet, which is exactly the drift
+topology C was chosen to prevent.
 
 ### Increment 4 — Portable lifecycle and query components
 
