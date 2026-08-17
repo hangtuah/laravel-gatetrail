@@ -97,7 +97,56 @@ final readonly class EffectiveAccessRowMapper
     }
 
     /**
-     * The shape both mappings share.
+     * Query 3's rows, which cross two definitions and so carry two guards.
+     *
+     * **The role guard is verified first**, before the permission identifier
+     * or name is even read. A row whose role is not ours is not ours, and
+     * discarding it unexamined is what keeps a widened database comparison
+     * from turning into a failed authorization call.
+     *
+     * Both guards must be byte-for-byte the resolved guard. The permission
+     * guard alone is not enough: a candidate role observed as `web` can be
+     * rewritten to `WEB` between query 1 and query 3 while its permission stays
+     * `web`, and a case-insensitive collation would keep granting through it.
+     *
+     * @param  iterable<array-key, Model>  $rows
+     * @return list<EffectivePermission>
+     */
+    public function roleDerivedPermissions(iterable $rows, string $guardName): array
+    {
+        $definitionClass = $this->models->permission();
+        $definition = new $definitionClass;
+        $mapped = [];
+
+        foreach ($rows as $row) {
+            $attributes = $row->getAttributes();
+
+            $roleGuard = $this->guardAlias(
+                $attributes,
+                EffectiveAccessQueryBuilder::ROLE_GUARD_ALIAS,
+                'role',
+            );
+
+            if ($roleGuard !== $guardName) {
+                continue;
+            }
+
+            if ($this->guard($attributes) !== $guardName) {
+                continue;
+            }
+
+            $mapped[] = EffectivePermission::of(
+                $this->identifier($attributes, $definition),
+                $this->name($attributes),
+                $guardName,
+            );
+        }
+
+        return $mapped;
+    }
+
+    /**
+     * The shape both subject-assignment mappings share.
      *
      * The guard is checked first because it decides whether this row is ours
      * at all. Once a row is known to belong to another guard it is dropped
@@ -135,12 +184,28 @@ final readonly class EffectiveAccessRowMapper
      */
     private function guard(array $attributes): string
     {
-        $guard = $attributes[EffectiveAccessQueryBuilder::GUARD_ALIAS] ?? null;
+        return $this->guardAlias(
+            $attributes,
+            EffectiveAccessQueryBuilder::GUARD_ALIAS,
+            'definition',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function guardAlias(
+        array $attributes,
+        string $alias,
+        string $label,
+    ): string {
+        $guard = $attributes[$alias] ?? null;
 
         if (! is_string($guard)) {
-            throw new LogicException(
-                'GateTrail observed an effective access row whose definition guard is missing or not a string.',
-            );
+            throw new LogicException(sprintf(
+                'GateTrail observed an effective access row whose %s guard is missing or not a string.',
+                $label,
+            ));
         }
 
         return $guard;

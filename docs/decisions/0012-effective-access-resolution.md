@@ -4,10 +4,10 @@
 - Proposed: 2026-08-12
 - Accepted: 2026-08-13
 - Decision owners: GateTrail maintainers
-- Implementation status: **In progress** — Increments 1–5 of 10 complete,
+- Implementation status: **In progress** — Increments 1–6 of 10 complete,
   2026-08-17. See [Implementation increments](#16-implementation-increments).
-- Acceptance evidence: **partially produced.** The Increment 1–5 evidence
-  exists; the full resolver acceptance matrix does not — see
+- Acceptance evidence: **partially produced.** The Increment 1–6 evidence
+  exists; the public resolver adapters and the live-engine matrix do not — see
   [Acceptance criteria](#17-acceptance-criteria)
 - Supersedes: nothing
 - Blocks: Phase 5 implementation, and the Phase 6 Gate, concern and middleware
@@ -20,20 +20,22 @@ contracts, the shared snapshot, the lifecycle algorithm, the query
 architecture, the memoization rules and the evidence matrix below are settled
 and no longer awaiting maintainer approval.
 
-**Implementation is separate and is partly done.** Increments 1–5 are complete
+**Implementation is separate and is partly done.** Increments 1–6 are complete
 and evidenced: the shared subject-identity foundation, the value objects and
 the two public contracts, the immutable `EffectiveAccessSnapshot`, the portable
-joined-definition query builders, and the internal `EffectiveAccessResolver`
-that executes queries 1 and 2 into one snapshot.
+joined-definition query builders, the internal `EffectiveAccessResolver`, and
+role-derived permission resolution with full-path revalidation and 900-item
+chunking. **Internal resolution now produces the specification's complete
+effective-permission formula.**
 
-**What still does not exist:** role-derived permissions (query 3, its
-full-path revalidation and its chunking), the thin `DefaultPermissionResolver`
-and `DefaultRoleResolver` adapters, request-local memoization, and the
-production query instrumentation. **The effective permission set is therefore
-incomplete** — it holds direct grants only — which is exactly why
-`PermissionResolver` and `RoleResolver` remain deliberately unbound and no
-consumer-facing path can reach the resolver. The acceptance criteria in
-section 17 remain the definition of done for Phase 5.
+**What still does not exist:** the thin `DefaultPermissionResolver` and
+`DefaultRoleResolver` adapters, request-local memoization, and the production
+query instrumentation. `PermissionResolver` and `RoleResolver` remain
+deliberately unbound, so **no consumer-facing path reaches the resolver yet**.
+Live MySQL and Oracle resolver evidence (section 12.1) has also not been
+produced; the behavioural matrix runs on SQLite, with compile-only evidence for
+the other four grammars. The acceptance criteria in section 17 remain the
+definition of done for Phase 5.
 
 ## Context
 
@@ -2003,7 +2005,7 @@ a claim. **Completing an increment does not change `ROADMAP.md` counts or
 percentages either** — the ten Phase 5 deliverables are atomic capabilities,
 and shared infrastructure is counted through the capability that consumes it.
 
-Increments 1–5 are complete. Increments 6–10 are not started.
+Increments 1–6 are complete. Increments 7–10 are not started.
 
 ### Increment 1 — Shared subject identity foundation and mutation alignment
 
@@ -2358,6 +2360,8 @@ asserted unbound and un-aliased, and `DefaultPermissionResolver` and
 
 ### Increment 6 — Role-derived permission resolution with chunking
 
+**Status: Complete, 2026-08-17.**
+
 - **Scope.** Snapshot query 3 with **full path revalidation** via a correlated
   `EXISTS` over `RoleAssignment` (section 6.1.1), 900-item role-ID chunking,
   and merge with direct permissions.
@@ -2371,6 +2375,101 @@ asserted unbound and un-aliased, and `DefaultPermissionResolver` and
 - **Non-goals.** No engine-specific chunk sizes. No raw SQL for the subquery.
   No modification of `HasAssignmentPeriodScopes`. No attempt to close the
   residual post-query-3 window of section 9.2 — that would require locking.
+
+#### Increment 6 evidence
+
+Delivered in `src/Access/EffectiveAccessQueryBuilder.php`,
+`src/Access/EffectiveAccessRowMapper.php` and
+`src/Access/EffectiveAccessResolver.php`, asserted by
+`tests/Access/RoleDerivedPermissionQueryTest.php`,
+`tests/Access/RoleDerivedPermissionResolutionTest.php`,
+`tests/Access/EffectiveAccessRowMapperTest.php` and
+`tests/Integration/Oracle/OracleQueryCompilationTest.php`.
+
+**Query-3 shape.** One new builder method returning an unexecuted builder:
+
+```php
+EffectiveAccessQueryBuilder::roleDerivedPermissionsQuery(
+    SubjectIdentity $subject,
+    string $guardName,
+    DateTimeImmutable $evaluatedAt,
+    array $candidateRoleIds,     // list<int|string>, must be non-empty
+): Builder
+```
+
+It compiles to exactly the section 6.1 shape:
+
+```sql
+select   "acl_permissions"."id"         as "gatetrail_id",
+         "acl_permissions"."name"       as "gatetrail_name",
+         "acl_permissions"."guard_name" as "gatetrail_guard",
+         "acl_roles"."guard_name"       as "gatetrail_role_guard"
+from     "acl_role_permissions"
+inner join "acl_roles"       on "acl_roles"."id" = "acl_role_permissions"."role_id"
+inner join "acl_permissions" on "acl_permissions"."id" = "acl_role_permissions"."permission_id"
+where    <role_permissions half-open lifecycle at evaluatedAt>
+  and    "acl_role_permissions"."role_id" in (?, …)
+  and    "acl_roles"."deleted_at" is null
+  and    "acl_roles"."guard_name" = ?
+  and    "acl_permissions"."deleted_at" is null
+  and    "acl_permissions"."guard_name" = ?
+  and    exists (
+             select * from "acl_role_assignments"
+             where  <role_assignments half-open lifecycle at evaluatedAt>
+               and  "acl_role_assignments"."subject_type" = ?
+               and  "acl_role_assignments"."subject_id"   = ?
+               and  "acl_role_assignments"."role_id" = "acl_role_permissions"."role_id"
+         )
+```
+
+**Chunking is owned by `EffectiveAccessResolver`**, as a private
+`CANDIDATE_ROLE_CHUNK = 900`. The bound decides *how many statements exist*,
+which is a resolution concern; the builder describes one statement and has no
+opinion about how many there are. It is not configuration and does not vary by
+driver.
+
+**A second guard alias was added.** `ROLE_GUARD_ALIAS` (`gatetrail_role_guard`,
+20 characters) exists because the permission-guard post-check cannot see a
+widened comparison on `roles.guard_name`: a candidate role observed as `web`
+can be rewritten to `WEB` between query 1 and query 3 while its permission
+stays `web`, and a case-insensitive collation would keep granting through it.
+`EffectiveAccessRowMapper::roleDerivedPermissions()` verifies the **role guard
+first** — a row whose role is not ours is discarded unexamined — then the
+permission guard, both byte-for-byte.
+
+| Requirement | Evidence |
+|---|---|
+| Full-path revalidation | The interleaving is reproduced directly: candidates are captured from a real query 1, state is then mutated, and query 3 is executed with the now-stale list. A role assignment **revoked** after discovery grants nothing; a role **deactivated** after discovery grants nothing; an unchanged valid path still grants, so neither passes for the wrong reason. A candidate the subject never held grants nothing even when supplied explicitly |
+| Fails closed on later grants | A role granted after query 1 is absent from the candidate list and therefore from that build — an under-grant — while the next evaluation observes it |
+| Two lifecycle scopes, correctly bound | Captured SQL shows the half-open fragment **exactly twice**, once per scope. Binding is then proven behaviourally by a mirror matrix: the same seven lifecycle cases applied to the grant with the assignment held active, and to the assignment with the grant held active. Revoked grant + active assignment and active grant + revoked assignment each deny independently — which a single mis-bound predicate could not reproduce |
+| One lifecycle-bearing table per scope | `acl_role_assignments` is asserted absent from the outer query text before `exists (`, and each of `from "acl_role_permissions"` and `from "acl_role_assignments"` appears exactly once |
+| Correlated `EXISTS`, both sides qualified | `"acl_role_assignments"."role_id" = "acl_role_permissions"."role_id"` asserted present; the subquery is built from the `ModelRegistry`-resolved assignment model and its projection is left to the grammar |
+| Chunk boundary, exact | Real rows on SQLite: 0 roles → **2** statements (query 3 skipped entirely), 1 → 3, 899 → 3, 900 → 3, **901 → 4**, 1800 → 4, 1801 → 5. Query-3 statements are counted separately, and at 1801 roles the count is asserted to track chunks rather than candidates |
+| Candidate preparation | Candidates are deduplicated with a type-prefixed key before chunking — two assignments of one role are one candidate — while the identifier values keep the PHP type the definition model produced. An empty candidate list is rejected by the builder, because Laravel compiles an empty `whereIn` to `0 = 1`, which would cost a statement and look like a correct empty answer |
+| Both guard post-checks | For role guard and permission guard alike, `api`, `WEB`, `Web`, `web `, ` web` and `''` each exclude the row **silently** — no `GuardMismatch`, no disclosure. A row with a foreign role guard is dropped before its identifier is read. A missing or non-string role guard is a safe invariant failure carrying a fixed label only |
+| Merge and deduplication | A permission through two roles appears once; directly plus through a role appears once; **duplicates arriving from two different chunks** appear once (901 roles all granting the same permission). Revoking one source does not deny while another still grants. Merged ordering is raw-byte `strcmp()` through the snapshot: `Apple`, `_direct`, `apple`, `zulu` |
+| Definition lifecycle and guard | Deactivated role, deactivated permission, cross-guard role and cross-guard permission each grant nothing; restoring both makes the path effective again |
+| Read-only and one instant | Three statements, all `select`, word-boundary asserted free of every DML and DDL keyword, with no lock and no `acl_assignment_locks`. `transactionLevel()` stays 0 outside a caller's transaction and 1 inside one. A counting clock proves **one** `now()` per `resolve()` across a two-chunk build. A dropped `acl_role_permissions` propagates the driver's `QueryException` unchanged |
+| No memoization | Two calls over a 901-role subject cost 8 statements |
+
+**Portability evidence, stated precisely.** Query 3 compiles under the four
+grammars `illuminate/database` ships — SQLite, MySQL, PostgreSQL and SQL
+Server — and under the **real** `Yajra\Oci8\Query\Grammars\OracleGrammar` from
+the isolated runtime in `tools/oracle-integration`, with no root dependency
+added and no live endpoint required (compiling a select never opens the
+connection, which is itself asserted). The Oracle test also pins that all four
+aliases survive Oracle's identifier wrapping and stay inside its 30-character
+bound, and that both lifecycle scopes and the correlation survive.
+
+**This is compilation evidence only, for every engine including SQLite's
+siblings.** It proves the emitted SQL is well-formed for each grammar. It
+proves nothing about runtime, and section 12.1's requirement for **live MySQL
+and live Oracle resolver acceptance remains outstanding**. Only SQLite has
+behavioural evidence.
+
+**Still absent.** No `DefaultPermissionResolver`, no `DefaultRoleResolver`, no
+`PermissionResolver` or `RoleResolver` binding, no memoization, and no
+production query instrumentation.
 
 ### Increment 7 — Thin resolver adapters
 

@@ -683,28 +683,22 @@ final class EffectiveAccessQueryBuilderTest extends TestCase
     }
 
     /**
-     * Increment 6's shape is the one most likely to be smuggled in early: a
-     * candidate `whereIn`, a correlated `EXISTS` and a chunk constant.
+     * Query 3 arrived in Increment 6, so its shape is no longer forbidden
+     * here — `RoleDerivedPermissionQueryTest` owns that assertion now. What
+     * this class must still never grow is a **chunk bound**: how many
+     * statements exist is the resolver's decision, and a bound here would
+     * split that ownership in two.
      */
-    public function test_no_role_derived_query_shape_is_introduced(): void
+    public function test_it_does_not_own_the_chunk_bound(): void
     {
         $source = $this->executableSource();
 
-        foreach ([
-            'whereIn',
-            'whereExists',
-            'whereColumn',
-            'rolePermission',
-            'role_permissions',
-            'chunk',
+        $this->assertStringNotContainsString(
             '900',
-        ] as $future) {
-            $this->assertStringNotContainsString(
-                $future,
-                $source,
-                sprintf('[%s] belongs to Increment 6.', $future),
-            );
-        }
+            $source,
+            'The candidate chunk bound belongs to EffectiveAccessResolver.',
+        );
+        $this->assertStringNotContainsString('array_chunk', $source);
     }
 
     /**
@@ -732,15 +726,20 @@ final class EffectiveAccessQueryBuilderTest extends TestCase
         sort($public);
 
         $this->assertSame(
-            ['__construct', 'directPermissionsQuery', 'effectiveRolesQuery'],
+            [
+                '__construct',
+                'directPermissionsQuery',
+                'effectiveRolesQuery',
+                'roleDerivedPermissionsQuery',
+            ],
             $public,
         );
     }
 
-    public function test_its_only_constants_are_the_three_column_aliases(): void
+    public function test_its_only_constants_are_the_column_aliases(): void
     {
         $this->assertSame(
-            ['ID_ALIAS', 'NAME_ALIAS', 'GUARD_ALIAS'],
+            ['ID_ALIAS', 'NAME_ALIAS', 'GUARD_ALIAS', 'ROLE_GUARD_ALIAS'],
             array_keys(
                 (new ReflectionClass(EffectiveAccessQueryBuilder::class))
                     ->getConstants(),

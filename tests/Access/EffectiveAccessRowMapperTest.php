@@ -477,6 +477,156 @@ final class EffectiveAccessRowMapperTest extends TestCase
         $this->assertSame([], $roles);
     }
 
+    // ------------------------------------ Role-derived rows carry two guards
+
+    public function test_it_maps_role_derived_permission_rows(): void
+    {
+        $permissions = $this->mapper()->roleDerivedPermissions(
+            [
+                $this->derivedRow('7', 'documents.approve'),
+                $this->derivedRow(8, 'documents.delete'),
+            ],
+            self::GUARD,
+        );
+
+        $this->assertCount(2, $permissions);
+        $this->assertContainsOnlyInstancesOf(
+            EffectivePermission::class,
+            $permissions,
+        );
+        $this->assertSame(7, $permissions[0]->id, 'Normalized like any other row.');
+        $this->assertSame('documents.approve', $permissions[0]->name);
+        $this->assertSame('web', $permissions[0]->guardName);
+        $this->assertSame(8, $permissions[1]->id);
+    }
+
+    /**
+     * The reason query 3 selects a second guard at all.
+     *
+     * The permission guard post-check cannot see a widened comparison on
+     * `roles.guard_name`: a candidate role observed as `web` can be rewritten
+     * to `WEB` between query 1 and query 3 while its permission stays `web`,
+     * and a case-insensitive collation would keep returning the row.
+     */
+    #[DataProvider('nonIdenticalGuards')]
+    public function test_a_role_guard_that_is_not_byte_identical_excludes_the_row(
+        string $roleGuard,
+    ): void {
+        $this->assertSame([], $this->mapper()->roleDerivedPermissions(
+            [$this->derivedRow(7, 'documents.approve', roleGuard: $roleGuard)],
+            self::GUARD,
+        ));
+    }
+
+    #[DataProvider('nonIdenticalGuards')]
+    public function test_a_permission_guard_that_is_not_byte_identical_excludes_the_row(
+        string $permissionGuard,
+    ): void {
+        $this->assertSame([], $this->mapper()->roleDerivedPermissions(
+            [$this->derivedRow(7, 'documents.approve', guard: $permissionGuard)],
+            self::GUARD,
+        ));
+    }
+
+    public function test_matching_derived_rows_survive_alongside_excluded_ones(): void
+    {
+        $permissions = $this->mapper()->roleDerivedPermissions(
+            [
+                $this->derivedRow(7, 'documents.approve', roleGuard: 'WEB'),
+                $this->derivedRow(8, 'documents.delete', guard: 'api'),
+                $this->derivedRow(9, 'documents.read'),
+            ],
+            self::GUARD,
+        );
+
+        $this->assertCount(1, $permissions);
+        $this->assertSame(9, $permissions[0]->id);
+    }
+
+    /**
+     * The role guard is checked first, so a row whose role is not ours is
+     * discarded before its permission identifier or name is even read.
+     */
+    public function test_a_foreign_role_guard_discards_the_row_unexamined(): void
+    {
+        $this->assertSame([], $this->mapper()->roleDerivedPermissions(
+            [$this->rawRow([
+                EffectiveAccessQueryBuilder::ROLE_GUARD_ALIAS => 'api',
+                EffectiveAccessQueryBuilder::ID_ALIAS => 'not-an-integer',
+            ])],
+            self::GUARD,
+        ));
+    }
+
+    #[DataProvider('unusableScalars')]
+    public function test_a_role_guard_that_is_not_a_string_raises(mixed $observed): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('role guard is missing or not a string');
+
+        $this->mapper()->roleDerivedPermissions(
+            [$this->rawRow([
+                EffectiveAccessQueryBuilder::ROLE_GUARD_ALIAS => $observed,
+                EffectiveAccessQueryBuilder::ID_ALIAS => 7,
+                EffectiveAccessQueryBuilder::NAME_ALIAS => 'documents.approve',
+                EffectiveAccessQueryBuilder::GUARD_ALIAS => 'web',
+            ])],
+            self::GUARD,
+        );
+    }
+
+    public function test_a_missing_role_guard_raises(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('role guard is missing or not a string');
+
+        $this->mapper()->roleDerivedPermissions(
+            [$this->rawRow([
+                EffectiveAccessQueryBuilder::ID_ALIAS => 7,
+                EffectiveAccessQueryBuilder::NAME_ALIAS => 'documents.approve',
+                EffectiveAccessQueryBuilder::GUARD_ALIAS => 'web',
+            ])],
+            self::GUARD,
+        );
+    }
+
+    #[DataProvider('unnormalizableIdentifiers')]
+    public function test_a_derived_row_identifier_is_normalized_or_raises(
+        int|string $observed,
+    ): void {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('does not match the configured key type');
+
+        $this->mapper()->roleDerivedPermissions(
+            [$this->derivedRow($observed, 'documents.approve')],
+            self::GUARD,
+        );
+    }
+
+    public function test_derived_mapping_executes_no_statement(): void
+    {
+        $statements = 0;
+
+        $this->app['db']->listen(function () use (&$statements): void {
+            $statements++;
+        });
+
+        $this->mapper()->roleDerivedPermissions(
+            [$this->derivedRow(7, 'documents.approve')],
+            self::GUARD,
+        );
+
+        $this->assertSame(0, $statements);
+    }
+
+    public function test_an_empty_derived_row_set_maps_to_an_empty_list(): void
+    {
+        $this->assertSame(
+            [],
+            $this->mapper()->roleDerivedPermissions([], self::GUARD),
+        );
+    }
+
     // ------------------------------------------------------ Safe failures
 
     /**
@@ -554,6 +704,23 @@ final class EffectiveAccessRowMapperTest extends TestCase
         ], true);
 
         return $row;
+    }
+
+    /**
+     * A query-3 row: the three permission aliases plus the joined role guard.
+     */
+    private function derivedRow(
+        int|string $id,
+        string $name,
+        string $guard = self::GUARD,
+        string $roleGuard = self::GUARD,
+    ): Model {
+        return $this->rawRow([
+            EffectiveAccessQueryBuilder::ID_ALIAS => $id,
+            EffectiveAccessQueryBuilder::NAME_ALIAS => $name,
+            EffectiveAccessQueryBuilder::GUARD_ALIAS => $guard,
+            EffectiveAccessQueryBuilder::ROLE_GUARD_ALIAS => $roleGuard,
+        ]);
     }
 
     /**

@@ -22,6 +22,7 @@ use HangTuah\GateTrail\Models\RoleAssignment;
 use HangTuah\GateTrail\Models\RolePermission;
 use HangTuah\GateTrail\Subjects\SubjectIdentity;
 use HangTuah\GateTrail\Support\ModelRegistry;
+use HangTuah\GateTrail\Tests\Fixtures\CountingClock;
 use HangTuah\GateTrail\Tests\Fixtures\FrozenClock;
 use HangTuah\GateTrail\Tests\Fixtures\TestSubject;
 use HangTuah\GateTrail\Tests\TestCase;
@@ -455,11 +456,11 @@ final class EffectiveAccessResolverTest extends TestCase
     }
 
     /**
-     * The increment boundary, asserted rather than assumed. The role is
-     * effective and the role-permission grant is active, yet the permission is
-     * absent because query 3 does not exist. Increment 6 flips this.
+     * The specification's formula, end to end: direct grants plus permissions
+     * reachable through active roles. `RoleDerivedPermissionResolutionTest`
+     * owns the detailed matrix; this is the integration smoke test.
      */
-    public function test_a_role_derived_permission_is_absent_until_increment_six(): void
+    public function test_a_role_derived_permission_is_effective(): void
     {
         $this->assignRole($this->subject, $this->role);
         $this->grantPermissionToRole($this->role, $this->permission);
@@ -467,11 +468,8 @@ final class EffectiveAccessResolverTest extends TestCase
         $snapshot = $this->resolve();
 
         $this->assertTrue($snapshot->hasRoleId($this->role->getKey()));
-        $this->assertFalse(
-            $snapshot->hasPermissionId($this->permission->getKey()),
-            'Role-derived permissions belong to Increment 6.',
-        );
-        $this->assertTrue($snapshot->permissions()->isEmpty());
+        $this->assertTrue($snapshot->hasPermissionId($this->permission->getKey()));
+        $this->assertTrue($snapshot->hasPermissionNamed('documents.approve'));
 
         $this->assertTrue(
             RolePermission::query()->activeAt($this->time)->exists(),
@@ -479,7 +477,11 @@ final class EffectiveAccessResolverTest extends TestCase
         );
     }
 
-    public function test_a_direct_grant_is_unaffected_by_an_absent_role_path(): void
+    /**
+     * Specification section 5.5: the same permission through several sources is
+     * one effective permission, and losing one source does not deny it.
+     */
+    public function test_a_permission_granted_directly_and_through_a_role_appears_once(): void
     {
         $this->assignRole($this->subject, $this->role);
         $this->grantPermissionToRole($this->role, $this->permission);
@@ -582,16 +584,14 @@ final class EffectiveAccessResolverTest extends TestCase
     }
 
     /**
-     * Transitional: with roles present the cost is still two, because query 3
-     * does not exist. **This is not the final budget** — Increment 6 makes the
-     * with-roles path three statements.
+     * With roles present the cost is three: queries 1, 2 and one query-3 chunk.
      */
-    public function test_the_with_roles_path_is_also_two_selects_in_this_increment(): void
+    public function test_the_with_roles_path_costs_three_selects(): void
     {
         $this->assignRole($this->subject, $this->role);
         $this->grantPermission($this->subject, $this->permission);
 
-        $this->assertCount(2, $this->captureStatements(fn () => $this->resolve()));
+        $this->assertCount(3, $this->captureStatements(fn () => $this->resolve()));
     }
 
     /**
@@ -610,7 +610,7 @@ final class EffectiveAccessResolverTest extends TestCase
 
         $statements = $this->captureStatements(fn () => $this->resolve());
 
-        $this->assertCount(2, $statements);
+        $this->assertCount(3, $statements);
         $this->assertSame(25, $this->resolve()->roles()->count());
         $this->assertSame(25, $this->resolve()->permissions()->count());
     }
@@ -815,7 +815,7 @@ final class EffectiveAccessResolverTest extends TestCase
 
         $this->resolve();
 
-        $this->assertSame(['testing', 'testing'], $connections);
+        $this->assertSame(['testing', 'testing', 'testing'], $connections);
     }
 
     // ------------------------------------------------------------------ Helpers
@@ -909,24 +909,6 @@ final class EffectiveAccessResolverTest extends TestCase
             'assigned_by_type' => 'gatetrail.system',
             'assigned_by_id' => 'test-suite',
         ]);
-    }
-}
-
-/**
- * Counts reads so "one instant per evaluation" can be asserted rather than
- * inferred from the value coming back the same.
- */
-final class CountingClock implements ClockInterface
-{
-    public int $reads = 0;
-
-    public function __construct(private readonly DateTimeImmutable $time) {}
-
-    public function now(): DateTimeImmutable
-    {
-        $this->reads++;
-
-        return $this->time;
     }
 }
 

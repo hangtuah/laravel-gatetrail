@@ -17,13 +17,24 @@ use Psr\Clock\ClockInterface;
  * this class returns, so no second lifecycle, guard or ordering rule can
  * appear and drift from the first.
  *
- * **Incomplete by design in this increment.** Only ADR queries 1 and 2 run —
- * effective roles and *direct* permission grants. **Permissions reachable
- * through a role are not present yet**; query 3, its full-path revalidation
- * and its role-ID chunking are Increment 6. Nothing consumer-facing can reach
- * this class in the meantime: `PermissionResolver` and `RoleResolver` remain
- * unbound, so an incomplete permission set cannot answer an authorization
- * check.
+ * The effective permission set is the specification's formula in full — active
+ * direct grants plus permissions reachable through active roles — assembled
+ * from at most three query shapes:
+ *
+ * ```text
+ * 1. effective roles          one statement
+ * 2. direct permissions       one statement
+ * 3. role-derived permissions one statement per 900-role chunk, or none
+ * ```
+ *
+ * Query 3 is **skipped entirely** when query 1 found no roles, and its
+ * candidate identifiers are a scan bound and a chunk unit only — never
+ * evidence that a role is still valid. Validity comes from the revalidation
+ * inside query 3 itself.
+ *
+ * Nothing consumer-facing can reach this class yet: `PermissionResolver` and
+ * `RoleResolver` stay unbound until Increment 7 supplies the thin adapters,
+ * and there is no memoization, so every call rebuilds.
  *
  * One evaluation is one identity, one guard and one instant:
  *
@@ -55,6 +66,22 @@ use Psr\Clock\ClockInterface;
  */
 final readonly class EffectiveAccessResolver
 {
+    /**
+     * Candidate role identifiers per query-3 statement.
+     *
+     * Owned here rather than by the query builder because chunking decides
+     * **how many statements are issued**, which is a resolution concern; the
+     * builder describes one statement and has no opinion about how many exist.
+     *
+     * One fixed number on every engine, and not configuration. Oracle's
+     * expression-list ceiling is 1000 (`ORA-01795`) and SQL Server's parameter
+     * ceiling is 2100 per statement; 900 clears both with room for the
+     * subject, guard and instant bindings. A per-engine bound would make the
+     * package issue a different number of statements on Oracle than on MySQL,
+     * which would make the query budget itself engine-dependent.
+     */
+    private const CANDIDATE_ROLE_CHUNK = 900;
+
     public function __construct(
         private SubjectIdentityResolver $identities,
         private SubjectGuardResolver $guards,
@@ -83,9 +110,6 @@ final readonly class EffectiveAccessResolver
             $guardName,
         );
 
-        // Direct grants only. Role-derived permissions arrive with query 3 in
-        // Increment 6, and are deliberately not synthesized from the roles
-        // above — a role is not evidence of a permission.
         $permissions = $this->rows->permissions(
             $this->queries
                 ->directPermissionsQuery($identity, $guardName, $evaluatedAt)
@@ -93,6 +117,31 @@ final readonly class EffectiveAccessResolver
             $guardName,
         );
 
+        // One statement per chunk, and none at all when there are no roles.
+        // The identity, guard and instant resolved above are reused unchanged
+        // across every chunk, so the chunks are one evaluation split for the
+        // engine's benefit rather than several evaluations.
+        foreach ($this->candidateChunks($roles) as $candidateRoleIds) {
+            $permissions = [
+                ...$permissions,
+                ...$this->rows->roleDerivedPermissions(
+                    $this->queries
+                        ->roleDerivedPermissionsQuery(
+                            $identity,
+                            $guardName,
+                            $evaluatedAt,
+                            $candidateRoleIds,
+                        )
+                        ->get(),
+                    $guardName,
+                ),
+            ];
+        }
+
+        // Merged, not merged-and-tidied. A permission reachable directly and
+        // through two roles arrives three times; deduplication by primary key
+        // and raw-byte ordering belong to the snapshot, which owns both rules
+        // for every caller.
         return EffectiveAccessSnapshot::of(
             $identity,
             $guardName,
@@ -100,5 +149,43 @@ final readonly class EffectiveAccessResolver
             $roles,
             $permissions,
         );
+    }
+
+    /**
+     * The candidate role identifiers, deduplicated and split at the chunk
+     * bound.
+     *
+     * Deduplication here is input preparation, not a second copy of the
+     * snapshot's rule: two active assignments of one role are two rows and one
+     * candidate, and counting them twice would inflate the `IN` list and could
+     * push a subject over a chunk boundary that its actual role count is
+     * nowhere near.
+     *
+     * The identifier's PHP type is preserved. Only the deduplication *key* is
+     * type-prefixed, so integer `7` and string `'7'` cannot collapse into one
+     * candidate while the values bound into the query stay exactly as the
+     * definition model produced them.
+     *
+     * @param  list<EffectiveRole>  $roles
+     * @return list<list<int|string>>
+     */
+    private function candidateChunks(array $roles): array
+    {
+        $candidates = [];
+
+        foreach ($roles as $role) {
+            $key = is_int($role->id) ? 'int:'.$role->id : 'string:'.$role->id;
+            $candidates[$key] = $role->id;
+        }
+
+        if ($candidates === []) {
+            // Query 3 is skipped entirely. No role was observed, so no
+            // role-derived permission can exist, and inventing a statement to
+            // discover that would cost one query per resolve for every subject
+            // that holds no roles at all.
+            return [];
+        }
+
+        return array_chunk(array_values($candidates), self::CANDIDATE_ROLE_CHUNK);
     }
 }
