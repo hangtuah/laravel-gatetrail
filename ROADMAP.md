@@ -162,8 +162,8 @@ Accepted architecture decisions:
 No proposed architecture decision is currently outstanding.
 
 Acceptance records an architectural decision, not implementation. ADR 0012 is
-accepted, and its implementation is **in progress**: Increments 1, 2 and 3 of
-10 are complete, and no resolver implementation exists yet.
+accepted, and its implementation is **in progress**: Increments 1 to 4 of 10
+are complete, and no resolver implementation exists yet.
 
 ## 5. Roadmap adherence
 
@@ -1159,7 +1159,7 @@ this phase remains at 0% with no deliverable checked.
 
 ### Implementation status
 
-Implementation has begun. **Increments 1, 2 and 3 of ADR 0012 are complete.**
+Implementation has begun. **Increments 1 to 4 of ADR 0012 are complete.**
 
 **Increment 1 — shared subject identity.** `SubjectIdentity`,
 `SubjectIdentityResolver` and `InvalidSubject` exist, are container-bound, and
@@ -1184,6 +1184,18 @@ retains no model, connection, query builder, mutable collection, counter or
 closure. It is built entirely from values handed to it: **it holds an evaluated
 state, it does not evaluate one.**
 
+**Increment 4 — the portable query builders.** `EffectiveAccessQueryBuilder`
+builds ADR queries 1 and 2 — effective roles and direct permissions — and
+**returns them unexecuted**. Each joins the configured definition table and
+writes its own `deleted_at IS NULL` and `guard_name` predicates, because
+neither is available to inherit: the root of every snapshot query is an
+assignment model, none of which soft delete, and this package's definition
+relations are deliberately `withTrashed()`. The existing `activeAt()` scope is
+called, not copied. Every table and column name is resolved from
+`ModelRegistry` model accessors, so a configured prefix, a configured schema, a
+replacement model, an overridden `DELETED_AT` and a custom primary-key name all
+apply. Nothing executes these builders.
+
 **No deliverable above is checked, and this phase stays at 0%.** That is not an
 oversight. `PermissionResolver contract and implementation` and
 `RoleResolver contract and implementation` are **atomic** deliverables: an item
@@ -1191,11 +1203,14 @@ is 0% until its acceptance criteria and implementation evidence are both
 complete, and only the contract half of each exists. Under section 3.2, shared
 infrastructure is counted through the capability that consumes it — and
 `EffectiveAccessSnapshot` is named in the design status above as exactly that,
-so it is not counted separately no matter how much of it exists. No resolver
-capability exists yet: no authorization query, no lifecycle filter, no guard
-resolution, no memoization, no binding. The first three increments hardened the
-mutation paths, froze the public surface and built the container the resolver
-will fill; they completed none of the ten deliverables.
+so it is not counted separately no matter how much of it exists. The query
+builders are the same kind of shared foundation: `Lifecycle filtering` and
+`Direct permission resolution` are capabilities that resolve access, and a
+builder nothing runs resolves nothing. No resolver capability exists yet: no
+query execution, no row mapping, no guard resolution, no memoization, no
+binding. The first four increments hardened the mutation paths, froze the
+public surface, built the container the resolver will fill and described two of
+its three statements; they completed none of the ten deliverables.
 
 ```text
 Completed: 0

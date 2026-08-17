@@ -4,10 +4,10 @@
 - Proposed: 2026-08-12
 - Accepted: 2026-08-13
 - Decision owners: GateTrail maintainers
-- Implementation status: **In progress** — Increments 1–3 of 10 complete,
+- Implementation status: **In progress** — Increments 1–4 of 10 complete,
   2026-08-17. See [Implementation increments](#16-implementation-increments).
-- Acceptance evidence: **partially produced.** The Increment 1, 2 and 3
-  evidence exists; the resolver acceptance matrix does not — see
+- Acceptance evidence: **partially produced.** The Increment 1–4 evidence
+  exists; the resolver acceptance matrix does not — see
   [Acceptance criteria](#17-acceptance-criteria)
 - Supersedes: nothing
 - Blocks: Phase 5 implementation, and the Phase 6 Gate, concern and middleware
@@ -22,14 +22,16 @@ and no longer awaiting maintainer approval.
 
 **Implementation is separate and has only begun.** Increment 1 — the shared
 subject-identity foundation — Increment 2 — the value objects and the two
-public contracts — and Increment 3 — the immutable `EffectiveAccessSnapshot` —
-are complete and evidenced. **No resolver implementation, authorization query,
-lifecycle filter, guard resolution, memoization or cache behaviour exists.**
-The snapshot is a container for values something else must still produce: it
-holds an evaluated state, it does not evaluate one. The two contracts remain
-deliberately unbound, and no resolver acceptance evidence has been produced.
-The acceptance criteria in section 17 remain the definition of done for
-Phase 5; only the subject-identity portion of that matrix has been satisfied.
+public contracts — Increment 3 — the immutable `EffectiveAccessSnapshot` — and
+Increment 4 — the portable joined-definition query builders — are complete and
+evidenced. **No resolver implementation, no query execution, no guard
+resolution, no memoization and no cache behaviour exists.** The snapshot holds
+an evaluated state, it does not evaluate one; the query builders describe two
+of the three statements, but nothing runs them, maps their rows or merges
+their results. The two contracts remain deliberately unbound, and no resolver
+acceptance evidence has been produced. The acceptance criteria in section 17
+remain the definition of done for Phase 5; only the subject-identity portion
+of that matrix has been satisfied.
 
 ## Context
 
@@ -1999,7 +2001,7 @@ a claim. **Completing an increment does not change `ROADMAP.md` counts or
 percentages either** — the ten Phase 5 deliverables are atomic capabilities,
 and shared infrastructure is counted through the capability that consumes it.
 
-Increments 1–3 are complete. Increments 4–10 are not started.
+Increments 1–4 are complete. Increments 5–10 are not started.
 
 ### Increment 1 — Shared subject identity foundation and mutation alignment
 
@@ -2177,6 +2179,8 @@ topology C was chosen to prevent.
 
 ### Increment 4 — Portable lifecycle and query components
 
+**Status: Complete, 2026-08-17.**
+
 - **Scope.** The joined-definition query builders with explicit
   `deleted_at IS NULL` and `guard_name` predicates, names resolved from model
   accessors, full column qualification, `scopeActiveAt()` reuse.
@@ -2184,6 +2188,99 @@ topology C was chosen to prevent.
   predicate; prefix and schema honoured; replacement model with an overridden
   `DELETED_AT` honoured; no inherited-scope reliance.
 - **Non-goals.** No memoization, no public contract wiring.
+
+#### Increment 4 evidence
+
+Delivered in `src/Access/EffectiveAccessQueryBuilder.php`, registered as a
+concrete singleton in `GateTrailServiceProvider`, and asserted by
+`tests/Access/EffectiveAccessQueryBuilderTest.php` and
+`tests/Access/EffectiveAccessQuerySchemaTest.php`.
+
+**Component and method names.** One `final readonly` `@internal` class with one
+injected `ModelRegistry`, and exactly two public builder methods:
+
+```php
+EffectiveAccessQueryBuilder::effectiveRolesQuery(
+    SubjectIdentity $subject,
+    string $guardName,
+    DateTimeImmutable $evaluatedAt,
+): Builder    // query 1, rooted on the configured RoleAssignment
+
+EffectiveAccessQueryBuilder::directPermissionsQuery(
+    SubjectIdentity $subject,
+    string $guardName,
+    DateTimeImmutable $evaluatedAt,
+): Builder    // query 2, rooted on the configured PermissionAssignment
+```
+
+The `Query` suffix is deliberate: these **return unexecuted builders**, and a
+bare `effectiveRoles()` would read like a method that returns roles. One class
+covers both because the two shapes differ only in root model, foreign key and
+definition model; the shared part is a `@template`-typed private helper, so no
+generic cast is needed and neither shape is obscured.
+
+**Emitted shape**, compiled through the SQLite grammar with default
+configuration:
+
+```sql
+select   "acl_roles"."id"         as "gatetrail_id",
+         "acl_roles"."name"       as "gatetrail_name",
+         "acl_roles"."guard_name" as "gatetrail_guard"
+from     "acl_role_assignments"
+inner join "acl_roles"
+        on "acl_roles"."id" = "acl_role_assignments"."role_id"
+where    "revoked_at" is null
+  and    ("starts_at" <= ? or ("starts_at" is null and "assigned_at" <= ?))
+  and    ("expires_at" is null or "expires_at" > ?)
+  and    "acl_role_assignments"."subject_type" = ?
+  and    "acl_role_assignments"."subject_id"   = ?
+  and    "acl_roles"."deleted_at" is null
+  and    "acl_roles"."guard_name" = ?
+```
+
+Query 2 is the same statement with `permission_assignments`, `permissions` and
+`permission_id` substituted.
+
+| Requirement | Evidence |
+|---|---|
+| Builder-only | Both methods return `Illuminate\Database\Eloquent\Builder`, asserted by instance and by reflected return type. Building both under a connection listener records **zero statements** and leaves `transactionLevel()` at zero. `$query->toBase()->lock` is `null` and no lock hint appears in the compiled SQL |
+| No terminal or raw operation | The source is scanned **with comments stripped through `token_get_all()`**, so the docblock — which names these methods precisely because they are forbidden — cannot satisfy or break the check. `get`, `first`, `exists`, `count`, `cursor`, `lazy`, `paginate`, `find`, `pluck`, `value`, `chunk`, `each`, `lockForUpdate`, `sharedLock`, `orderBy`, `distinct`, `limit`, `offset`, every `*Raw` and `DB::raw` are all absent |
+| `scopeActiveAt()` reuse | The complete half-open fragment is asserted as **one contiguous string**, so a partially applied scope cannot pass. Reuse is then proven behaviourally: configured replacement assignment models override `scopeActiveAt()` to call the parent and add one sentinel predicate, and the sentinel appears in the compiled SQL **alongside** the unchanged inherited fragment. Separately, the four lifecycle column names are asserted **absent from the component's own code**, so the rule cannot have been copied |
+| Instant bound through the grammar | The first three bindings are the supplied `DateTimeImmutable` **object**; `Connection::prepareBindings()` formats them to `2026-08-17 09:41:07`. No `EXTRACT`, no `DATE_ADD`, no driver branch |
+| Explicit definition lifecycle | `"acl_roles"."deleted_at" is null` asserted present. The control case is what gives it meaning: the **same join built without this component** carries no `deleted_at` and no `guard_name` predicate at all. The root models are asserted not to use `SoftDeletes`, to carry no `SoftDeletingScope`, and to start from an empty `wheres` list |
+| Relations untouched | `RoleAssignment::role()` and `PermissionAssignment::permission()` are asserted to still compile without a `deleted_at` predicate — that is, still `withTrashed()`, so audit snapshot rebuilding keeps reaching deactivated definitions. The component compiles to a **flat inner join** with no `exists (` and no `in (select`, so no relation was used |
+| Explicit guard | `"acl_roles"."guard_name" = ?` asserted present with the supplied guard among the bindings |
+| Full qualification | Stated completely rather than by spot check: every quoted identifier in the compiled SQL that is neither preceded nor followed by a dot is enumerated and asserted to be **exactly** the root table, the definition table, the four `scopeActiveAt()` lifecycle columns and the three aliases. `id`, `name`, `guard_name`, `deleted_at`, `role_id`, `permission_id`, `subject_type` and `subject_id` are each asserted absent from that bare set |
+| Prefix and schema | Compiled with `prefix = x_` and `schema = gt` set in `defineEnvironment()`. Root table, joined table, both written predicates and all three selected columns resolve to `"gt"."x_acl_roles"` and `"gt"."x_acl_role_assignments"`, and every unprefixed table name is asserted **absent** |
+| Replacement `DELETED_AT` | Configured `Role`/`Permission` replacements overriding `DELETED_AT` produce `"acl_roles"."deactivated_at" is null`, and the default `"acl_roles"."deleted_at"` is asserted absent — `getQualifiedDeletedAtColumn()`, never a literal |
+| Replacement primary key | Configured replacements with `role_uuid` / `permission_uuid` keys join on `"acl_roles"."role_uuid"` and select it as `gatetrail_id`, with `"acl_roles"."id"` asserted absent — `getQualifiedKeyName()`, never an assumed `id` |
+| Portability | Both queries compile under every query grammar `illuminate/database` ships — SQLite, MySQL, PostgreSQL and SQL Server — with no `order by`, no `distinct`, no CTE, no window function and no lateral join in any of them. **Oracle is not compiled**: no Oracle query grammar is bundled, and this increment makes **no live-engine claim** for any engine |
+| No later-increment behaviour | The public surface is asserted to be exactly `__construct`, `effectiveRolesQuery` and `directPermissionsQuery`; the only constants are the three aliases, so no chunk bound has appeared. `whereIn`, `whereExists`, `whereColumn`, `rolePermission`, `role_permissions`, `chunk` and `900` are all absent from the source, as are `EffectiveRole`, `EffectivePermission` and `EffectiveAccessSnapshot` — nothing here executes a query or maps a row. `EffectiveAccessResolver`, `DefaultPermissionResolver` and `DefaultRoleResolver` are asserted not to exist and not to be bound, and both resolver contracts remain unbound |
+
+**Selected-column decision.** The three definition columns are selected under
+fixed internal aliases — `gatetrail_id`, `gatetrail_name`, `gatetrail_guard` —
+written with Laravel's normal `column as alias` syntax, not raw SQL. The
+identifier column's *name* is configurable, so without an alias Increment 5
+would have to ask the definition model for `getKeyName()` before it could read
+a row; with one it maps three stable keys regardless of configuration, and
+never has to consult the root assignment model's attributes. The aliases stay
+inside the package's existing 30-character identifier bound, so they cannot be
+the thing that breaks an Oracle deployment. **They are internal names, not
+public API.**
+
+**Container registration.** `EffectiveAccessQueryBuilder` is registered with
+the package's concrete-singleton convention, exactly as
+`AssignmentConflictQuery` is. `PermissionResolver`, `RoleResolver` and
+`EffectiveAccessResolver` remain unbound — building a query is not resolving
+access, and Increment 7 still owns the bindings.
+
+**Judgment call recorded.** `HasAssignmentPeriodScopes::scopeActiveAt()` is
+used verbatim and was **not** changed to emit qualified names. Section 6.1.1
+already establishes why that is safe here: `roles` and `permissions` carry none
+of the four lifecycle columns, so each query scope has exactly one
+lifecycle-bearing table and the unqualified names can only bind to the
+assignment root. Qualifying the trait now would change a scope four other call
+sites depend on, for no correctness gain in this increment.
 
 ### Increment 5 — Direct permission and effective-role resolution
 

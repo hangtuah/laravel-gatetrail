@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail;
 
+use HangTuah\GateTrail\Access\EffectiveAccessQueryBuilder;
 use HangTuah\GateTrail\Assignments\AssignmentConflictQuery;
 use HangTuah\GateTrail\Assignments\AssignmentDecisionMaker;
 use HangTuah\GateTrail\Assignments\AssignmentLockStore;
@@ -117,6 +118,13 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(SensitiveAuditValueRedactor::class);
         $this->app->singleton(SensitiveMetadataRedactor::class);
         $this->app->singleton(AssignmentConflictQuery::class);
+        // The snapshot query shapes. A concrete internal component with one
+        // injected collaborator, so the package's explicit-singleton
+        // convention applies exactly as it does to AssignmentConflictQuery.
+        // The PermissionResolver and RoleResolver contracts stay unbound:
+        // building a query is not resolving access, and no implementation
+        // stands behind either contract yet.
+        $this->app->singleton(EffectiveAccessQueryBuilder::class);
         $this->app->singleton(AssignmentDecisionMaker::class);
         $this->app->singleton(AssignmentLockStore::class);
         $this->app->singleton(AssignmentScopeProbe::class);
