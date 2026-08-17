@@ -4,11 +4,11 @@
 - Proposed: 2026-08-12
 - Accepted: 2026-08-13
 - Decision owners: GateTrail maintainers
-- Implementation status: **In progress** — Increments 1–6 of 10 complete,
+- Implementation status: **In progress** — Increments 1–7 of 10 complete,
   2026-08-17. See [Implementation increments](#16-implementation-increments).
-- Acceptance evidence: **partially produced.** The Increment 1–6 evidence
-  exists; the public resolver adapters and the live-engine matrix do not — see
-  [Acceptance criteria](#17-acceptance-criteria)
+- Acceptance evidence: **partially produced.** The Increment 1–7 evidence
+  exists; request memoization, production instrumentation and the live-engine
+  matrix do not — see [Acceptance criteria](#17-acceptance-criteria)
 - Supersedes: nothing
 - Blocks: Phase 5 implementation, and the Phase 6 Gate, concern and middleware
   adapters that depend on these signatures
@@ -20,22 +20,19 @@ contracts, the shared snapshot, the lifecycle algorithm, the query
 architecture, the memoization rules and the evidence matrix below are settled
 and no longer awaiting maintainer approval.
 
-**Implementation is separate and is partly done.** Increments 1–6 are complete
-and evidenced: the shared subject-identity foundation, the value objects and
-the two public contracts, the immutable `EffectiveAccessSnapshot`, the portable
-joined-definition query builders, the internal `EffectiveAccessResolver`, and
-role-derived permission resolution with full-path revalidation and 900-item
-chunking. **Internal resolution now produces the specification's complete
-effective-permission formula.**
+**Implementation is separate and is partly done.** Increments 1–7 are complete
+and evidenced, through to the thin `DefaultPermissionResolver` and
+`DefaultRoleResolver` adapters. **The two public contracts are now bound**, so
+a consumer can ask GateTrail an authorization question and receive the
+specification's complete effective-permission formula.
 
-**What still does not exist:** the thin `DefaultPermissionResolver` and
-`DefaultRoleResolver` adapters, request-local memoization, and the production
-query instrumentation. `PermissionResolver` and `RoleResolver` remain
-deliberately unbound, so **no consumer-facing path reaches the resolver yet**.
-Live MySQL and Oracle resolver evidence (section 12.1) has also not been
-produced; the behavioural matrix runs on SQLite, with compile-only evidence for
-the other four grammars. The acceptance criteria in section 17 remain the
-definition of done for Phase 5.
+**What still does not exist:** request-local memoization — every call rebuilds
+its snapshot — and the production query instrumentation. Live MySQL and Oracle
+resolver evidence (section 12.1) has also not been produced; the behavioural
+matrix runs on SQLite, with compile-only evidence for the other four grammars.
+**No Phase 6 work exists**: no Gate hook, no subject concern, no middleware.
+The acceptance criteria in section 17 remain the definition of done for
+Phase 5.
 
 ## Context
 
@@ -2005,7 +2002,7 @@ a claim. **Completing an increment does not change `ROADMAP.md` counts or
 percentages either** — the ten Phase 5 deliverables are atomic capabilities,
 and shared infrastructure is counted through the capability that consumes it.
 
-Increments 1–6 are complete. Increments 7–10 are not started.
+Increments 1–7 are complete. Increments 8–10 are not started.
 
 ### Increment 1 — Shared subject identity foundation and mutation alignment
 
@@ -2473,6 +2470,8 @@ production query instrumentation.
 
 ### Increment 7 — Thin resolver adapters
 
+**Status: Complete, 2026-08-17.**
+
 - **Scope.** `DefaultPermissionResolver` and `DefaultRoleResolver` over the
   snapshot: input normalization, the section 4.2 matrix, the section 4.4
   configured-model rule.
@@ -2480,6 +2479,71 @@ production query instrumentation.
   `Reference::id('007')`; unrelated-model denial; parity under a fixed clock;
   failure taxonomy honoured.
 - **Non-goals.** No Phase 6 adapters — no Gate hook, concern or middleware.
+
+#### Increment 7 evidence
+
+Delivered in `src/Access/DefaultPermissionResolver.php`,
+`src/Access/DefaultRoleResolver.php`,
+`src/Access/RequestedDefinitionNormalizer.php` and
+`src/Access/RequestedDefinition.php`, asserted by
+`tests/Access/PublicResolverTest.php`,
+`tests/Access/RequestedDefinitionNormalizerTest.php` and
+`tests/Access/ResolverContainerTest.php`.
+
+**Adapter shape.** Both are `final readonly`, hold only
+`EffectiveAccessResolver`, `RequestedDefinitionNormalizer` and
+`ModelRegistry`, and read end to end as:
+
+```text
+normalize the requested input against the configured definition model
+if impossible → return false
+snapshot = resolve the supplied subject, once
+return membership by exact name, or by normalized identifier
+```
+
+No lifecycle rule, guard rule, query, ordering rule or deduplication lives in
+either adapter.
+
+**One shared normalizer, not two copies.**
+`RequestedDefinitionNormalizer` returns a `RequestedDefinition` carrying
+exactly one of `name` or `identifier`, or `null` for an impossible input. It is
+internal, stateless, registered as a singleton, and **executes no statement** —
+asserted directly. Both resolvers share it precisely so the
+string-is-always-a-name rule has one home and cannot drift.
+
+**Ordering divergence, recorded rather than absorbed.** Section 4.1's diagram
+lists subject validation and guard resolution *before* normalization.
+`PACKAGE_SPEC.md` section 11.2 lists normalization as step 1 and guard
+resolution as step 2, and states that "steps 1 to 3 run before any snapshot
+work". **The implementation follows the specification's order**: normalization
+first, so an impossible input costs nothing at all. The observable difference
+is narrow and is asserted: an impossible input paired with an unpersisted
+subject returns `false` rather than raising `InvalidSubject`. A *valid* input
+with an unresolvable subject or guard still raises, so the failure taxonomy is
+otherwise unchanged. Neither ordering issues a query for a rejected input;
+section 4.1's diagram is the less precise of the two statements and should be
+reconciled the next time this ADR is revised.
+
+| Requirement | Evidence |
+|---|---|
+| A bare string is always a name | Fifteen name cases per resolver. `'42'`, `'007'`, `'-1'`, `'1e3'`, `'0x1f'` and `'99999999999999999999'` are all names, never identifiers, and are passed through verbatim — `' seven '` stays `' seven '` and denies. Empty and whitespace-only names are impossible, because definition names are trimmed and non-empty at creation |
+| The name/identifier divide | Proven with fixtures that give the two calls **different answers**: identifier 7 is named `seven`, identifier 12 is named `007`. `allows($s, '007')` is `true` via the *name*; `allows($s, Reference::id('007'))` is `true` via *identifier 7*; `allows($s, '7')` is `false` because nothing is named `7`, while `Reference::id(7)` is `true`. The role side mirrors it exactly |
+| Identifier normalization | Twenty identifier cases per resolver. `7`, `'7'`, `'007'` are one question; `'9223372036854775808'`, `'99999999999999999999'`, `'-1'`, `'+1'`, `' 7'`, `'7 '`, `'7.0'`, `'7e0'`, `'0x7'`, alphabetic and UUID inputs all deny. Overflow is asserted **not to saturate** — `(int) '99999999999999999999'` is `PHP_INT_MAX`, a real identifier — and a string-keyed definition preserves `'007'` verbatim, tested at the normalizer seam because an integer SQLite column cannot express it |
+| Configured-model inputs | A persisted configured model is honoured by key. Its `name` and `guard_name` are asserted **ignored**: editing them in memory neither grants an unheld permission nor revokes a held one. A configured replacement model and a **subclass of it** are both accepted. An unsaved model, a `null` key and a non-`int\|string` key each deny |
+| Unrelated implementations | An application model implementing the empty marker interface with the **colliding key 7** denies for both resolvers, and denies **without throwing** — `InvalidModelConfiguration` reports broken package configuration, not a caller's wrong object, and throwing would let a caller probe which classes are configured. A genuinely invalid `gatetrail.models.*` still raises `InvalidModelConfiguration` |
+| Rejected input costs nothing | Seven impossible inputs, each asserted to produce **zero statements** and **zero clock reads** — the clock read is the proof that `EffectiveAccessResolver::resolve()` was never entered — with `transactionLevel()` at zero. The sharpest case: an impossible input with an **unpersisted** subject returns `false` instead of raising, which only normalize-first ordering can produce |
+| One snapshot per valid call | A counting clock reads exactly once per boolean call, twice across two calls — one snapshot each, and no memoization yet |
+| No separate definition lookup | A valid check emits exactly three statements — queries 1, 2 and one query-3 chunk — all `select`, and **none contains the requested name**. The caller's input is compared in PHP and never bound |
+| Parity | Every entry of `effectivePermissions()` returns `true` from `allows()` by name, by native `int` and by `Reference::id()`; likewise every entry of `effectiveRoles()` through `has()`. Deactivated, cross-guard and unheld definitions are asserted absent from the collections *and* `false` from the boolean checks |
+| Shared state across both resolvers | A role held by the subject is visible through `RoleResolver`, and the permission it derives is visible through `PermissionResolver` in the same evaluation. A role granting no permissions stays visible. A permission reachable directly **and** through a role appears exactly once |
+| Failure taxonomy | A valid input with an unpersisted subject raises `InvalidSubject`; with an unresolvable guard, `InvalidGuard`; a dropped table propagates the driver's `QueryException`. A denial never throws: missing, deactivated, cross-guard and unheld all return `false` with no disclosure of which case applied |
+| Collection safety | Each projection returns a fresh `Collection`; `push()`, `forget()` and `transform()` on a returned collection change neither a later projection nor any boolean answer |
+| Scoped wiring | Both contracts and both adapters resolve as **scoped**, and each contract resolves *through* its concrete class so the two are one instance inside a scope. After `forgetScopedInstances()` every one of them is a new object, while the query builder, row mapper, input normalizer and the three manager singletons survive unchanged. The adapters are asserted by reflection to hold the scope's current `EffectiveAccessResolver` — never a stale one — and no singleton in the graph is found holding a discarded scoped resolver. Neither contract is an alias |
+
+**Still absent.** No request-level memoization, no `MutationCommitted` flush
+listener, no production query instrumentation, and no Phase 6 integration —
+no Gate hook, subject concern or middleware. Live MySQL and Oracle resolver
+acceptance remains Increment 10.
 
 ### Increment 8 — Request-local memoization and `MutationCommitted` coherence
 

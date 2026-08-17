@@ -646,40 +646,21 @@ final class EffectiveAccessQueryBuilderTest extends TestCase
     // --------------------------------------------- 10. No later-increment behaviour
 
     /**
-     * `EffectiveAccessResolver` was on this list until Increment 5 delivered
-     * it, and was removed then rather than weakened. What stays is the thin
-     * adapter pair, which is Increment 7.
-     *
-     * @return array<string, array{string}>
+     * The public contracts are bound as of Increment 7, so "unbound" is no
+     * longer the constraint. What survives is that the query builder is not
+     * itself a resolver: it describes statements and answers no authorization
+     * question.
      */
-    public static function futureClasses(): array
+    public function test_the_query_builder_is_not_a_resolver(): void
     {
-        return [
-            'permission adapter' => [
-                'HangTuah\\GateTrail\\Access\\DefaultPermissionResolver',
-            ],
-            'role adapter' => [
-                'HangTuah\\GateTrail\\Access\\DefaultRoleResolver',
-            ],
-        ];
-    }
-
-    #[DataProvider('futureClasses')]
-    public function test_no_later_increment_class_exists_yet(string $class): void
-    {
-        $this->assertFalse(class_exists($class));
-    }
-
-    #[DataProvider('futureClasses')]
-    public function test_no_later_increment_class_is_bound(string $class): void
-    {
-        $this->assertFalse($this->app->bound($class));
-    }
-
-    public function test_the_resolver_contracts_remain_unbound(): void
-    {
-        $this->assertFalse($this->app->bound(PermissionResolver::class));
-        $this->assertFalse($this->app->bound(RoleResolver::class));
+        $this->assertNotInstanceOf(
+            PermissionResolver::class,
+            $this->app->make(EffectiveAccessQueryBuilder::class),
+        );
+        $this->assertNotInstanceOf(
+            RoleResolver::class,
+            $this->app->make(EffectiveAccessQueryBuilder::class),
+        );
     }
 
     /**

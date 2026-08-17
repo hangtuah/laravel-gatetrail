@@ -636,17 +636,22 @@ final class RoleDerivedPermissionResolutionTest extends TestCase
 
     // ------------------------------------------------------- Increment boundary
 
-    public function test_the_public_resolver_contracts_remain_unbound(): void
+    /**
+     * Role-derived permissions must be visible through the public surface too,
+     * not only through the internal snapshot.
+     */
+    public function test_the_public_resolvers_observe_the_derived_permission(): void
     {
-        $this->assertFalse($this->app->bound(PermissionResolver::class));
-        $this->assertFalse($this->app->bound(RoleResolver::class));
+        $this->assignRole($this->role);
+        $this->grantToRole($this->role, $this->permission);
 
-        foreach ([
-            'HangTuah\\GateTrail\\Access\\DefaultPermissionResolver',
-            'HangTuah\\GateTrail\\Access\\DefaultRoleResolver',
-        ] as $class) {
-            $this->assertFalse(class_exists($class));
-        }
+        $this->assertTrue(
+            $this->app->make(PermissionResolver::class)
+                ->allows($this->subject, 'documents.approve'),
+        );
+        $this->assertTrue(
+            $this->app->make(RoleResolver::class)->has($this->subject, 'reviewer'),
+        );
     }
 
     /**

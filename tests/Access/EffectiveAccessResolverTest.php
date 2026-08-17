@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace HangTuah\GateTrail\Tests\Access;
 
 use DateTimeImmutable;
+use HangTuah\GateTrail\Access\DefaultPermissionResolver;
+use HangTuah\GateTrail\Access\DefaultRoleResolver;
 use HangTuah\GateTrail\Access\EffectiveAccessQueryBuilder;
 use HangTuah\GateTrail\Access\EffectiveAccessResolver;
 use HangTuah\GateTrail\Access\EffectiveAccessRowMapper;
@@ -183,23 +185,21 @@ final class EffectiveAccessResolverTest extends TestCase
         );
     }
 
-    public function test_the_public_resolver_contracts_remain_unbound(): void
+    /**
+     * Increment 7 bound both contracts to real adapters over this resolver.
+     * The property that still matters is that they are the *same* evaluated
+     * state — not that they are absent.
+     */
+    public function test_the_public_contracts_resolve_to_adapters_over_this_resolver(): void
     {
-        $this->assertFalse($this->app->bound(PermissionResolver::class));
-        $this->assertFalse($this->app->bound(RoleResolver::class));
-        $this->assertFalse($this->app->isAlias(PermissionResolver::class));
-        $this->assertFalse($this->app->isAlias(RoleResolver::class));
-    }
-
-    public function test_no_later_increment_adapter_exists(): void
-    {
-        foreach ([
-            'HangTuah\\GateTrail\\Access\\DefaultPermissionResolver',
-            'HangTuah\\GateTrail\\Access\\DefaultRoleResolver',
-        ] as $class) {
-            $this->assertFalse(class_exists($class));
-            $this->assertFalse($this->app->bound($class));
-        }
+        $this->assertInstanceOf(
+            DefaultPermissionResolver::class,
+            $this->app->make(PermissionResolver::class),
+        );
+        $this->assertInstanceOf(
+            DefaultRoleResolver::class,
+            $this->app->make(RoleResolver::class),
+        );
     }
 
     // ------------------------------------- 2. One identity, guard and instant

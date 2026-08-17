@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail\Tests\Contracts;
 
+use HangTuah\GateTrail\Access\DefaultPermissionResolver;
+use HangTuah\GateTrail\Access\DefaultRoleResolver;
 use HangTuah\GateTrail\Access\EffectivePermission;
 use HangTuah\GateTrail\Access\EffectiveRole;
 use HangTuah\GateTrail\Contracts\PermissionContract;
@@ -270,31 +272,35 @@ final class ResolverContractTest extends TestCase
     }
 
     /**
-     * Increment 2 ships contracts only. A concrete resolver arrives in
-     * Increment 7, and until then nothing may pretend to implement one.
+     * Increment 7 supplied the implementations the contracts were shipped
+     * without. The package must own exactly one of each: a second
+     * implementation inside GateTrail would be a second algorithm, which is
+     * what one shared snapshot exists to prevent. A consuming application is
+     * free to add its own, so only this namespace is checked.
      */
     #[DataProvider('contracts')]
-    public function test_no_concrete_implementation_exists_yet(
+    public function test_the_package_ships_exactly_one_implementation(
         string $contract,
     ): void {
-        foreach (get_declared_classes() as $class) {
-            if (! is_subclass_of($class, $contract)) {
-                continue;
-            }
+        $expected = $contract === PermissionResolver::class
+            ? DefaultPermissionResolver::class
+            : DefaultRoleResolver::class;
 
-            $this->fail(sprintf(
-                '[%s] implements [%s] before Increment 7.',
-                $class,
-                $contract,
-            ));
-        }
+        $this->assertTrue(class_exists($expected));
+        $this->assertTrue(is_subclass_of($expected, $contract));
 
-        $this->assertFalse(class_exists(
-            'HangTuah\\GateTrail\\Access\\DefaultPermissionResolver',
+        $reflection = new ReflectionClass($expected);
+
+        $this->assertTrue($reflection->isFinal());
+        $this->assertTrue($reflection->isReadOnly());
+
+        $implementations = array_values(array_filter(
+            get_declared_classes(),
+            static fn (string $class): bool => is_subclass_of($class, $contract)
+                && str_starts_with($class, 'HangTuah\\GateTrail\\'),
         ));
-        $this->assertFalse(class_exists(
-            'HangTuah\\GateTrail\\Access\\DefaultRoleResolver',
-        ));
+
+        $this->assertSame([$expected], $implementations);
     }
 
     /**

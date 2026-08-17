@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail;
 
+use HangTuah\GateTrail\Access\DefaultPermissionResolver;
+use HangTuah\GateTrail\Access\DefaultRoleResolver;
 use HangTuah\GateTrail\Access\EffectiveAccessQueryBuilder;
 use HangTuah\GateTrail\Access\EffectiveAccessResolver;
 use HangTuah\GateTrail\Access\EffectiveAccessRowMapper;
+use HangTuah\GateTrail\Access\RequestedDefinitionNormalizer;
 use HangTuah\GateTrail\Assignments\AssignmentConflictQuery;
 use HangTuah\GateTrail\Assignments\AssignmentDecisionMaker;
 use HangTuah\GateTrail\Assignments\AssignmentLockStore;
@@ -31,7 +34,9 @@ use HangTuah\GateTrail\Concurrency\RetryPolicy;
 use HangTuah\GateTrail\Concurrency\TransientFailureClassifier;
 use HangTuah\GateTrail\Contracts\AssignmentManager;
 use HangTuah\GateTrail\Contracts\PermissionManager;
+use HangTuah\GateTrail\Contracts\PermissionResolver;
 use HangTuah\GateTrail\Contracts\RoleManager;
+use HangTuah\GateTrail\Contracts\RoleResolver;
 use HangTuah\GateTrail\Database\Schema\Ddl\DdlCompilerFactory;
 use HangTuah\GateTrail\Database\Schema\IdentifierValidator;
 use HangTuah\GateTrail\Database\Schema\Inspection\SchemaInspectorFactory;
@@ -123,21 +128,39 @@ final class GateTrailServiceProvider extends ServiceProvider
         // The snapshot query shapes. A concrete internal component with one
         // injected collaborator, so the package's explicit-singleton
         // convention applies exactly as it does to AssignmentConflictQuery.
-        // The PermissionResolver and RoleResolver contracts stay unbound:
-        // building a query is not resolving access, and no implementation
-        // stands behind either contract yet.
         $this->app->singleton(EffectiveAccessQueryBuilder::class);
-        // Stateless row mapping, so the explicit-singleton convention applies.
+        // Stateless row mapping and stateless input normalization, so the
+        // package's explicit-singleton convention applies to both.
         $this->app->singleton(EffectiveAccessRowMapper::class);
-        // Scoped rather than singleton. The resolver is the scope ADR 0012's
-        // request memo will live in, and a singleton captured by a long-lived
-        // worker would carry one request's authorization state into the next.
-        // Registering it correctly now costs nothing; discovering it in
-        // Increment 8 would mean rebinding a service other code already holds.
-        // PermissionResolver and RoleResolver stay unbound: this resolver's
-        // permission set is incomplete until query 3 exists, so nothing
-        // consumer-facing may reach it.
+        $this->app->singleton(RequestedDefinitionNormalizer::class);
+        // Everything from here down is scoped rather than singleton. The
+        // internal resolver is the scope ADR 0012's request memo will live in,
+        // and a singleton that captured it would carry one request's
+        // authorization state into the next.
+        //
+        // The two public adapters are scoped for the same reason, one step
+        // removed: a singleton adapter would capture the scoped resolver at
+        // first resolution and keep serving the stale one for the life of the
+        // worker, which is the subtler version of the same leak.
+        //
+        // Each contract resolves *through* its concrete class rather than
+        // being bound to it separately, so the contract and the concrete
+        // adapter are one instance inside a scope and are flushed together.
         $this->app->scoped(EffectiveAccessResolver::class);
+        $this->app->scoped(DefaultPermissionResolver::class);
+        $this->app->scoped(DefaultRoleResolver::class);
+        $this->app->scoped(
+            PermissionResolver::class,
+            static fn (Application $app): DefaultPermissionResolver => $app->make(
+                DefaultPermissionResolver::class,
+            ),
+        );
+        $this->app->scoped(
+            RoleResolver::class,
+            static fn (Application $app): DefaultRoleResolver => $app->make(
+                DefaultRoleResolver::class,
+            ),
+        );
         $this->app->singleton(AssignmentDecisionMaker::class);
         $this->app->singleton(AssignmentLockStore::class);
         $this->app->singleton(AssignmentScopeProbe::class);

@@ -57,7 +57,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | Approximately 38% | Equal-phase progress across Phases 0–13 |
+| Overall roadmap by primary phases | Approximately 39% | Equal-phase progress across Phases 0–13 |
 | Deliverable tracker | 11 of 32, approximately 34% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
@@ -100,7 +100,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
 | 4 | Mutation services | 90% | In progress |
-| 5 | Effective permission resolver | 60% | In progress |
+| 5 | Effective permission resolver | 80% | In progress |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
 | 8 | Cache and performance | 0% | Not started |
@@ -162,9 +162,10 @@ Accepted architecture decisions:
 No proposed architecture decision is currently outstanding.
 
 Acceptance records an architectural decision, not implementation. ADR 0012 is
-accepted, and its implementation is **in progress**: Increments 1 to 6 of 10
-are complete. Internal resolution now produces the whole effective-permission
-formula; the two public resolver contracts are still unbound.
+accepted, and its implementation is **in progress**: Increments 1 to 7 of 10
+are complete. Both public resolvers are implemented and bound; request-level
+memoization, production query instrumentation and live-engine acceptance
+remain.
 
 ## 5. Roadmap adherence
 
@@ -1117,8 +1118,8 @@ Implement one source of truth for every GateTrail authorization decision.
 
 ### Deliverables
 
-- [ ] `PermissionResolver` contract and implementation.
-- [ ] `RoleResolver` contract and implementation.
+- [x] `PermissionResolver` contract and implementation.
+- [x] `RoleResolver` contract and implementation.
 - [x] Direct permission resolution.
 - [x] Role-derived permission resolution.
 - [x] Effective role collection.
@@ -1161,7 +1162,7 @@ has since been evidenced.
 
 ### Implementation status
 
-Implementation has begun. **Increments 1 to 6 of ADR 0012 are complete.**
+Implementation has begun. **Increments 1 to 7 of ADR 0012 are complete.**
 
 **Increment 1 — shared subject identity.** `SubjectIdentity`,
 `SubjectIdentityResolver` and `InvalidSubject` exist, are container-bound, and
@@ -1222,8 +1223,24 @@ a role revoked or deactivated between query 1 and query 3 contributes nothing.
 Candidates are chunked at a fixed **900**, giving one statement per chunk and
 never one per role, and query 3 is skipped outright when no role was observed.
 
-**Six deliverables are now checked, and this phase stands at 60%.**
+**Increment 7 — the public resolvers.** `DefaultPermissionResolver` and
+`DefaultRoleResolver` implement the two contracts as thin projections over one
+snapshot, and both contracts are now bound. A shared
+`RequestedDefinitionNormalizer` interprets the caller's input once for both:
+**a bare string is always a name** — `'007'` asks for a definition literally
+named `007`, while `Reference::id('007')` asks for identifier 7 — and an
+identifier only ever arrives through a reference, a native `int` or a
+configured model's persisted key. A definition model is honoured only when it
+is the `ModelRegistry`-resolved class or a subclass of it, so an unrelated
+application model whose key collides cannot authorize anyone. An impossible
+input denies **before** the subject, guard, clock or any statement is touched.
 
+**Eight deliverables are now checked, and this phase stands at 80%.**
+
+- `PermissionResolver contract and implementation` — `allows()` and
+  `effectivePermissions()` over one snapshot, with the complete input matrix.
+- `RoleResolver contract and implementation` — `has()` and `effectiveRoles()`
+  over the same snapshot, so the two can never disagree.
 - `Direct permission resolution` — query 2, filtered by assignment lifecycle,
   definition lifecycle and guard.
 - `Effective role collection` — query 1's ordered, unique role set, including
@@ -1242,29 +1259,30 @@ never one per role, and query 3 is skipped outright when no role was observed.
   merged, deduplicated by primary key and ordered by raw-byte `strcmp()`, so a
   permission reachable through two roles and a direct grant appears once.
 
-**Four remain unchecked, each for a specific reason.**
-`PermissionResolver contract and implementation` and
-`RoleResolver contract and implementation` are **atomic**: only the contract
-half of each exists, and both remain unbound, so no consumer can ask GateTrail
-an authorization question yet. `Request-level memoization` has no
-implementation — every call rebuilds. `Query-count instrumentation` is
-unchecked because the deliverable is the production and diagnostic mechanism of
-ADR 0012 section 8, and a test that counts statements is evidence, not that
-mechanism.
+**Two remain unchecked.** `Request-level memoization` has no implementation —
+every call rebuilds its snapshot. `Query-count instrumentation` is unchecked
+because the deliverable is the production and diagnostic mechanism of ADR 0012
+section 8, and a test that counts statements is evidence, not that mechanism.
 
 Under section 3.2, `EffectiveAccessSnapshot`, `EffectiveAccessQueryBuilder`,
-`EffectiveAccessResolver`, `EffectiveAccessRowMapper` and
+`EffectiveAccessResolver`, `EffectiveAccessRowMapper`,
+`RequestedDefinitionNormalizer`, `RequestedDefinition` and
 `SubjectIdentityResolver` are shared infrastructure counted through the
 capabilities above, never separately.
+
+The global deliverable tracker stays at **11 of 32**. `Effective permission
+resolver` is one tracked deliverable covering the whole phase, and the phase is
+not complete: memoization, instrumentation and the live-engine matrix are still
+outstanding.
 
 Live-engine evidence remains outstanding. The behavioural matrix runs on
 SQLite; MySQL and Oracle resolver acceptance, per ADR 0012 section 12.1, is
 still required before this phase can complete.
 
 ```text
-Completed: 6
+Completed: 8
 Total:     10
-Progress:  60%
+Progress:  80%
 ```
 
 ### Exit criteria
