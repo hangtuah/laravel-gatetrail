@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail\Access;
 
+use DateTimeImmutable;
+use DateTimeZone;
+use HangTuah\GateTrail\Database\Schema\SchemaContext;
 use HangTuah\GateTrail\Guards\SubjectGuardResolver;
+use HangTuah\GateTrail\Subjects\SubjectIdentity;
 use HangTuah\GateTrail\Subjects\SubjectIdentityResolver;
+use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Eloquent\Model;
 use Psr\Clock\ClockInterface;
 
@@ -32,9 +37,22 @@ use Psr\Clock\ClockInterface;
  * evidence that a role is still valid. Validity comes from the revalidation
  * inside query 3 itself.
  *
- * Nothing consumer-facing can reach this class yet: `PermissionResolver` and
- * `RoleResolver` stay unbound until Increment 7 supplies the thin adapters,
- * and there is no memoization, so every call rebuilds.
+ * **Repeated evaluations within one scope are memoized.** The key is the
+ * canonical subject identity, the resolved guard and the evaluation instant
+ * truncated to a UTC whole second, so a burst of checks shares one snapshot
+ * and a warm hit costs **zero statements** — while a second boundary always
+ * rebuilds, which is what keeps a memo from outliving a lifecycle boundary.
+ * Any `MutationCommitted` observed in this scope clears the memo outright, so
+ * a mutate-then-check sequence in one request has no stale interval at all.
+ *
+ * **A caller-owned transaction bypasses the memo in both directions.** When
+ * the GateTrail connection reports an open transaction, the snapshot is built
+ * fresh from transaction-visible state and is **never stored**: memoizing it
+ * would keep authorization derived from writes a rollback then discarded, and
+ * nothing would flush it, because `MutationCommitted` only follows a
+ * successful outermost commit. A pre-transaction entry is left untouched —
+ * neither returned, nor promoted, nor evicted — because it reflects committed
+ * state that a rollback cannot change.
  *
  * One evaluation is one identity, one guard and one instant:
  *
@@ -44,9 +62,12 @@ use Psr\Clock\ClockInterface;
  *   about who the subject is;
  * - `SubjectGuardResolver` runs once, under ADR 0003's precedence. There is no
  *   per-call override;
- * - `ClockInterface::now()` is read once and the identical instant is passed
- *   to both queries and stored in the snapshot, so the two statements agree
- *   about *when* they are asking.
+ * - `ClockInterface::now()` is read once, normalized to a UTC whole second,
+ *   and the identical instant is passed to every query and stored in the
+ *   snapshot, so the statements agree about *when* they are asking. The clock
+ *   is an injected PSR interface, so it is normalized here rather than
+ *   assumed: a consumer's clock may return another timezone or microseconds,
+ *   and either would make two checks in the same second miss each other.
  *
  * Both failures happen before any statement: an unresolvable subject raises
  * `InvalidSubject` and an unresolvable guard raises `InvalidGuard`, neither of
@@ -88,10 +109,14 @@ final readonly class EffectiveAccessResolver
         private ClockInterface $clock,
         private EffectiveAccessQueryBuilder $queries,
         private EffectiveAccessRowMapper $rows,
+        private EffectiveAccessMemo $memo,
+        private DatabaseManager $connections,
+        private SchemaContext $schema,
     ) {}
 
     /**
-     * Two statements, in a fixed order, from one identity, guard and instant.
+     * One identity, one guard, one instant — then either a memo hit or the
+     * bounded snapshot queries.
      *
      * The order of the three resolutions is fixed so that one subject always
      * fails for the same reason: identity, then guard, then the clock — which
@@ -101,8 +126,39 @@ final readonly class EffectiveAccessResolver
     {
         $identity = $this->identities->resolve($subject);
         $guardName = $this->guards->resolve($subject);
-        $evaluatedAt = $this->clock->now();
+        $evaluatedAt = $this->evaluatedAt();
 
+        if ($this->insideCallerTransaction()) {
+            // Built from transaction-visible state and deliberately not
+            // stored. The existing memo is not read, promoted or evicted
+            // either: it holds committed state, which a rollback cannot
+            // invalidate.
+            return $this->build($identity, $guardName, $evaluatedAt);
+        }
+
+        $key = EffectiveAccessMemoKey::for($identity, $guardName, $evaluatedAt);
+        $memoized = $this->memo->get($key);
+
+        if ($memoized !== null) {
+            return $memoized;
+        }
+
+        $snapshot = $this->build($identity, $guardName, $evaluatedAt);
+
+        $this->memo->put($key, $snapshot);
+
+        return $snapshot;
+    }
+
+    /**
+     * The snapshot queries themselves, unchanged: at most three shapes, one
+     * statement per role chunk, and no statement at all beyond them.
+     */
+    private function build(
+        SubjectIdentity $identity,
+        string $guardName,
+        DateTimeImmutable $evaluatedAt,
+    ): EffectiveAccessSnapshot {
         $roles = $this->rows->roles(
             $this->queries
                 ->effectiveRolesQuery($identity, $guardName, $evaluatedAt)
@@ -149,6 +205,39 @@ final readonly class EffectiveAccessResolver
             $roles,
             $permissions,
         );
+    }
+
+    /**
+     * One UTC whole second.
+     *
+     * `SystemClock` already returns exactly this, but the clock is an injected
+     * PSR interface and a consumer's implementation may return another
+     * timezone or microsecond precision. Either would make the memo key differ
+     * between two checks in the same second, so normalization happens here
+     * rather than being assumed upstream.
+     */
+    private function evaluatedAt(): DateTimeImmutable
+    {
+        $now = $this->clock->now()->setTimezone(new DateTimeZone('UTC'));
+
+        return $now->setTime(
+            (int) $now->format('H'),
+            (int) $now->format('i'),
+            (int) $now->format('s'),
+        );
+    }
+
+    /**
+     * The transaction level of the **GateTrail** connection, resolved through
+     * `SchemaContext`, not the application's default connection. A package
+     * installed on its own connection must not read another connection's
+     * transaction state to decide whether its own reads are transactional.
+     */
+    private function insideCallerTransaction(): bool
+    {
+        return $this->connections
+            ->connection($this->schema->connectionName())
+            ->transactionLevel() > 0;
     }
 
     /**

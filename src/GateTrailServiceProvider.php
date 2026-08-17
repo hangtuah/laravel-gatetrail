@@ -6,9 +6,11 @@ namespace HangTuah\GateTrail;
 
 use HangTuah\GateTrail\Access\DefaultPermissionResolver;
 use HangTuah\GateTrail\Access\DefaultRoleResolver;
+use HangTuah\GateTrail\Access\EffectiveAccessMemo;
 use HangTuah\GateTrail\Access\EffectiveAccessQueryBuilder;
 use HangTuah\GateTrail\Access\EffectiveAccessResolver;
 use HangTuah\GateTrail\Access\EffectiveAccessRowMapper;
+use HangTuah\GateTrail\Access\FlushEffectiveAccessMemo;
 use HangTuah\GateTrail\Access\RequestedDefinitionNormalizer;
 use HangTuah\GateTrail\Assignments\AssignmentConflictQuery;
 use HangTuah\GateTrail\Assignments\AssignmentDecisionMaker;
@@ -44,6 +46,7 @@ use HangTuah\GateTrail\Database\Schema\Manifest\SchemaManifest;
 use HangTuah\GateTrail\Database\Schema\SchemaAdapterFactory;
 use HangTuah\GateTrail\Database\Schema\SchemaContext;
 use HangTuah\GateTrail\Database\UniqueConstraintViolationClassifier;
+use HangTuah\GateTrail\Events\MutationCommitted;
 use HangTuah\GateTrail\Events\MutationEventDispatcher;
 use HangTuah\GateTrail\Guards\DefaultGuardResolver;
 use HangTuah\GateTrail\Guards\SubjectGuardResolver;
@@ -133,10 +136,15 @@ final class GateTrailServiceProvider extends ServiceProvider
         // package's explicit-singleton convention applies to both.
         $this->app->singleton(EffectiveAccessRowMapper::class);
         $this->app->singleton(RequestedDefinitionNormalizer::class);
-        // Everything from here down is scoped rather than singleton. The
-        // internal resolver is the scope ADR 0012's request memo will live in,
-        // and a singleton that captured it would carry one request's
-        // authorization state into the next.
+        // Stateless apart from the container it defers to, so the listener may
+        // be a singleton — it resolves the scoped memo inside handle(), never
+        // in its constructor.
+        $this->app->singleton(FlushEffectiveAccessMemo::class);
+        // Everything from here down is scoped rather than singleton. The memo
+        // holds one scope's authorization answers, and a singleton that
+        // captured it would carry one request's state into the next — and,
+        // under a long-lived Octane or queue worker, would never be flushed
+        // and never evicted.
         //
         // The two public adapters are scoped for the same reason, one step
         // removed: a singleton adapter would capture the scoped resolver at
@@ -146,6 +154,7 @@ final class GateTrailServiceProvider extends ServiceProvider
         // Each contract resolves *through* its concrete class rather than
         // being bound to it separately, so the contract and the concrete
         // adapter are one instance inside a scope and are flushed together.
+        $this->app->scoped(EffectiveAccessMemo::class);
         $this->app->scoped(EffectiveAccessResolver::class);
         $this->app->scoped(DefaultPermissionResolver::class);
         $this->app->scoped(DefaultRoleResolver::class);
@@ -288,6 +297,16 @@ final class GateTrailServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Registered before the console guard below, because request-local
+        // memo coherence is a web, queue and CLI concern alike. A mutation
+        // committed in this scope must clear this scope's memo wherever it
+        // happens, and an early return would leave a served HTTP request
+        // answering from state its own mutation had already replaced.
+        $this->app->make('events')->listen(
+            MutationCommitted::class,
+            [FlushEffectiveAccessMemo::class, 'handle'],
+        );
+
         if (! $this->app->runningInConsole()) {
             return;
         }

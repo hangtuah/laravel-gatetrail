@@ -4,11 +4,11 @@
 - Proposed: 2026-08-12
 - Accepted: 2026-08-13
 - Decision owners: GateTrail maintainers
-- Implementation status: **In progress** — Increments 1–7 of 10 complete,
+- Implementation status: **In progress** — Increments 1–8 of 10 complete,
   2026-08-17. See [Implementation increments](#16-implementation-increments).
-- Acceptance evidence: **partially produced.** The Increment 1–7 evidence
-  exists; request memoization, production instrumentation and the live-engine
-  matrix do not — see [Acceptance criteria](#17-acceptance-criteria)
+- Acceptance evidence: **partially produced.** The Increment 1–8 evidence
+  exists; production instrumentation and the live-engine matrix do not — see
+  [Acceptance criteria](#17-acceptance-criteria)
 - Supersedes: nothing
 - Blocks: Phase 5 implementation, and the Phase 6 Gate, concern and middleware
   adapters that depend on these signatures
@@ -20,19 +20,20 @@ contracts, the shared snapshot, the lifecycle algorithm, the query
 architecture, the memoization rules and the evidence matrix below are settled
 and no longer awaiting maintainer approval.
 
-**Implementation is separate and is partly done.** Increments 1–7 are complete
+**Implementation is separate and is nearly done.** Increments 1–8 are complete
 and evidenced, through to the thin `DefaultPermissionResolver` and
-`DefaultRoleResolver` adapters. **The two public contracts are now bound**, so
-a consumer can ask GateTrail an authorization question and receive the
-specification's complete effective-permission formula.
+`DefaultRoleResolver` adapters and the scoped request memo. **The two public
+contracts are bound**, so a consumer can ask GateTrail an authorization
+question and receive the specification's complete effective-permission
+formula, with repeated checks in one scope sharing one snapshot.
 
-**What still does not exist:** request-local memoization — every call rebuilds
-its snapshot — and the production query instrumentation. Live MySQL and Oracle
-resolver evidence (section 12.1) has also not been produced; the behavioural
-matrix runs on SQLite, with compile-only evidence for the other four grammars.
-**No Phase 6 work exists**: no Gate hook, no subject concern, no middleware.
-The acceptance criteria in section 17 remain the definition of done for
-Phase 5.
+**What still does not exist:** the production query instrumentation of section
+8. Live MySQL and Oracle resolver evidence (section 12.1) has also not been
+produced; the behavioural matrix runs on SQLite, with compile-only evidence for
+the other four grammars. **No cross-request cache invalidation exists** —
+section 7.3.1's cross-process boundary stands unchanged. **No Phase 6 work
+exists**: no Gate hook, no subject concern, no middleware. The acceptance
+criteria in section 17 remain the definition of done for Phase 5.
 
 ## Context
 
@@ -2024,7 +2025,7 @@ a claim. **Completing an increment does not change `ROADMAP.md` counts or
 percentages either** — the ten Phase 5 deliverables are atomic capabilities,
 and shared infrastructure is counted through the capability that consumes it.
 
-Increments 1–7 are complete. Increments 8–10 are not started.
+Increments 1–8 are complete. Increments 9 and 10 are not started.
 
 ### Increment 1 — Shared subject identity foundation and mutation alignment
 
@@ -2572,6 +2573,8 @@ acceptance remains Increment 10.
 
 ### Increment 8 — Request-local memoization and `MutationCommitted` coherence
 
+**Status: Complete, 2026-08-17.**
+
 - **Scope.** The scoped bounded memo, the whole-second key, the wholesale flush
   listener with lazy scoped resolution, and caller-transaction bypass.
 - **Acceptance evidence.** Warm hit costs zero statements; second boundary
@@ -2581,6 +2584,63 @@ acceptance remains Increment 10.
   singleton capture of a scoped store; LRU eviction under the bound.
 - **Non-goals.** No cache store, TTL, tag or fan-out. **No cross-process
   invalidation** — section 7.3.1 keeps that for the future cache ADR.
+
+#### Increment 8 evidence
+
+Delivered in `src/Access/EffectiveAccessMemo.php`,
+`src/Access/EffectiveAccessMemoKey.php`,
+`src/Access/FlushEffectiveAccessMemo.php` and the memo integration in
+`src/Access/EffectiveAccessResolver.php`. Asserted by
+`tests/Access/EffectiveAccessMemoTest.php`,
+`tests/Access/MemoizedResolutionTest.php` and
+`tests/Access/ResolverContainerTest.php`.
+
+**Fixed capacity: `CAPACITY = 64`.** A **private** constant on
+`EffectiveAccessMemo` — an initial, conservative internal bound, **not
+configuration and not a public guarantee**. A future Phase 8 benchmark may
+raise or lower it with no consumer migration, following the posture ADR 0011
+took on retry backoff: public configuration surface must be earned by
+evidence. The test asserts the value *and* that the constant is not public.
+
+**The key is length-prefixed, not concatenated.** The morph type is a class
+name or a consumer-chosen morph alias and the guard is a configuration string;
+both can contain any byte, including whatever separator a naive key would pick,
+so `('a|b', 'c')` and `('a', 'b|c')` would otherwise share one entry — and
+therefore one authorization answer. Each segment carries its byte length, and
+the identifier carries a type tag so a later widening to `int|string` cannot
+merge `7` and `'7'`. The instant contributes a Unix timestamp, which is
+absolute. A key is never logged, never placed in an exception and never added
+to an event payload.
+
+| Requirement | Evidence |
+|---|---|
+| Warm hits cost nothing | A cold check is 3 statements; the second is **0**. Ten `allows()` calls cost 3 in total, ten `has()` calls likewise, and a run alternating `allows()`, `has()`, `effectivePermissions()`, `effectiveRoles()` and a reference lookup costs 3 and leaves **one** memo entry — both public resolvers project over one scoped internal resolver |
+| Key completeness | A different subject, a different guard and a different second each produce a second entry. The guard case uses a subject whose guard comes from configuration, so one subject is genuinely evaluated under two guards in one second. Collision safety is asserted against five separator-shifted tuples that a concatenated key would merge |
+| UTC whole-second normalization | A clock returning `Asia/Kuala_Lumpur` with microseconds still memoizes: two reads 0.4s apart in the same second are one entry, and the stored `evaluatedAt()` is UTC with `000000` microseconds. Normalization is in the resolver rather than assumed of the injected PSR clock |
+| LRU bound | Capacity asserted at exactly 64 and asserted non-public. Entries 1–64 all remain; inserting 65 evicts entry 1; **reading entry 1 first promotes it and evicts entry 2 instead**; replacing an existing key keeps the size at 64 and evicts nothing; 500 writes across 20 seconds and 25 subjects never exceed 64. Eviction leaves no stale bookkeeping — the store is asserted to have **one** property, so there is no auxiliary index to leak |
+| Transaction bypass | Inside a caller-owned transaction every call rebuilds (3 statements each), the transaction-local snapshot is **never stored**, and a pre-transaction entry is neither returned nor disturbed — asserted by comparing the entry map before and inside. Reads stay `select`-only with no `for update` and no `acl_assignment_locks`, and `transactionLevel()` stays at 1 |
+| Rollback | A rolled-back grant leaves the pre-transaction entry byte-identical and still warm (0 statements), with `transactionLevel()` back to 0, and dispatches no event to flush it |
+| Same-scope coherence, through the real managers | `assignRole` → memoized `true`; `revokeRole` → memo empty and the next check is `false`. `grantDirectPermission` flips a memoized deny to allow. Role and permission `deactivate` and `restore` each take effect immediately. All of it through `AssignmentManager`, `RoleManager` and `PermissionManager` and the real after-commit boundary — not a hand-dispatched event |
+| Wholesale flush | Creating an unrelated role — an event with **no subject at all** — clears both of two subjects' entries, which is why the flush cannot be targeted |
+| No event, no flush | An `Unchanged` mutation outcome dispatches nothing and leaves the entry intact. A nested transaction flushes only after the **outermost** commit, per ADR 0010: the inner commit leaves the entry in place |
+| Lazy listener | The listener is asserted to retain **no** `EffectiveAccessMemo` in any property. The Octane hazard is reproduced directly: a listener resolved *before* a scope reset still clears the **new** scope's memo while the discarded store is left untouched |
+| Scope isolation | A second application container flushing does not clear this scope's memo. A new scope starts empty. The memo, the internal resolver, both adapters and both contracts are all asserted to be different objects after `forgetScopedInstances()`, while the query builder, row mapper, input normalizer, listener and three manager singletons survive unchanged. No singleton is found holding a discarded memo |
+| Collection safety under memoization | Each projection is a fresh `Collection`; `push()`, `forget()`, `transform()` and `pop()` on a returned collection change neither a later projection nor `allows()`/`has()`. Only `EffectiveRole` and `EffectivePermission` values are retained inside memoized snapshots |
+| Parity survives | A permission held both directly and through a role appears once, and every entry of `effectivePermissions()` answers `true` by name and by identifier |
+| Impossible input untouched | Increment 7's normalization-first ordering is unchanged: an empty name, a whitespace-only name, an overflowing reference and an unsaved model each deny with **zero statements** and leave the entry map byte-identical — no entry created, promoted, evicted or flushed |
+
+**Cross-process boundary, unchanged and still explicit.** The guarantee is:
+within one process and scope, a mutate-then-check sequence observes the
+committed mutation with no stale interval of any duration. A mutation committed
+in **another** process or container does **not** reach this scope's map, and a
+foreign scope's entry cannot outlive the shorter of its whole-second key and
+its scope. No broadcast, queue, pub/sub, shared cache tag or distributed
+invalidation was introduced, and the reserved after-commit cache-invalidation
+point of ADR 0011 stays empty.
+
+**Database evidence.** The full SQLite behavioural suite, and the existing
+compile-only Oracle grammar suite re-run unchanged. **No live MySQL or live
+Oracle execution was performed**; that remains Increment 10.
 
 ### Increment 9 — Query instrumentation and portability hardening
 

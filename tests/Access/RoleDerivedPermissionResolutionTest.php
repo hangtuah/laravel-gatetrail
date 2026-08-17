@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace HangTuah\GateTrail\Tests\Access;
 
 use DateTimeImmutable;
+use HangTuah\GateTrail\Access\EffectiveAccessMemo;
 use HangTuah\GateTrail\Access\EffectiveAccessQueryBuilder;
 use HangTuah\GateTrail\Access\EffectiveAccessResolver;
 use HangTuah\GateTrail\Access\EffectiveAccessRowMapper;
@@ -293,6 +294,8 @@ final class RoleDerivedPermissionResolutionTest extends TestCase
 
         $this->role->delete();
 
+        $this->forgetMemo();
+
         $this->assertSame([], $this->executeQueryThree($candidates));
     }
 
@@ -354,6 +357,7 @@ final class RoleDerivedPermissionResolutionTest extends TestCase
         $this->assignRole($this->role);
         $this->grantToRole($this->role, $this->permission);
         $this->role->delete();
+        $this->forgetMemo();
 
         $snapshot = $this->resolve();
 
@@ -366,6 +370,7 @@ final class RoleDerivedPermissionResolutionTest extends TestCase
         $this->assignRole($this->role);
         $this->grantToRole($this->role, $this->permission);
         $this->permission->delete();
+        $this->forgetMemo();
 
         $snapshot = $this->resolve();
 
@@ -379,11 +384,15 @@ final class RoleDerivedPermissionResolutionTest extends TestCase
         $this->grantToRole($this->role, $this->permission);
 
         $this->role->delete();
+
+        $this->forgetMemo();
         $this->permission->delete();
 
         $this->assertTrue($this->resolve()->permissions()->isEmpty());
 
         $this->role->restore();
+
+        $this->forgetMemo();
         $this->permission->restore();
 
         $this->assertTrue(
@@ -655,10 +664,11 @@ final class RoleDerivedPermissionResolutionTest extends TestCase
     }
 
     /**
-     * Memoization is Increment 8, so a repeated call must still cost its
-     * statements — including its chunks.
+     * Increment 8 memoizes per scope, so a repeated call within the same
+     * evaluated second reuses the snapshot — chunks included, which is the
+     * case where a warm hit saves the most.
      */
-    public function test_every_call_rebuilds_including_its_chunks(): void
+    public function test_a_repeated_call_reuses_the_chunked_snapshot(): void
     {
         $this->seedRoles(901);
 
@@ -667,10 +677,21 @@ final class RoleDerivedPermissionResolutionTest extends TestCase
             $this->resolve();
         });
 
-        $this->assertCount(8, $statements);
+        $this->assertCount(4, $statements);
     }
 
     // ------------------------------------------------------------------ Helpers
+
+    /**
+     * A direct Eloquent change is not a managed mutation, so it dispatches no
+     * `MutationCommitted` and this scope's memo legitimately still holds the
+     * pre-change snapshot. Clearing it keeps these tests about the query
+     * behaviour they were written for; memo coherence has its own suite.
+     */
+    private function forgetMemo(): void
+    {
+        $this->app->make(EffectiveAccessMemo::class)->clear();
+    }
 
     private function resolve(?TestSubject $subject = null): EffectiveAccessSnapshot
     {

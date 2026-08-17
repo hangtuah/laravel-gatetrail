@@ -7,6 +7,7 @@ namespace HangTuah\GateTrail\Tests\Access;
 use DateTimeImmutable;
 use HangTuah\GateTrail\Access\DefaultPermissionResolver;
 use HangTuah\GateTrail\Access\DefaultRoleResolver;
+use HangTuah\GateTrail\Access\EffectiveAccessMemo;
 use HangTuah\GateTrail\Access\EffectiveAccessQueryBuilder;
 use HangTuah\GateTrail\Access\EffectiveAccessResolver;
 use HangTuah\GateTrail\Access\EffectiveAccessRowMapper;
@@ -221,7 +222,16 @@ final class EffectiveAccessResolverTest extends TestCase
         $snapshot = $this->resolve();
 
         $this->assertSame('web', $snapshot->guardName());
-        $this->assertSame($this->time, $snapshot->evaluatedAt());
+
+        // The instant is normalized to a UTC whole second before it reaches
+        // the snapshot, so it is an equal value rather than the identical
+        // object the clock handed over.
+        $this->assertSame(
+            $this->time->getTimestamp(),
+            $snapshot->evaluatedAt()->getTimestamp(),
+        );
+        $this->assertSame('UTC', $snapshot->evaluatedAt()->getTimezone()->getName());
+        $this->assertSame('000000', $snapshot->evaluatedAt()->format('u'));
     }
 
     /**
@@ -346,6 +356,8 @@ final class EffectiveAccessResolverTest extends TestCase
 
         $this->role->delete();
 
+        $this->forgetMemo();
+
         $this->assertFalse($this->resolve()->hasRoleId($this->role->getKey()));
         $this->assertTrue($this->resolve()->roles()->isEmpty());
     }
@@ -360,6 +372,8 @@ final class EffectiveAccessResolverTest extends TestCase
 
         $this->permission->delete();
 
+        $this->forgetMemo();
+
         $this->assertTrue($this->resolve()->permissions()->isEmpty());
     }
 
@@ -372,6 +386,7 @@ final class EffectiveAccessResolverTest extends TestCase
     {
         $assignment = $this->assignRole($this->subject, $this->role);
         $this->role->delete();
+        $this->forgetMemo();
 
         $this->assertFalse($this->resolve()->hasRoleId($this->role->getKey()));
         $this->assertTrue(
@@ -384,10 +399,13 @@ final class EffectiveAccessResolverTest extends TestCase
     {
         $this->assignRole($this->subject, $this->role);
         $this->role->delete();
+        $this->forgetMemo();
 
         $this->assertTrue($this->resolve()->roles()->isEmpty());
 
         $this->role->restore();
+
+        $this->forgetMemo();
 
         $this->assertTrue($this->resolve()->hasRoleId($this->role->getKey()));
     }
@@ -672,16 +690,18 @@ final class EffectiveAccessResolverTest extends TestCase
     }
 
     /**
-     * Memoization is Increment 8. Until then every call must genuinely read.
+     * Increment 8 memoizes per scope, so a repeated call within the same
+     * evaluated second is a warm hit costing nothing. `MemoizedResolutionTest`
+     * owns the full memo matrix; this pins the budget consequence here.
      */
-    public function test_every_call_executes_its_queries(): void
+    public function test_a_repeated_call_within_one_second_costs_nothing(): void
     {
         $statements = $this->captureStatements(function (): void {
             $this->resolve();
             $this->resolve();
         });
 
-        $this->assertCount(4, $statements);
+        $this->assertCount(2, $statements);
     }
 
     // ------------------------------------------------ 10. Safe failure behaviour
@@ -819,6 +839,17 @@ final class EffectiveAccessResolverTest extends TestCase
     }
 
     // ------------------------------------------------------------------ Helpers
+
+    /**
+     * A direct Eloquent change is not a managed mutation, so it dispatches no
+     * `MutationCommitted` and this scope's memo legitimately still holds the
+     * pre-change snapshot. Clearing it keeps these tests about the query
+     * behaviour they were written for; memo coherence has its own suite.
+     */
+    private function forgetMemo(): void
+    {
+        $this->app->make(EffectiveAccessMemo::class)->clear();
+    }
 
     private function resolve(?Model $subject = null): EffectiveAccessSnapshot
     {

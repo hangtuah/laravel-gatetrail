@@ -6,9 +6,11 @@ namespace HangTuah\GateTrail\Tests\Access;
 
 use HangTuah\GateTrail\Access\DefaultPermissionResolver;
 use HangTuah\GateTrail\Access\DefaultRoleResolver;
+use HangTuah\GateTrail\Access\EffectiveAccessMemo;
 use HangTuah\GateTrail\Access\EffectiveAccessQueryBuilder;
 use HangTuah\GateTrail\Access\EffectiveAccessResolver;
 use HangTuah\GateTrail\Access\EffectiveAccessRowMapper;
+use HangTuah\GateTrail\Access\FlushEffectiveAccessMemo;
 use HangTuah\GateTrail\Access\RequestedDefinitionNormalizer;
 use HangTuah\GateTrail\Contracts\AssignmentManager;
 use HangTuah\GateTrail\Contracts\PermissionManager;
@@ -53,6 +55,7 @@ final class ResolverContainerTest extends TestCase
     public static function scopedServices(): array
     {
         return [
+            'memo' => [EffectiveAccessMemo::class],
             'internal resolver' => [EffectiveAccessResolver::class],
             'permission contract' => [PermissionResolver::class],
             'role contract' => [RoleResolver::class],
@@ -70,6 +73,7 @@ final class ResolverContainerTest extends TestCase
             'query builder' => [EffectiveAccessQueryBuilder::class],
             'row mapper' => [EffectiveAccessRowMapper::class],
             'input normalizer' => [RequestedDefinitionNormalizer::class],
+            'memo flush listener' => [FlushEffectiveAccessMemo::class],
             'assignment manager' => [AssignmentManager::class],
             'role manager' => [RoleManager::class],
             'permission manager' => [PermissionManager::class],

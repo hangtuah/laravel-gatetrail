@@ -57,7 +57,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | Approximately 39% | Equal-phase progress across Phases 0–13 |
+| Overall roadmap by primary phases | 40% | Equal-phase progress across Phases 0–13 |
 | Deliverable tracker | 11 of 32, approximately 34% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
@@ -100,7 +100,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
 | 4 | Mutation services | 90% | In progress |
-| 5 | Effective permission resolver | 80% | In progress |
+| 5 | Effective permission resolver | 90% | In progress |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
 | 8 | Cache and performance | 0% | Not started |
@@ -162,10 +162,9 @@ Accepted architecture decisions:
 No proposed architecture decision is currently outstanding.
 
 Acceptance records an architectural decision, not implementation. ADR 0012 is
-accepted, and its implementation is **in progress**: Increments 1 to 7 of 10
-are complete. Both public resolvers are implemented and bound; request-level
-memoization, production query instrumentation and live-engine acceptance
-remain.
+accepted, and its implementation is **in progress**: Increments 1 to 8 of 10
+are complete. Both public resolvers are implemented, bound and memoized per
+scope; production query instrumentation and live-engine acceptance remain.
 
 ## 5. Roadmap adherence
 
@@ -1126,7 +1125,7 @@ Implement one source of truth for every GateTrail authorization decision.
 - [x] Subject guard resolution.
 - [x] Lifecycle filtering.
 - [x] Effective permission collection.
-- [ ] Request-level memoization.
+- [x] Request-level memoization.
 - [ ] Query-count instrumentation.
 
 ### Required rules
@@ -1162,7 +1161,7 @@ has since been evidenced.
 
 ### Implementation status
 
-Implementation has begun. **Increments 1 to 7 of ADR 0012 are complete.**
+Implementation has begun. **Increments 1 to 8 of ADR 0012 are complete.**
 
 **Increment 1 — shared subject identity.** `SubjectIdentity`,
 `SubjectIdentityResolver` and `InvalidSubject` exist, are container-bound, and
@@ -1259,30 +1258,49 @@ input denies **before** the subject, guard, clock or any statement is touched.
   merged, deduplicated by primary key and ordered by raw-byte `strcmp()`, so a
   permission reachable through two roles and a direct grant appears once.
 
-**Two remain unchecked.** `Request-level memoization` has no implementation —
-every call rebuilds its snapshot. `Query-count instrumentation` is unchecked
-because the deliverable is the production and diagnostic mechanism of ADR 0012
-section 8, and a test that counts statements is evidence, not that mechanism.
+**Increment 8 — request-local memoization.** `EffectiveAccessMemo` is a
+scoped, bounded, least-recently-used store keyed on the canonical subject
+identity, the resolved guard and the evaluation instant truncated to a UTC
+whole second. Repeated checks within one second share one snapshot and cost
+**zero additional statements**; a second boundary always rebuilds, so a memo
+cannot outlive a lifecycle edge. A `MutationCommitted` observed in this scope
+clears the whole store through a listener that resolves the memo from the
+container **at dispatch time**, never in its constructor — a captured store
+would serve one request's answers to the next under Octane or a queue worker.
+An active caller-owned transaction bypasses the memo in both directions:
+transaction-visible state is read fresh and never stored, and the committed
+entry is neither returned nor evicted, so it survives a rollback intact.
+
+- `Request-level memoization` — the scoped bounded store, the whole-second UTC
+  key, the wholesale same-scope flush, and the caller-transaction bypass.
+
+**One remains unchecked.** `Query-count instrumentation` is unchecked because
+the deliverable is the production and diagnostic mechanism of ADR 0012 section
+8, and a test that counts statements is evidence, not that mechanism.
 
 Under section 3.2, `EffectiveAccessSnapshot`, `EffectiveAccessQueryBuilder`,
 `EffectiveAccessResolver`, `EffectiveAccessRowMapper`,
-`RequestedDefinitionNormalizer`, `RequestedDefinition` and
+`RequestedDefinitionNormalizer`, `RequestedDefinition`,
+`EffectiveAccessMemoKey`, `FlushEffectiveAccessMemo` and
 `SubjectIdentityResolver` are shared infrastructure counted through the
 capabilities above, never separately.
 
 The global deliverable tracker stays at **11 of 32**. `Effective permission
 resolver` is one tracked deliverable covering the whole phase, and the phase is
-not complete: memoization, instrumentation and the live-engine matrix are still
-outstanding.
+not complete: instrumentation and the live-engine matrix are still outstanding.
+
+**Phase 4's cross-request cache invalidation is not touched.** This memo is
+request-local: it uses no cache store, no TTL, no tag and no broadcast, and a
+mutation committed in another process does not reach it.
 
 Live-engine evidence remains outstanding. The behavioural matrix runs on
 SQLite; MySQL and Oracle resolver acceptance, per ADR 0012 section 12.1, is
 still required before this phase can complete.
 
 ```text
-Completed: 8
+Completed: 9
 Total:     10
-Progress:  80%
+Progress:  90%
 ```
 
 ### Exit criteria
