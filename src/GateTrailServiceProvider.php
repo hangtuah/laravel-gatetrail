@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace HangTuah\GateTrail;
 
 use HangTuah\GateTrail\Access\EffectiveAccessQueryBuilder;
+use HangTuah\GateTrail\Access\EffectiveAccessResolver;
+use HangTuah\GateTrail\Access\EffectiveAccessRowMapper;
 use HangTuah\GateTrail\Assignments\AssignmentConflictQuery;
 use HangTuah\GateTrail\Assignments\AssignmentDecisionMaker;
 use HangTuah\GateTrail\Assignments\AssignmentLockStore;
@@ -125,6 +127,17 @@ final class GateTrailServiceProvider extends ServiceProvider
         // building a query is not resolving access, and no implementation
         // stands behind either contract yet.
         $this->app->singleton(EffectiveAccessQueryBuilder::class);
+        // Stateless row mapping, so the explicit-singleton convention applies.
+        $this->app->singleton(EffectiveAccessRowMapper::class);
+        // Scoped rather than singleton. The resolver is the scope ADR 0012's
+        // request memo will live in, and a singleton captured by a long-lived
+        // worker would carry one request's authorization state into the next.
+        // Registering it correctly now costs nothing; discovering it in
+        // Increment 8 would mean rebinding a service other code already holds.
+        // PermissionResolver and RoleResolver stay unbound: this resolver's
+        // permission set is incomplete until query 3 exists, so nothing
+        // consumer-facing may reach it.
+        $this->app->scoped(EffectiveAccessResolver::class);
         $this->app->singleton(AssignmentDecisionMaker::class);
         $this->app->singleton(AssignmentLockStore::class);
         $this->app->singleton(AssignmentScopeProbe::class);

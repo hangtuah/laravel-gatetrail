@@ -57,7 +57,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | Approximately 34% | Equal-phase progress across Phases 0–13 |
+| Overall roadmap by primary phases | Approximately 36% | Equal-phase progress across Phases 0–13 |
 | Deliverable tracker | 11 of 32, approximately 34% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
@@ -100,7 +100,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
 | 4 | Mutation services | 90% | In progress |
-| 5 | Effective permission resolver | 0% | In progress |
+| 5 | Effective permission resolver | 30% | In progress |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
 | 8 | Cache and performance | 0% | Not started |
@@ -162,8 +162,9 @@ Accepted architecture decisions:
 No proposed architecture decision is currently outstanding.
 
 Acceptance records an architectural decision, not implementation. ADR 0012 is
-accepted, and its implementation is **in progress**: Increments 1 to 4 of 10
-are complete, and no resolver implementation exists yet.
+accepted, and its implementation is **in progress**: Increments 1 to 5 of 10
+are complete. Internal resolution now runs; the two public resolver contracts
+are still unbound and role-derived permissions are still absent.
 
 ## 5. Roadmap adherence
 
@@ -1118,10 +1119,10 @@ Implement one source of truth for every GateTrail authorization decision.
 
 - [ ] `PermissionResolver` contract and implementation.
 - [ ] `RoleResolver` contract and implementation.
-- [ ] Direct permission resolution.
+- [x] Direct permission resolution.
 - [ ] Role-derived permission resolution.
-- [ ] Effective role collection.
-- [ ] Subject guard resolution.
+- [x] Effective role collection.
+- [x] Subject guard resolution.
 - [ ] Lifecycle filtering.
 - [ ] Effective permission collection.
 - [ ] Request-level memoization.
@@ -1153,13 +1154,14 @@ placed the role resolver in no phase at all. The corrected list adds
 shared infrastructure is included in the acceptance criteria of the capability
 that uses it and is not counted again as separate progress.
 
-The correction changes the denominator from eight to ten while the numerator
-stays at zero. **Accepting an architecture is not implementation evidence**, so
-this phase remains at 0% with no deliverable checked.
+The correction changed the denominator from eight to ten. **Accepting an
+architecture is not implementation evidence**, so the numerator stayed at zero
+until implementation produced it; see the implementation status below for what
+has since been evidenced.
 
 ### Implementation status
 
-Implementation has begun. **Increments 1 to 4 of ADR 0012 are complete.**
+Implementation has begun. **Increments 1 to 5 of ADR 0012 are complete.**
 
 **Increment 1 — shared subject identity.** `SubjectIdentity`,
 `SubjectIdentityResolver` and `InvalidSubject` exist, are container-bound, and
@@ -1196,26 +1198,52 @@ called, not copied. Every table and column name is resolved from
 replacement model, an overridden `DELETED_AT` and a custom primary-key name all
 apply. Nothing executes these builders.
 
-**No deliverable above is checked, and this phase stays at 0%.** That is not an
-oversight. `PermissionResolver contract and implementation` and
-`RoleResolver contract and implementation` are **atomic** deliverables: an item
-is 0% until its acceptance criteria and implementation evidence are both
-complete, and only the contract half of each exists. Under section 3.2, shared
-infrastructure is counted through the capability that consumes it — and
-`EffectiveAccessSnapshot` is named in the design status above as exactly that,
-so it is not counted separately no matter how much of it exists. The query
-builders are the same kind of shared foundation: `Lifecycle filtering` and
-`Direct permission resolution` are capabilities that resolve access, and a
-builder nothing runs resolves nothing. No resolver capability exists yet: no
-query execution, no row mapping, no guard resolution, no memoization, no
-binding. The first four increments hardened the mutation paths, froze the
-public surface, built the container the resolver will fill and described two of
-its three statements; they completed none of the ten deliverables.
+**Increment 5 — internal resolution.** `EffectiveAccessResolver` executes
+queries 1 and 2 and returns one snapshot. Per call it resolves the **supplied**
+subject once through `SubjectIdentityResolver`, one guard once through
+`SubjectGuardResolver`, and reads the clock **once**, passing the identical
+instant to both statements. `EffectiveAccessRowMapper` turns rows into
+`EffectiveRole` and `EffectivePermission` values through the three fixed query
+aliases, normalizing identifiers with the same `DefinitionIdentifierNormalizer`
+the mutation paths use, and dropping any row whose guard is not byte-for-byte
+the resolved guard. Reads are `SELECT` only: no write, no lock, no coordination
+row and no package-owned transaction. **Role-derived permissions are still
+absent** — query 3 is Increment 6 — so the resolver is registered as a scoped
+internal service and nothing consumer-facing can reach it.
+
+**Three deliverables are now checked, and this phase stands at 30%.**
+
+- `Direct permission resolution` — query 2 runs, filtered by assignment
+  lifecycle, definition lifecycle and guard, and its results reach the
+  snapshot.
+- `Effective role collection` — query 1 runs and produces the ordered, unique
+  effective role set, including roles that grant no permissions.
+- `Subject guard resolution` — one guard per evaluation through
+  `SubjectGuardResolver`, with byte-exact post-verification of every returned
+  row.
+
+**Seven remain unchecked, and each for a specific reason rather than for tidy
+accounting.** `PermissionResolver contract and implementation` and
+`RoleResolver contract and implementation` are **atomic**: only the contract
+half of each exists, and both remain unbound. `Role-derived permission
+resolution` has no implementation at all. `Lifecycle filtering` is unchecked
+because query 3 carries its own lifecycle path — the revalidating correlated
+`EXISTS` — which does not exist yet, so the capability is only partly built.
+`Effective permission collection` is unchecked because a permission collection
+missing every role-derived permission is not that collection. `Request-level
+memoization` has no implementation. `Query-count instrumentation` is unchecked
+because the deliverable is the production and diagnostic mechanism of ADR 0012
+section 8, and a test that counts statements is evidence, not that mechanism.
+
+Under section 3.2, `EffectiveAccessSnapshot`, `EffectiveAccessQueryBuilder`,
+`EffectiveAccessResolver`, `EffectiveAccessRowMapper` and
+`SubjectIdentityResolver` are shared infrastructure counted through the
+capabilities above, never separately.
 
 ```text
-Completed: 0
+Completed: 3
 Total:     10
-Progress:  0%
+Progress:  30%
 ```
 
 ### Exit criteria

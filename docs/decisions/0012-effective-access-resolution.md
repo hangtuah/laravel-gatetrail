@@ -4,10 +4,10 @@
 - Proposed: 2026-08-12
 - Accepted: 2026-08-13
 - Decision owners: GateTrail maintainers
-- Implementation status: **In progress** — Increments 1–4 of 10 complete,
+- Implementation status: **In progress** — Increments 1–5 of 10 complete,
   2026-08-17. See [Implementation increments](#16-implementation-increments).
-- Acceptance evidence: **partially produced.** The Increment 1–4 evidence
-  exists; the resolver acceptance matrix does not — see
+- Acceptance evidence: **partially produced.** The Increment 1–5 evidence
+  exists; the full resolver acceptance matrix does not — see
   [Acceptance criteria](#17-acceptance-criteria)
 - Supersedes: nothing
 - Blocks: Phase 5 implementation, and the Phase 6 Gate, concern and middleware
@@ -20,18 +20,20 @@ contracts, the shared snapshot, the lifecycle algorithm, the query
 architecture, the memoization rules and the evidence matrix below are settled
 and no longer awaiting maintainer approval.
 
-**Implementation is separate and has only begun.** Increment 1 — the shared
-subject-identity foundation — Increment 2 — the value objects and the two
-public contracts — Increment 3 — the immutable `EffectiveAccessSnapshot` — and
-Increment 4 — the portable joined-definition query builders — are complete and
-evidenced. **No resolver implementation, no query execution, no guard
-resolution, no memoization and no cache behaviour exists.** The snapshot holds
-an evaluated state, it does not evaluate one; the query builders describe two
-of the three statements, but nothing runs them, maps their rows or merges
-their results. The two contracts remain deliberately unbound, and no resolver
-acceptance evidence has been produced. The acceptance criteria in section 17
-remain the definition of done for Phase 5; only the subject-identity portion
-of that matrix has been satisfied.
+**Implementation is separate and is partly done.** Increments 1–5 are complete
+and evidenced: the shared subject-identity foundation, the value objects and
+the two public contracts, the immutable `EffectiveAccessSnapshot`, the portable
+joined-definition query builders, and the internal `EffectiveAccessResolver`
+that executes queries 1 and 2 into one snapshot.
+
+**What still does not exist:** role-derived permissions (query 3, its
+full-path revalidation and its chunking), the thin `DefaultPermissionResolver`
+and `DefaultRoleResolver` adapters, request-local memoization, and the
+production query instrumentation. **The effective permission set is therefore
+incomplete** — it holds direct grants only — which is exactly why
+`PermissionResolver` and `RoleResolver` remain deliberately unbound and no
+consumer-facing path can reach the resolver. The acceptance criteria in
+section 17 remain the definition of done for Phase 5.
 
 ## Context
 
@@ -2001,7 +2003,7 @@ a claim. **Completing an increment does not change `ROADMAP.md` counts or
 percentages either** — the ten Phase 5 deliverables are atomic capabilities,
 and shared infrastructure is counted through the capability that consumes it.
 
-Increments 1–4 are complete. Increments 5–10 are not started.
+Increments 1–5 are complete. Increments 6–10 are not started.
 
 ### Increment 1 — Shared subject identity foundation and mutation alignment
 
@@ -2284,11 +2286,75 @@ sites depend on, for no correctness gain in this increment.
 
 ### Increment 5 — Direct permission and effective-role resolution
 
+**Status: Complete, 2026-08-17.**
+
 - **Scope.** Snapshot queries 1 and 2.
 - **Acceptance evidence.** Half-open boundary matrix; revoked, scheduled,
   expired excluded; deactivated definitions excluded; cross-guard excluded;
   two-query budget when the subject has no roles.
 - **Non-goals.** No role-derived permissions.
+
+#### Increment 5 evidence
+
+Delivered in `src/Access/EffectiveAccessResolver.php` and
+`src/Access/EffectiveAccessRowMapper.php`, asserted by
+`tests/Access/EffectiveAccessResolverTest.php` and
+`tests/Access/EffectiveAccessRowMapperTest.php`.
+
+**Internal shape.** Two `final readonly` `@internal` classes:
+
+```php
+EffectiveAccessResolver::resolve(Model $subject): EffectiveAccessSnapshot
+
+EffectiveAccessRowMapper::roles(iterable $rows, string $guardName): array
+EffectiveAccessRowMapper::permissions(iterable $rows, string $guardName): array
+```
+
+The resolver's dependencies are `SubjectIdentityResolver`,
+`SubjectGuardResolver`, `Psr\Clock\ClockInterface`,
+`EffectiveAccessQueryBuilder` and `EffectiveAccessRowMapper`; the mapper's are
+`ModelRegistry` and `DefinitionIdentifierNormalizer`. No rule belonging to any
+of them is reimplemented. `resolve()` is the resolver's only public method.
+
+**A row mapper was extracted deliberately.** It is the smallest seam at which a
+**driver-shaped scalar** can be exercised honestly: Oracle returns a numeric
+identifier as a string and no SQLite fixture reproduces that, so the mapping
+boundary has to be reachable without a driver. Increment 6's query-3 rows carry
+the same three aliases and reuse it unchanged.
+
+**Registered as a scoped service**, not a singleton, because the request memo
+of Increment 8 belongs to this object's lifetime and a singleton captured by a
+long-lived worker would carry one request's authorization state into the next.
+Asserted behaviourally: the resolver does not survive
+`forgetScopedInstances()`, while the query-builder singleton does.
+
+| Requirement | Evidence |
+|---|---|
+| One identity, one guard, one instant | The **supplied** model is resolved; a counting clock proves exactly one `now()` per `resolve()`, and the identical instant reaches both queries and the snapshot. A second subject holding the role does not leak into the first subject's snapshot, and an assignment written under a different `subject_type` is excluded |
+| Failures precede all SQL | An unpersisted subject raises `InvalidSubject` and an unresolvable guard raises `InvalidGuard`, each with **zero statements** observed on the connection and no subject identifier in the message |
+| Half-open lifecycle | A twelve-case matrix runs against **both** role and direct-permission assignments at one fixed instant: `starts_at` equal / before / after; null `starts_at` with `assigned_at` equal / before / after; `expires_at` null / after / equal / before; `revoked_at` null / populated. Expiry is exclusive. Inactive rows are additionally shown not to disturb active ones |
+| Definition lifecycle | A deactivated role and a deactivated permission are excluded, the **assignment row survives untouched and unrevoked**, and restoring the definition makes the path effective again |
+| Guard filtering | Cross-guard role and permission definitions are excluded. Mapping then re-checks every returned row **byte-for-byte** against the resolved guard, so a case-insensitive collation cannot widen the SQL predicate; `'WEB'`, `'Web'`, `'web '` and `' web'` are each excluded. A cross-guard row is dropped **silently** — no `GuardMismatch`, no `RoleNotFound`, no disclosure of the other guard, name or identifier |
+| Fail closed on a missing definition | An assignment whose definition row has been removed contributes nothing, through the inner join, while its sibling row still resolves |
+| Alias-only mapping | Rows are read from raw attributes through `ID_ALIAS`, `NAME_ALIAS` and `GUARD_ALIAS` only. A row carrying conflicting `id`, `name`, `guard_name`, `subject_id` and `role_id` attributes maps from the aliases regardless, and mapping executes **zero statements**, so no relation or definition lookup can hide there |
+| Identifier portability | For an integer-keyed definition, `7`, `'7'`, `'007'`, `'0'` and `'9223372036854775807'` all become the canonical native `int` — which matters because the snapshot keys uniqueness on the identifier's PHP type. A string-keyed definition preserves `'007'` exactly. `'9223372036854775808'` **raises rather than saturating** onto `PHP_INT_MAX`, alongside non-numeric, signed, decimal, exponent, hexadecimal, whitespace, UUID and empty values |
+| Invariant failures are safe and loud | A missing, null or wrongly typed identifier, name or guard raises a `LogicException` rather than degrading to an empty result, and no partial value object is built. The message carries a fixed field label only — asserted to contain no identifier, name, guard, alias, table name or SQL, in the message, the string cast and the object vars, with `getPrevious()` null |
+| Query budget | Connection-level observation: a `resolve()` with no roles is **exactly two `SELECT` statements**, one against `acl_role_assignments` and one against `acl_permission_assignments`. Twenty-five roles and twenty-five permissions cost the same two, so no N+1 exists |
+| Read-only | Every statement is word-boundary asserted to contain no `insert`, `update`, `delete`, `truncate`, `create`, `alter`, `drop`, `begin`, `commit` or `rollback`, no `for update`, no `lock in share mode` and no `acl_assignment_locks`. `transactionLevel()` is zero afterwards |
+| Caller-owned transaction | Inside a caller's transaction the resolver observes uncommitted state and leaves `transactionLevel()` at 1 — it neither opens nor commits one of its own |
+| No memoization yet | Two `resolve()` calls execute four statements |
+| Database failures propagate | A dropped table produces the driver's `QueryException` unchanged, with its `getPrevious()` intact, rather than an empty snapshot — an outage must not read as a silent mass denial |
+| Snapshot rules are not duplicated | The resolver prepares inputs only: ordering by raw-byte `strcmp()` and deduplication by primary key are observed through the real snapshot, and two active assignments of one role yield two rows and one entry |
+| Configured models honoured | Replacement role and permission models are resolved through `ModelRegistry` and drive both the query and the identifier key type |
+
+**Role-derived permissions remain absent.** Asserted, not assumed: with an
+effective role *and* an active `role_permissions` grant, the role is present
+and the permission is **not**. Query 3, its correlated `EXISTS` revalidation
+and its 900-item chunking are Increment 6.
+
+**No public resolver exists.** `PermissionResolver` and `RoleResolver` are
+asserted unbound and un-aliased, and `DefaultPermissionResolver` and
+`DefaultRoleResolver` are asserted not to exist — they are Increment 7.
 
 ### Increment 6 — Role-derived permission resolution with chunking
 

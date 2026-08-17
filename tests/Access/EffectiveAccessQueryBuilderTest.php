@@ -643,15 +643,18 @@ final class EffectiveAccessQueryBuilderTest extends TestCase
         );
     }
 
-    // ------------------------------------------- 10. No Increment 5/6 behaviour
+    // --------------------------------------------- 10. No later-increment behaviour
 
     /**
+     * `EffectiveAccessResolver` was on this list until Increment 5 delivered
+     * it, and was removed then rather than weakened. What stays is the thin
+     * adapter pair, which is Increment 7.
+     *
      * @return array<string, array{string}>
      */
     public static function futureClasses(): array
     {
         return [
-            'resolver' => ['HangTuah\\GateTrail\\Access\\EffectiveAccessResolver'],
             'permission adapter' => [
                 'HangTuah\\GateTrail\\Access\\DefaultPermissionResolver',
             ],
