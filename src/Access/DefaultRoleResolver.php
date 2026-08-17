@@ -24,16 +24,25 @@ use Illuminate\Support\Collection;
  * reported, because a role name is not an authorization bypass by itself and
  * an unpermissioned role must remain visible.
  *
- * **Normalization happens before the snapshot is built**, so an impossible
- * input denies at zero cost and is never bound into a statement. A valid input
- * builds exactly one snapshot and compares in memory; **no separate definition
- * lookup is ever issued**.
+ * **Normalization happens first — before the subject, the guard and the
+ * snapshot** — so an impossible input denies at zero cost and is never bound
+ * into a statement. On that short-circuit the supplied subject is deliberately
+ * never inspected, so the call returns `false` even when that subject would
+ * itself have been unresolvable.
+ *
+ * A valid input then proceeds through subject and guard resolution and builds
+ * exactly one snapshot, comparing in memory; **no separate definition lookup
+ * is ever issued**.
  *
  * Missing, deactivated and cross-guard roles are all absent from the snapshot,
  * and absence is one answer — a caller cannot distinguish them. A denial never
  * raises `RoleNotFound` or `GuardMismatch`; the mutation paths keep those, and
- * correctly answer differently. An unresolvable subject or guard still raises,
- * and a database failure still propagates.
+ * correctly answer differently.
+ *
+ * The typed failures apply to the valid-input path: once normalization has
+ * passed, an unresolvable subject raises `InvalidSubject`, an invalid
+ * authoritative guard raises `InvalidGuard`, and a database failure propagates
+ * unchanged.
  *
  * @see docs/decisions/0012-effective-access-resolution.md
  */

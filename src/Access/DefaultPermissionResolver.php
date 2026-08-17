@@ -25,20 +25,29 @@ use Illuminate\Support\Collection;
  * `true` from `allows()` and the presence of that permission in
  * `effectivePermissions()` cannot contradict each other.
  *
- * **Normalization happens before the snapshot is built.** An input no
- * definition row could carry — an empty name, an overflowing identifier, an
- * unsaved model, a foreign class — denies immediately, so it costs zero
- * queries and is never bound into a statement. A valid input builds exactly
- * one snapshot and compares in memory: **no separate definition lookup is ever
- * issued**, because the snapshot already carries every effective permission's
- * identifier, name and guard.
+ * **Normalization happens first — before the subject, the guard and the
+ * snapshot.** An input no definition row could carry — an empty name, an
+ * overflowing identifier, an unsaved model, a foreign class — denies
+ * immediately, so it costs zero queries and is never bound into a statement.
+ * On that short-circuit the supplied subject is deliberately never inspected,
+ * so the call returns `false` even when that subject would itself have been
+ * unresolvable.
+ *
+ * A valid input then proceeds through subject and guard resolution and builds
+ * exactly one snapshot, comparing in memory: **no separate definition lookup
+ * is ever issued**, because the snapshot already carries every effective
+ * permission's identifier, name and guard.
  *
  * Missing, deactivated and cross-guard permissions are all simply absent from
  * the snapshot, and absence is one answer. A caller cannot tell the three
  * apart, which is what non-disclosure requires. A denial never raises
  * `PermissionNotFound` or `GuardMismatch` — those name a target a caller
- * intended to change, and a check only asks a question. An unresolvable
- * subject or guard still raises, and a database failure still propagates.
+ * intended to change, and a check only asks a question.
+ *
+ * The typed failures apply to the valid-input path: once normalization has
+ * passed, an unresolvable subject raises `InvalidSubject`, an invalid
+ * authoritative guard raises `InvalidGuard`, and a database failure propagates
+ * unchanged.
  *
  * @see docs/decisions/0012-effective-access-resolution.md
  */

@@ -1106,28 +1106,51 @@ or an ordering rule of its own.
 
 ### 11.2 Resolution algorithm
 
-For a subject and permission:
+A public check is a membership test against the evaluated state of section
+11.6. The steps below are the whole algorithm; the resolvers add nothing to
+them.
 
-1. Normalize the permission reference.
-2. Resolve the subject guard.
-3. Return false when an explicit permission model, identifier, or reference
-   resolves to another guard.
-4. Find an active permission in the resolved guard.
-5. Check for an active direct assignment.
-6. Check active subject-role assignments.
-7. Exclude deactivated roles.
-8. Check active role-permission assignments.
-9. Allow when any active source is found.
-10. Deny otherwise.
+For a subject and permission — and identically for a subject and role:
 
-The check is a membership test against the evaluated state of section 11.6:
+1. Normalize the requested input. A bare string is a name; an `int`, a
+   reference and a configured definition model are identifiers, canonicalized
+   by key type.
+2. **Return false immediately when the input is impossible** — an empty or
+   whitespace-only name, an identifier no row could carry, an unsaved or
+   unusably keyed definition model, or a model GateTrail does not own.
+3. Validate and canonicalize the supplied subject.
+4. Resolve the subject guard.
+5. Obtain or build the shared effective-access snapshot for that subject,
+   guard and evaluation instant.
+6. Compare the exact name, or the normalized identifier, against the snapshot
+   in memory.
+7. Return the boolean result.
 
-- the caller's requested permission is **never bound into a statement**, so a
-  check issues no separate definition-lookup query;
+Snapshot construction — step 5, and the only step that touches the database —
+internally resolves:
+
+- the subject's effective roles;
+- direct permission assignments;
+- permissions granted through those effective roles;
+- assignment lifecycle filtering, including revocation, scheduling and expiry;
+- definition deactivation filtering;
+- guard filtering, with byte-exact post-verification of every returned row.
+
+Consequences of that ordering:
+
+- the caller's requested permission is **never bound into a statement**, and is
+  never loaded or resolved against the database. A check issues **no separate
+  definition-lookup query**, including for a cross-guard reference: such a
+  definition is simply absent from the snapshot;
+- **step 2 short-circuits before steps 3 to 5**, so an impossible input denies
+  without resolving the subject, resolving the guard, reading the clock or
+  reaching the database. It denies even when the supplied subject would itself
+  have raised `InvalidSubject`, because the subject is not inspected on that
+  path;
+- a valid input proceeds through subject and guard validation **before** any
+  query, so `InvalidSubject` and `InvalidGuard` still surface there;
 - a cold check builds the snapshot under the section 11.10 query budget;
-- a warm check performs **zero queries**;
-- steps 1 to 3 run before any snapshot work, so a malformed or cross-guard
-  reference denies without reaching the database.
+- a warm check performs **zero queries**.
 
 ### 11.3 Resolver contract
 
@@ -1360,6 +1383,10 @@ linearizable authorization: a check reflects committed state visible to its
 connection at its evaluation instant.
 
 ### 11.12 Resolver failure taxonomy
+
+Requested-input normalization runs first, per section 11.2, so an impossible
+input is an ordinary denial and the typed failures below apply to a check whose
+input already normalized successfully.
 
 - an unsupported, unpersisted, or dirty-keyed subject raises `InvalidSubject`;
 - an unresolvable guard raises `InvalidGuard`;

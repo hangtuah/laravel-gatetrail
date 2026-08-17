@@ -774,16 +774,27 @@ the requested name or identifier.
 Accepted flow for every public check:
 
 ```text
-validate subject                                  → InvalidSubject on failure
-resolve subject guard                             → InvalidGuard on failure
 normalize the requested role or permission input
-   ├─ impossible input  → return false, no snapshot built, zero queries
-   └─ otherwise         → continue
+   ├─ impossible input  → return false
+   │                      no subject identity resolution
+   │                      no guard resolution
+   │                      no clock read
+   │                      no snapshot built, zero queries
+   └─ valid input       → continue
+validate and canonicalize the supplied subject    → InvalidSubject on failure
+resolve the subject guard                         → InvalidGuard on failure
 obtain or build the snapshot
    ├─ warm memo hit     → zero queries
    └─ cold              → the bounded snapshot queries of section 6
 exact in-memory membership comparison             → bool
 ```
+
+**Normalization is deliberately first.** An input no definition row could ever
+carry is an ordinary authorization denial, and answering it requires knowing
+nothing about the subject. Resolving the subject and the guard merely to deny
+`allows($user, '')` would do work the answer does not depend on, and would
+convert a denial into an exception whenever the caller's subject also happened
+to be unusable. The short-circuit is a decision, not an implementation detail.
 
 The precise claims this ADR makes, and the only ones it makes:
 
@@ -795,9 +806,15 @@ The precise claims this ADR makes, and the only ones it makes:
   checks costs nothing.
 - **A cold valid check costs the snapshot's query budget** — section 6.3 — and
   nothing beyond it.
-- **An impossible input denies with zero queries**, but only because
-  normalization rejects it *before* snapshot construction is reached. This is
-  ordering, not an absence of SQL from the resolver.
+- **An impossible input denies before anything else happens.** Not merely
+  before the queries: before the subject is inspected, before the guard is
+  resolved and before the clock is read. It therefore costs zero queries, and
+  it returns `false` **even when the supplied subject would itself be
+  invalid**, because the subject is deliberately never examined on that path.
+- **A valid input keeps the full failure taxonomy.** Once normalization has
+  passed, an unresolvable subject still raises `InvalidSubject`, an invalid
+  authoritative guard still raises `InvalidGuard`, and an infrastructure or
+  database failure still propagates unchanged.
 
 Two properties still follow structurally.
 
@@ -1636,6 +1653,11 @@ Every outcome falls into exactly one category.
 
 Explicit rules that follow:
 
+- **Ordinary denial is decided first on a public check.** Per section 4.1,
+  requested-input normalization runs before the subject and the guard, so an
+  impossible input returns `false` even when the supplied subject would also
+  have raised `InvalidSubject`. The typed rows below apply to a check whose
+  requested input already normalized successfully.
 - **Default deny does not hide configuration, platform, infrastructure or
   internal invariant failures.** Only the first row denies. Every other row
   surfaces. ADR 0003, ADR 0004 and ADR 0007 each state this for their own
@@ -2511,18 +2533,21 @@ internal, stateless, registered as a singleton, and **executes no statement** �
 asserted directly. Both resolvers share it precisely so the
 string-is-always-a-name rule has one home and cannot drift.
 
-**Ordering divergence, recorded rather than absorbed.** Section 4.1's diagram
-lists subject validation and guard resolution *before* normalization.
-`PACKAGE_SPEC.md` section 11.2 lists normalization as step 1 and guard
-resolution as step 2, and states that "steps 1 to 3 run before any snapshot
-work". **The implementation follows the specification's order**: normalization
-first, so an impossible input costs nothing at all. The observable difference
-is narrow and is asserted: an impossible input paired with an unpersisted
-subject returns `false` rather than raising `InvalidSubject`. A *valid* input
-with an unresolvable subject or guard still raises, so the failure taxonomy is
-otherwise unchanged. Neither ordering issues a query for a rejected input;
-section 4.1's diagram is the less precise of the two statements and should be
-reconciled the next time this ADR is revised.
+**Ordering, reconciled.** Increment 7 surfaced a disagreement between two
+accepted documents: section 4.1's diagram listed subject validation and guard
+resolution *before* normalization, while `PACKAGE_SPEC.md` section 11.2 made
+normalization step 1. The implementation followed the specification, and a
+**documentation-alignment correction** — recorded against this increment, not
+as a new increment — has since made section 4.1 and specification section 11.2
+agree on the order the code already has: **normalize first, then subject, then
+guard, then snapshot.**
+
+The behavioural consequence is narrow and asserted: an impossible input paired
+with an unpersisted subject returns `false` rather than raising
+`InvalidSubject`, because the subject is deliberately never inspected on the
+short-circuit path. A *valid* input with an unresolvable subject or guard still
+raises, so the failure taxonomy is otherwise unchanged. No runtime behaviour
+changed when the documents were aligned; only the documents did.
 
 | Requirement | Evidence |
 |---|---|
