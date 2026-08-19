@@ -866,7 +866,8 @@ Revocation:
 - records the revoking actor;
 - requires a reason by default;
 - does not delete the assignment;
-- invalidates affected authorization caches;
+- clears the request-local memo in the committing process, and would invalidate
+  cross-request authorization caches if any were enabled — none is implemented;
 - records an audit event.
 
 ### 9.6 Reassignment
@@ -932,7 +933,7 @@ Validate
 → Persist mutation
 → Persist audit
 → Commit
-→ Invalidate cache
+→ Invalidate cross-request cache   (reserved slot; empty, see section 14)
 → Dispatch after-commit mutation event
 ```
 
@@ -946,7 +947,7 @@ separate transaction:
 Validate
 → Persist and commit mutation
 → Attempt audit in a new transaction
-→ Invalidate cache
+→ Invalidate cross-request cache   (reserved slot; empty, see section 14)
 → Dispatch after-commit mutation event
 ```
 
@@ -960,10 +961,17 @@ manager returns a null audit identifier because that audit is still pending.
 An outer rollback creates no audit record. A connection without the required
 after-commit semantics throws `UnsupportedAfterCommitBoundary` before mutation.
 That requirement applies in every audit mode, because a caller-owned mutation
-also defers cache invalidation and its successful mutation event.
+also defers the reserved cache-invalidation slot and its successful mutation
+event.
 
-When auditing is disabled, no audit write is attempted. Cache invalidation and
-successful mutation events still occur.
+When auditing is disabled, no audit write is attempted. The reserved
+cache-invalidation slot and the successful mutation event still run in the same
+order.
+
+**The cache step in every flow above is a reserved ordering point, not
+implemented behaviour.** ADR 0010 fixed where it sits; no cross-request cache or
+invalidator exists to run there. Section 14 records what does exist — a
+request-local memo — and what any future occupant of that slot must satisfy.
 
 ### 10.4 Direct relationship mutation
 
@@ -1062,7 +1070,8 @@ Unchanged
 ```
 
 An idempotent no-op returns `Unchanged` and does not write a duplicate audit
-record, invalidate cache, or dispatch a duplicate mutation event.
+record, reach the reserved cache-invalidation slot, or dispatch a duplicate
+mutation event.
 
 The audit identifier is null when auditing is disabled, a non-strict audit
 write fails, a non-strict audit is pending after a caller-owned transaction,
@@ -1803,32 +1812,54 @@ after a failure.
 
 ### 14.1 Correctness first
 
-The resolver must be correct without cross-request caching.
+The resolver must be correct without cross-request caching. This is now
+demonstrated rather than asserted: the full ADR 0012 acceptance matrix passed on
+SQLite, live MySQL and live Oracle with no cache in existence.
 
-### 14.2 Initial strategy
+### 14.2 What exists, and what is deferred
 
-GateTrail initially provides:
+**Request-local memoization is the only implemented cache-like behavior.**
+**Cross-request caching and real cross-request invalidation are not
+implemented.**
 
-1. request-level memoization;
-2. optional Laravel cache for effective permissions;
-3. automatic invalidation through managed mutations.
+| Behaviour | Status |
+|---|---|
+| Request-local memo | **Implemented.** Section 11.11, ADR 0012 |
+| Request-local memo clearing on a same-process `MutationCommitted` | **Implemented.** Same process, current scope only — not distributed invalidation |
+| ADR 0010's after-commit ordering slot | **Implemented and tested as an ordering contract, and empty.** It does not count as invalidation |
+| Cross-request cache | **Not implemented, not designed** |
+| Cross-request invalidation | **Not implemented, not designed** |
 
-Item 1 is designed and accepted in
-[ADR 0012](docs/decisions/0012-effective-access-resolution.md), and specified
-in section 11.11: a scoped, bounded, request-local memo keyed on subject type,
+The memo is a scoped, bounded, request-local store keyed on subject type,
 subject identifier, resolved guard and the evaluation instant truncated to a
 whole second; cleared wholesale by a same-process `MutationCommitted`; bypassed
 entirely inside a caller-owned transaction; and released with its container
-scope. It makes no cross-process or cross-request claim.
+scope. **It makes no cross-process or cross-request claim.**
 
-Items 2 and 3 are **undesigned**. Nothing in section 11.11 implies a store, a
-TTL, a tag strategy, a role-change fan-out, or any cross-request invalidation
-behavior. Sections 14.3 to 14.6 describe requirements the future cache ADR must
-satisfy, not accepted behavior.
+[ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md), accepted
+2026-08-19, settles the sequencing:
 
-### 14.3 Cache keys
+1. **Phase 8 benchmarks the uncached resolver first**, against a threshold
+   defined before the benchmark runs;
+2. **Phase 8 then decides whether cross-request caching is necessary at all.**
+   "No" is a legitimate outcome;
+3. **if retained, a dedicated cache-strategy ADR is accepted before any
+   implementation.**
 
-Cache keys include:
+ADR 0013 accepted that sequencing and the constraints in 14.3 to 14.7. It
+accepted **no cache store, TTL, tag strategy, key format, generation scheme,
+fan-out strategy or public configuration key**, and it added no code.
+
+**Cross-request caching, if it is ever retained, is optional, ships disabled by
+default, and is never enabled automatically by GateTrail.**
+
+### 14.3 Requirements for a future cross-request cache
+
+Everything in sections 14.3 to 14.7 is a **constraint on a design that does not
+exist**. Each applies only if Phase 8 retains cross-request caching, and none of
+it describes current behaviour.
+
+Cache keys must include:
 
 ```text
 guard
@@ -1836,13 +1867,21 @@ subject type
 subject identifier
 ```
 
-Changing a subject guard override or guard configuration is a deployment
-change. It does not migrate assignments and requires GateTrail caches to be
-cleared.
+**A tagless baseline is mandatory** — accepted by ADR 0013. Any retained design
+must work on stores without tag support, such as `file` and `database`. Tags may
+be an optional optimization where the store provides them. No claim is made that
+tags, atomic increments, locks, key enumeration or delete-by-prefix are
+universally supported across the framework versions this package supports.
 
-### 14.4 Invalidation
+Changing a subject guard override or guard configuration is a deployment change.
+It does not migrate assignments and would require GateTrail caches to be cleared.
 
-Affected subject caches are invalidated after:
+No key format is specified here. Inventing one before the store is chosen would
+fix a public-looking detail ahead of the decision that constrains it.
+
+### 14.4 Invalidation requirements
+
+Affected subject caches would need invalidating after:
 
 - role assignment or revocation;
 - direct permission grant or revocation;
@@ -1850,23 +1889,73 @@ Affected subject caches are invalidated after:
 - role deactivation or restoration;
 - permission deactivation or restoration.
 
+Ordering is already fixed by ADR 0010 and must not change:
+
+```text
+deferred non-strict audit attempt, where applicable
+→ future cross-request invalidation, if enabled
+→ MutationCommitted dispatch
+```
+
+The middle step is **a reserved slot, not implemented invalidation**. Requests
+must never describe it as delivered.
+
+`MutationOutcome::Unchanged` reaches neither the slot nor the event, so an
+idempotent no-op invalidates nothing.
+
 ### 14.5 Expiry safety
 
 A cache entry must not remain valid beyond the nearest relevant assignment
-expiry unless another mechanism guarantees timely invalidation.
+`starts_at` or `expires_at` boundary unless another mechanism guarantees timely
+invalidation. No TTL value is accepted.
 
-### 14.6 Unmanaged writes
+### 14.6 The mutation event is not sufficient by itself
 
-Direct writes do not trigger GateTrail cache invalidation. If cross-request
-caching is enabled, an unmanaged change may leave a stale allow or deny until
-an explicit cache clear, expiry, or later managed invalidation.
+`MutationCommitted` **remains unchanged** and carries no cache-targeting
+information. Verified against the fourteen managed mutations:
 
-Known direct intervention requires an explicit GateTrail cache clear.
-`gatetrail:doctor` never clears caches implicitly. The future cache ADR must
-define bounded staleness without treating direct mutation as supported.
+- **10 of 14 carry no subject** — the two role-permission mutations and all
+  eight role and permission definition mutations. Only the four subject-scoped
+  assignment mutations name a subject;
+- **none of the fourteen carries a guard**, which section 14.3 requires in a key.
 
-Cross-request caching remains disabled by default until its store, TTL,
-role-change fan-out, and invalidation strategy are accepted and measured.
+Targeted cross-request invalidation therefore cannot be built on the public event
+alone. **The event is not expanded here.** If a future design needs more, the
+preferred route is an internal, non-public invalidation plan constructed while
+the transaction context is still available — not additional public event fields,
+which would be permanent API and could disclose a role's membership to every
+listener.
+
+### 14.7 Failure semantics
+
+**No post-commit invalidation failure policy has been accepted.** The case is a
+durable, committed authorization mutation followed by a failed invalidation.
+
+Two rules hold regardless of what Phase 8 decides:
+
+- **a committed mutation must never be represented as rolled back or
+  unsuccessful** merely because a later invalidation failed. The row is
+  committed and its audit record exists;
+- a post-commit failure must not cause the package to invite a retry of a
+  mutation that already succeeded.
+
+Fail-closed fallback to the proven uncached resolver is the **leading
+direction**, not implemented behaviour and not an accepted policy.
+
+### 14.8 Unmanaged writes
+
+Direct writes do not trigger GateTrail cache invalidation and never will —
+GateTrail observes no event and can invalidate nothing.
+
+Today the exposure is bounded: the request memo's key includes a whole-second
+instant, so an unmanaged change becomes visible within one second and one scope.
+**If cross-request caching is ever retained, that exposure widens to the TTL**,
+and the retaining design must document the bound honestly.
+
+Known direct intervention would require an explicit GateTrail cache clear. Any
+future `gatetrail:doctor` must never clear caches implicitly. **That command is
+not implemented**, so this is a constraint on its future design rather than a
+description of existing behaviour.
 
 ## 15. Exceptions
 
@@ -2203,7 +2292,9 @@ GateTrail must:
 - singular, any, all, missing-definition, and grouped middleware behavior;
 - middleware parameter normalization and route-cache compatibility;
 - Blade through Gate;
-- cache invalidation;
+- request-local memo clearing on a same-process `MutationCommitted`, and
+  cross-request cache invalidation only if a cross-request cache is ever
+  retained;
 - domain events after commit;
 - explicit joined-definition `deleted_at` and `guard_name` filtering, asserted
   against a deactivated and a cross-guard definition;
@@ -2342,7 +2433,8 @@ compilation evidence is never reported as live-database evidence.
 
 - Permission checks must avoid an N+1 query per role.
 - Repeated checks within one request should use memoized results.
-- Cache invalidation must be deterministic.
+- Cache invalidation, if a cross-request cache is ever retained, must be
+  deterministic. None exists today; see section 14.
 - Performance optimizations must preserve authorization parity with the
   uncached resolver.
 - Benchmarks should record subject role count, permission count, query count,
@@ -2423,6 +2515,16 @@ subject identity, the portable lifecycle and query architecture, request-local
 memoization, and connection-level query instrumentation. Section 20.5 records
 the evidence, including the boundary that PostgreSQL and SQL Server remain
 query-compilation and schema-adapter inspection only.
+
+The cross-request cache **sequencing** is accepted in
+[ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md): benchmark the
+uncached resolver first in Phase 8, then decide whether cross-request caching is
+necessary at all, and accept a dedicated strategy ADR before any implementation.
+That decision moved real after-commit cross-request invalidation from Phase 4 to
+Phase 8. It accepted **no cache implementation**: the store, TTL, key format,
+fan-out strategy, generation scheme and post-commit failure policy all remain
+unresolved and belong to Phase 8 — **which may decide not to ship cross-request
+caching at all.** Section 14 records what exists and what is merely constrained.
 
 Architecture decisions will be stored under:
 

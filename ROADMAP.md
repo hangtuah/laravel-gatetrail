@@ -99,7 +99,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 90% | In progress |
+| 4 | Mutation services | 95% | In progress |
 | 5 | Effective permission resolver | 100% | Complete |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -158,8 +158,14 @@ Accepted architecture decisions:
 | 0010 | Dispatch one generic after-commit mutation event | Accepted |
 | 0011 | Retry only assignment coordination on confirmed transient failures | Accepted |
 | 0012 | Resolve effective access once and expose it through two thin contracts | Accepted |
+| 0013 | Keep the after-commit invalidation slot reserved and defer cross-request caching to Phase 8 | Accepted |
 
 No proposed architecture decision is currently outstanding.
+[ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md) was accepted
+on 2026-08-19; it decides the *sequencing* of cross-request caching and
+implements none of it, leaving the cache store, TTL, fan-out, generation scheme
+and post-commit failure policy to Phase 8 — which may also decide that no
+cross-request cache is needed.
 
 Acceptance records an architectural decision, not implementation. ADR 0012 is
 accepted **and its implementation is complete**: all ten increments are
@@ -653,7 +659,6 @@ additional progress items.
 - [x] Strict audit behavior.
 - [x] Non-strict audit behavior.
 - [x] Disabled audit behavior.
-- [ ] After-commit cache invalidation.
 - [x] After-commit event dispatch.
 - [x] Bounded concurrency retry. Contract accepted in
       [ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md). The runtime
@@ -664,8 +669,8 @@ additional progress items.
 
 ```text
 Completed: 19
-Total:     21
-Progress:  90.476%, reported as 90%
+Total:     20
+Progress:  95%
 ```
 
 ### Required strict-audit flow
@@ -956,28 +961,39 @@ a real single-use-case handler and no stub exists. Every definition mutation
 accepted by ADR 0002 is therefore implemented, bound, and tested. Both
 contracts remain pre-v1. All three accepted audit modes, the accepted
 after-commit mutation event, and bounded concurrency retry are now implemented
-and accepted. Phase 4 stays open because two cross-cutting mutation behaviors —
-after-commit cache invalidation, and the consumer documentation and pre-v1 API
-freeze — are still outstanding. After-commit cache invalidation remains pending
-and unstarted: its cache store, TTL, and fan-out strategy are still an open
-architecture decision, and no cache behavior may be introduced before that
-decision is accepted.
+and accepted. Phase 4 stays open for **one** remaining item, the consumer
+documentation and pre-v1 API freeze.
 
-**[ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md) is
-Proposed** and is reviewing that open decision. It records a sequencing conflict
-between this phase, which lists after-commit cache invalidation as a deliverable,
-and Phase 8, which decides whether a cross-request cache is wanted at all only
-after a reproducible uncached benchmark. Its recommendation is to keep
-ADR 0010's reserved ordering point empty, leave request-local memoization as the
-only active optimization, and move real cross-request invalidation to Phase 8 —
-then correct this phase's deliverable, either by renaming it to the ordering
-contract ADR 0010 already delivered or by moving it to Phase 8.
+**`After-commit cache invalidation` was moved to Phase 8.**
+[ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md) is
+**Accepted** as of 2026-08-19. It recorded a sequencing conflict: this phase
+listed after-commit cache invalidation as a deliverable, while Phase 8 decides
+whether a cross-request cache is wanted **at all** only after a reproducible
+uncached benchmark. The accepted resolution keeps ADR 0010's reserved ordering
+point empty, leaves request-local memoization as the only active optimization,
+and moves real cross-request invalidation to Phase 8.
 
-**Nothing is applied while that ADR is Proposed.** No cache behavior exists, no
-configuration key or public API is introduced, and no deliverable is completed.
-Phase 4 remains **19 of 21 = 90%**, Phase 5 remains **100%**, overall progress
-remains **approximately 41%**, and the global deliverable tracker remains
-**12 of 32, approximately 38%**.
+The item was **moved, not renamed and checked**. ADR 0010's ordering slot is
+tested, valuable foundation that a future invalidator inherits — the
+outermost-commit rule, ADR 0011's exactly-once retry semantics and the
+audit-then-cache-then-event order — but it is not invalidation, and checking it
+under a new name would have implied invalidation was delivered.
+
+**Nothing was implemented.** No cross-request cache, invalidator, container
+binding, configuration key or public API exists, and no Phase 8 work has started.
+The accepted posture is that any future cross-request cache stays optional,
+ships disabled by default, is never enabled automatically by GateTrail, and must
+work on a tagless baseline; the public `MutationCommitted` event stays unchanged;
+and the post-commit invalidation-failure policy, the guard-wide generation
+strategy and whether cross-request caching is needed before `1.0.0` at all remain
+deliberately open Phase 8 questions.
+
+**Progress effect.** Phase 4's denominator drops from 21 to 20 and the phase
+moves to **19 of 20 = 95%**, still `In progress`. Phase 5 remains **100%**.
+Overall equal-phase progress becomes (100 + 100 + 100 + 80 + 95 + 100 + 0×8) / 14
+= 575 / 14 = 41.071%, still reported as **approximately 41%**. The global
+deliverable tracker is **unchanged at 12 of 32, approximately 38%** — relocating
+an unfinished item between phases completes no deliverable.
 
 Bounded concurrency retry is implemented.
 [ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md) is accepted and now
@@ -1090,9 +1106,10 @@ Laravel 13 / MySQL 8.0.16 — pass
 Laravel 13 / MySQL 8.0.45 — pass
 ```
 
-That run is the acceptance criterion, so the checklist item is now checked,
-Phase 4 moves to 19 of 21, and the Quality deliverable "Concurrency tests" is
-checked.
+That run is the acceptance criterion, so the checklist item is now checked and
+the Quality deliverable "Concurrency tests" is checked. Phase 4 moved to 19 of 21
+at that point; ADR 0013 later moved one item to Phase 8, so the denominator is
+now 20 — see the Phase 4 total below.
 
 **The two kinds of evidence stay separate.** Live MySQL ran only in CI, against
 the workflow's disposable MySQL service containers; it was not executed locally.
@@ -1370,11 +1387,11 @@ the capabilities above, never separately.
 moves to **12 of 32** as `Effective permission resolver` — one tracked
 deliverable covering the whole phase — is now satisfied.
 
-**Phase 4's cross-request cache invalidation is still not touched**, and Phase 4
-stays at 19 of 21 = 90%. This memo is request-local: it uses no cache store, no
-TTL, no tag and no broadcast, and a mutation committed in another process does
-not reach it. **No Phase 6 work has started**: no Gate hook, no subject
-concern, no middleware.
+**Cross-request cache invalidation is still not touched.** ADR 0013 has since
+moved it to Phase 8, leaving Phase 4 at 19 of 20 = 95%. This memo is
+request-local: it uses no cache store, no TTL, no tag and no broadcast, and a
+mutation committed in another process does not reach it. **No Phase 6 work has
+started**: no Gate hook, no subject concern, no middleware.
 
 **The engine boundary, stated precisely.** SQLite carries the full behavioural
 matrix on both Laravel/Testbench lanes. Live MySQL 8.0.16 and 8.0.45 carry the
@@ -1488,11 +1505,25 @@ Optimize a correct, measured resolver without changing authorization behavior.
 - [ ] Invalidation matrix.
 - [ ] Expiry-safe TTL.
 - [ ] Stampede and stale-access tests where applicable.
+- [ ] After-commit cross-request cache invalidation, if cross-request caching is
+      retained. **Moved here from Phase 4** by
+      [ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md),
+      accepted 2026-08-19. This is the **runtime behaviour** — the code that runs
+      in ADR 0010's reserved ordering slot after the outermost commit — and it is
+      distinct from `Invalidation matrix` above, which is the design artifact
+      describing which mutation invalidates what. Neither exists, and both are
+      conditional on step 3 of the sequence deciding that a cross-request cache
+      is wanted at all.
 
 ### Exit criteria
 
 Every performance claim has a reproducible benchmark and caching cannot grant
 access beyond uncached resolver behavior.
+
+If step 3 concludes that no cross-request cache is necessary, every
+cache-conditional deliverable above — all of them except the benchmark itself —
+is closed as **not required** rather than implemented, and GateTrail ships with
+request-local memoization as its only cache-like behaviour.
 
 Status: **Not started**
 

@@ -1,23 +1,30 @@
 # ADR 0013: Keep the After-Commit Invalidation Slot Reserved and Defer Cross-Request Caching to Phase 8
 
-- Status: **Proposed**
+- Status: **Accepted**
 - Proposed: 2026-08-19
+- Accepted: 2026-08-19
 - Decision owners: GateTrail maintainers
-- Implementation status: **None, deliberately.** This ADR proposes a sequencing
-  decision and a constraint set. It adds no cache code, no configuration key
-  and no public API
+- **What was accepted: a sequencing and deferral decision, not a cache
+  feature.** This ADR decides *when* cross-request caching is decided and
+  *under what constraints*. It accepts no cache design
+- Cross-request cache implementation status: **not implemented**
+- Cross-request invalidation implementation status: **not implemented**
+- Owner: **Phase 8** owns the decision on whether cross-request caching is
+  retained at all, and any implementation that follows
+- Implementation status of this ADR: **no code.** It adds no cache class, no
+  container binding, no configuration key and no public API
 - Supersedes: nothing
-- Blocks: the Phase 4 `After-commit cache invalidation` deliverable, which
-  cannot be honestly resolved until this sequencing question is answered
+- Resolves: the Phase 4 `After-commit cache invalidation` deliverable, by moving
+  it to Phase 8 rather than by delivering it
 - Depends on: ADR 0010 (reserved ordering point), ADR 0011 (exactly-once
   after-commit announcement), ADR 0012 (request-local memoization)
 
 ## Context
 
 Phase 5 completed on 2026-08-19. The resolver is implemented, accepted and
-verified across SQLite, live MySQL and targeted live Oracle. Phase 4 is at 19 of
-21, and one of its two remaining deliverables is **`After-commit cache
-invalidation`**.
+verified across SQLite, live MySQL and targeted live Oracle. Phase 4 stood at 19
+of 21 when this ADR was written, and one of its two remaining deliverables was
+**`After-commit cache invalidation`**.
 
 That deliverable cannot be completed as written, and the reason is a roadmap
 sequencing defect rather than missing work. This ADR exists to name it and
@@ -177,7 +184,7 @@ them.
 
 ## Decision
 
-**Proposed: keep the ADR 0010 ordering slot reserved and empty. Do not
+**Accepted: keep the ADR 0010 ordering slot reserved and empty. Do not
 introduce cross-request caching in Phase 4. Move real cross-request cache
 selection and deterministic invalidation to Phase 8, behind a reproducible
 uncached benchmark.**
@@ -193,8 +200,8 @@ Specifically:
 4. Cache-store selection, key design, fan-out strategy, TTL policy and failure
    posture are Phase 8 work, sequenced after step 1 of the Phase 8 list
    ("measure uncached resolver queries and latency").
-5. The Phase 4 deliverable is corrected **after this ADR is accepted** — see
-   [Sequencing correction](#sequencing-correction).
+5. The Phase 4 deliverable moves to Phase 8 — roadmap correction B, applied on
+   acceptance. See [Sequencing correction](#sequencing-correction).
 6. A no-op invalidator does not count as invalidation and must not be used to
    close the deliverable.
 7. No abstraction is added to satisfy a checklist.
@@ -217,7 +224,7 @@ rather than the role, ten of fourteen mutations carrying no subject — mean
 targeted invalidation cannot be built on the current public event without either
 expanding it or issuing post-commit queries. Both are decisions with permanent
 consequences. Discovering that *during* a Phase 4 sprint would produce a rushed
-public event change; discovering it now, in a Proposed ADR, costs nothing.
+public event change; discovering it before any cache work began cost nothing.
 
 **The measured cost of a miss is lower than assumed.** The accepted resolver
 costs 2 or 3 statements cold and 0 warm within an evaluation second. A
@@ -227,38 +234,40 @@ trade is worth making is exactly what a benchmark decides.
 
 ## Sequencing correction
 
-**Not applied by this ADR.** While this ADR is `Proposed`, no percentage, status
-or checklist item changes. Phase 4 stays at 19 of 21 = 90%, Phase 5 stays at
-100%, overall stays at approximately 41%, and the deliverable tracker stays at
-12 of 32, approximately 38%. Every figure in this section is a **projected
-post-acceptance outcome**, not current state.
+**Roadmap correction B is the accepted outcome and is applied with this
+acceptance.** Correction A was considered and is not selected; it is preserved
+below as the rejected alternative.
 
 Two lettering sets appear in this ADR and must not be confused:
 
 | Set | Meaning |
 |---|---|
-| **Architecture options A–E**, in [Options considered](#options-considered) | What GateTrail should *do* about caching. The decision is architecture option C |
-| **Roadmap corrections A and B**, in this section | How the ROADMAP should *record* that decision for Phase 4. The recommendation is roadmap correction B |
+| **Architecture options A–E**, in [Options considered](#options-considered) | What GateTrail should *do* about caching. The accepted decision is architecture option C |
+| **Roadmap corrections A and B**, in this section | How the ROADMAP *records* that decision for Phase 4. The accepted correction is roadmap correction B |
 
 Architecture option C is the decision. Roadmap correction B is the bookkeeping
 that follows from it. They are separate choices and neither implies the other's
 letter.
 
-### Roadmap correction B — move the item to Phase 8 — **recommended**
+### Roadmap correction B — move the item to Phase 8 — **accepted**
 
-The Phase 4 checklist says `After-commit cache invalidation`, and that is what it
-means. Real cross-request invalidation does not exist, so the item is not
+The Phase 4 checklist said `After-commit cache invalidation`, and that is what it
+meant. Real cross-request invalidation does not exist, so the item is not
 complete, and it belongs in the phase where the cache decision and its
 implementation genuinely live.
 
-After acceptance:
+Applied on acceptance:
 
-- remove `After-commit cache invalidation` from Phase 4;
-- add it explicitly to Phase 8, where the benchmark-and-decide sequence already
-  governs it;
-- reduce the Phase 4 denominator from 21 to 20;
-- **Phase 4 becomes 19 of 20 = 95%** (projected), leaving `Consumer
+- `After-commit cache invalidation` is removed from Phase 4;
+- real after-commit cross-request invalidation is added explicitly to Phase 8,
+  where the benchmark-and-decide sequence already governs it, and remains
+  unchecked and conditional on cross-request caching being retained;
+- the Phase 4 denominator drops from 21 to 20;
+- **Phase 4 becomes 19 of 20 = 95%**, `In progress`, leaving `Consumer
   documentation and pre-v1 API freeze` as its only incomplete item.
+
+The **global deliverable tracker does not move**. It stays at 12 of 32 ≈ 38%,
+because relocating an unfinished item between phases completes nothing.
 
 **Moving the item is not deleting work.** It records the dependency in the phase
 that actually owns it, so the deliverable stays visible and unfinished rather
@@ -271,27 +280,25 @@ retry semantics and the audit-then-cache-then-event order. A future invalidator
 inherits all of that for free. What it is not is invalidation, and Phase 4's
 checklist asked for invalidation.
 
-### Roadmap correction A — rename in place — viable alternative, not preferred
+### Roadmap correction A — rename in place — considered and rejected
 
 Rename the deliverable to `After-commit invalidation ordering contract` and check
 it, on the grounds that the ordering contract exists, is implemented and is
-evidenced by ADR 0010's acceptance. **Denominator unchanged at 21**, Phase 4
-becomes 20 of 21 ≈ 95% (projected).
+evidenced by ADR 0010's acceptance. Denominator unchanged at 21, Phase 4 would
+have become 20 of 21 ≈ 95%.
 
-It reaches the same ≈95% and it is defensible, which is why it stays on the
-table. It is **not preferred** because it changes the meaning of the original
-promise after the fact. A reader comparing the roadmap before and after would see
-a cache-invalidation deliverable become an ordering deliverable and be checked,
-and would reasonably conclude that after-commit cache invalidation had been
-delivered when only its ordering point exists. Renaming a deliverable to match
-what was built, rather than building what the deliverable named, is the kind of
+It reaches the same ≈95% and it is defensible, which is why it was considered.
+It was **rejected** because it changes the meaning of the original promise after
+the fact. A reader comparing the roadmap before and after would see a
+cache-invalidation deliverable become an ordering deliverable and be checked, and
+would reasonably conclude that after-commit cache invalidation had been delivered
+when only its ordering point exists. Renaming a deliverable to match what was
+built, rather than building what the deliverable named, is the kind of
 bookkeeping that makes a checklist stop meaning anything.
 
 Both corrections land Phase 4 at ≈95% with one item left. They differ only in
-whether the roadmap keeps telling the truth about what was promised, which is why
-correction B is recommended.
-
-**Neither correction is applied until this ADR is Accepted.**
+whether the roadmap keeps telling the truth about what was promised, which is
+why correction B was accepted.
 
 ## Options considered
 
@@ -326,12 +333,12 @@ an unmeasured guess.
 against, and it is worse than doing nothing because it manufactures false
 assurance.
 
-### C. Preserve the ordering contract, defer real caching to Phase 8 — **recommended**
+### C. Preserve the ordering contract, defer real caching to Phase 8 — **accepted**
 
-This is the **architecture** decision. Its roadmap consequence is roadmap
-correction B in [Sequencing correction](#sequencing-correction) — move the Phase 4
-deliverable to Phase 8 — and the two should not be conflated because they carry
-different letters.
+This is the accepted **architecture** decision. Its roadmap consequence is
+roadmap correction B in [Sequencing correction](#sequencing-correction) — move
+the Phase 4 deliverable to Phase 8 — and the two should not be conflated because
+they carry different letters.
 
 | Dimension | Assessment |
 |---|---|
@@ -343,7 +350,7 @@ different letters.
 | Test burden | Zero now |
 | Phase effect | Requires the Phase 4 correction above; leaves Phase 8 intact and meaningful |
 
-**Recommended.**
+**Accepted.**
 
 ### D. Remove cross-request caching permanently from pre-v1 scope
 
@@ -361,7 +368,7 @@ different letters.
 if the benchmark shows the uncached resolver is fast enough — which is precisely
 what Phase 8 step 3 exists to decide. Deciding it *now*, without the benchmark,
 would be the same error as option A in the opposite direction. Carried forward
-as [open question 8](#open-maintainer-questions).
+as [deferred decision 8](#deferred-to-phase-8).
 
 ### E. Consumer-provided invalidation only
 
@@ -475,7 +482,7 @@ definition mutation bumps it and invalidates that guard wholesale without
 enumerating anything. Cheap, tagless, and a good fit for the ten subject-less
 mutations. Costs precision — an unrelated subject loses its entry —
 and needs an atomic increment the baseline store may not provide (see
-portability). Carried forward as [open question 6](#open-maintainer-questions).
+portability). Carried forward as [deferred decision 6](#deferred-to-phase-8).
 
 **Recommendation: defer the choice to Phase 8, with option 1 preferred and
 option 2 discouraged.** No public event change should be made on the strength of
@@ -500,8 +507,8 @@ Phase 8 design depends on one, it must state the required store capability and
 define the behaviour when the configured store lacks it — degrade, refuse to
 enable, or fail closed.
 
-A tagless baseline is the safe default assumption. Whether it is *mandatory* is
-[open question 3](#open-maintainer-questions).
+**A tagless baseline is mandatory**, per [decision 3](#decided). Tags may be an
+optional optimization on stores that support them, never the baseline.
 
 ## Failure semantics after a durable commit
 
@@ -526,7 +533,7 @@ variants differ enormously in operational cost.
 
 **This ADR deliberately does not finalize a failure policy.** Choosing one
 requires knowing the store, the key strategy and the fan-out mechanism, none of
-which exist. It is [open question 5](#open-maintainer-questions) and remains an
+which exist. It is [deferred decision 5](#deferred-to-phase-8) and remains an
 open Phase 8 decision.
 
 One thing is settled regardless: **a post-commit invalidation failure must never
@@ -562,15 +569,16 @@ the consequence:
 
 ### Negative
 
-- **The Phase 4 roadmap needs correcting.** A deliverable that has been listed
-  since the roadmap was written turns out to be misfiled. That is an admission,
-  and it is the point of this ADR.
+- **The Phase 4 roadmap needed correcting.** A deliverable listed since the
+  roadmap was written turned out to be misfiled, and correcting it is an
+  admission rather than an achievement. That is the point of this ADR.
 - Cross-request performance stays unoptimized. Consumers with hot authorization
   paths across requests get no help before Phase 8.
-- Phase 4 cannot reach 100% until the correction is applied, and even then it
-  has a second open item.
-- This ADR defers rather than decides, which is only defensible because the
-  deferral is itself the decision the sequence calls for.
+- Phase 4 still cannot reach 100%: the correction lifts it to 95%, and
+  `Consumer documentation and pre-v1 API freeze` remains open.
+- This ADR defers the cache design rather than producing one, which is only
+  defensible because the deferral is itself the decision the accepted Phase 8
+  sequence calls for. Three questions remain genuinely open.
 
 ### Neutral
 
@@ -600,115 +608,120 @@ the consequence:
 - **Adding target information to the public event without proven need.**
   Permanent API and a disclosure surface, spent on a guess.
 
-## Acceptance criteria for this ADR
+## What acceptance did and did not do
 
-This ADR is `Proposed`. It is complete when a maintainer can review it, and
-correct when all of the following hold:
+| | Status on acceptance |
+|---|---|
+| The sequencing decision — benchmark first, Phase 8 owns the cache question | **Accepted** |
+| Roadmap correction B — move the Phase 4 item to Phase 8 | **Accepted and applied** |
+| The constraint set any future cache design must satisfy | **Accepted** |
+| A cross-request cache | **Not implemented, and not designed** |
+| Cross-request invalidation | **Not implemented, and not designed** |
+| Cache store, TTL, key format, fan-out or generation scheme | **Not accepted** — Phase 8 |
+| Any configuration key or public API | **None added** |
+| Phase 8 work | **Not started** |
 
-- no cache code exists;
-- no configuration key is added;
-- no percentage changes — Phase 4 stays 19 of 21 = 90%, Phase 5 stays 100%,
-  overall stays approximately 41%, the tracker stays 12 of 32 ≈ 38%;
-- no checklist item is checked or moved;
-- no Phase 8 work has started;
-- the sequencing decision and the future constraint set are stated clearly
-  enough to review and to bind a later design.
+Acceptance changed three documents and no code. `config/gatetrail.php` is
+untouched, `GateTrailServiceProvider` registers nothing new, and the ADR 0010
+ordering slot remains the same empty comment it was before.
 
-## Open maintainer questions
+## Accepted decisions
 
-Each carries a recommendation, a viable alternative, and the consequence of
-choosing the alternative.
+The eight questions this ADR raised are recorded below with their resolution.
+Five are decided; three are deliberately deferred to Phase 8.
 
-**1. Move the Phase 4 item to Phase 8, or rename it in place?**
-*Recommendation:* **move the real invalidation item to Phase 8** (roadmap
-correction B). The Phase 4 checklist named cache invalidation, invalidation does
-not exist, and Phase 8 is where the cache decision and implementation belong.
-*Alternative:* rename it to the ordering contract ADR 0010 delivered and keep the
-denominator at 21 (roadmap correction A).
-*Consequence:* moving it gives Phase 4 a denominator of 20 and an honest
-projected 19 of 20 = 95%, with the deliverable still visible and unfinished where
-it is actually owed. Renaming it risks implying that after-commit cache
-invalidation was delivered when only its ordering point exists.
+### Decided
 
-**2. Should cross-request caching remain optional and disabled by default?**
-*Recommendation:* yes, permanently — an authorization cache that switches itself
-on is a stale-allow risk nobody opted into.
-*Alternative:* enabled by default once measured.
-*Consequence:* a default-on cache makes every upgrade a potential authorization
-latency and staleness change.
+**1. Move the Phase 4 item to Phase 8, or rename it in place? — DECIDED: move
+it.** Roadmap correction B is applied. `After-commit cache invalidation` leaves
+Phase 4 for Phase 8, the denominator drops 21 → 20, and Phase 4 becomes 19 of
+20 = 95%. Renaming it to the ordering contract was rejected: ADR 0010's slot is
+valuable foundation, but it is not invalidation, and checking it under a new name
+would imply invalidation was delivered.
 
-**3. Is a tagless baseline mandatory?**
-*Recommendation:* yes — the baseline must work on `file` and `database`, with
-tags as an optional optimization.
-*Alternative:* require a tag-capable store when caching is enabled.
-*Consequence:* excludes the simplest deployments, or forces them into a store
-they did not otherwise need.
+**2. Should cross-request caching remain optional and disabled by default? —
+DECIDED: yes, permanently.** Any future cross-request cache is optional, ships
+**disabled by default**, and **GateTrail never enables it automatically**. An
+authorization cache that switches itself on is a stale-allow risk nobody opted
+into.
 
-**4. Should the public `MutationCommitted` event stay unchanged?**
-*Recommendation:* yes for now. Prefer an internal, non-public invalidation plan
-built inside the transaction.
-*Alternative:* add guard and definition identifiers to the event.
-*Consequence:* permanent public API plus a disclosure surface — a subject list
-on a role-permission change could publish a role's membership to any listener,
-including a log sink.
+**3. Is a tagless baseline mandatory? — DECIDED: yes.** Any retained cache design
+must work without cache tags, so it functions on `file` and `database` stores.
+Tags may be an **optional optimization** only. No claim is made — here or in any
+later document — that tags, atomic increments, locks, enumeration or
+delete-by-prefix are universally supported across `illuminate ^12.0 || ^13.0`.
 
-**5. What failure posture is acceptable after a committed mutation?**
-*Recommendation:* leave open until the store and key strategy exist; fail-closed
-degradation to the uncached resolver is the most promising direction.
-*Alternative:* decide now, most likely log-and-continue.
-*Consequence:* log-and-continue accepts a stale-allow window whose length is the
-TTL, which is a security decision made without knowing the TTL.
+**4. Should the public `MutationCommitted` event stay unchanged? — DECIDED:
+yes.** No guard, role, permission or subject-list field is added. If future
+invalidation needs more information, the preferred route is an **internal,
+non-public invalidation plan constructed while the transaction context is still
+available**, not an expanded public event. The disclosure hazard is part of the
+reason: a subject list on a role-permission change would publish a role's
+membership to every listener, including a log sink.
 
-**6. Is a guard-wide generation acceptable for definition changes?**
-*Recommendation:* treat it as the leading candidate for the ten subject-less
-mutations — it is tagless and needs no enumeration.
-*Alternative:* per-subject fan-out via post-commit lookup.
-*Consequence:* generations over-invalidate unrelated subjects; fan-out puts a
-potentially unbounded query on the write path and can race concurrent changes.
+**7. What benchmark threshold justifies retaining a cross-request cache? —
+DECIDED: it is set before the benchmark runs.** Phase 8 must define its
+threshold in step 1, before results exist. A threshold chosen after the numbers
+are known can justify any outcome, which is exactly what PACKAGE_SPEC 21 exists
+to prevent.
 
-**7. What benchmark threshold would justify retaining a cross-request cache?**
-*Recommendation:* set it before benchmarking, in Phase 8 step 1, so the number
-cannot be chosen to fit the result.
-*Alternative:* judge case by case after seeing the data.
-*Consequence:* a threshold chosen afterwards can justify any outcome, which is
-what PACKAGE_SPEC 21 exists to prevent.
+### Deferred to Phase 8
 
-**8. Is cross-request caching required before `1.0.0` at all?**
-*Recommendation:* undecided by design — this is Phase 8 step 3's job.
-*Alternative:* commit now to shipping it in v1.
-*Consequence:* committing now re-creates the ordering defect this ADR exists to
-fix, one phase later.
+These three cannot be answered without knowing the cache store, the key strategy
+and the fan-out mechanism — none of which exist, and none of which this ADR
+accepts. **They do not block acceptance**, because this ADR decides *sequencing*
+and *constraints*, not design: every one of them is a question the Phase 8 cache
+ADR must answer *if* cross-request caching is retained, and is moot if it is not.
 
-## Post-acceptance actions
+**5. What failure posture is acceptable after a committed mutation? —
+DEFERRED.** Fail-closed fallback to the proven uncached resolver remains the
+leading direction. One rule is settled now and is not deferred: **a committed
+authorization mutation must never be reported as rolled back or unsuccessful
+merely because later invalidation failed.**
 
-Strictly separated, and **none of them are part of this increment**.
+**6. Is a guard-wide generation acceptable for broad invalidation? —
+DEFERRED.** It remains the leading candidate for the ten subject-less mutations
+and the two role-permission mutations, because it is tagless and needs no
+enumeration. It is **not accepted as the strategy**: its atomicity requirement,
+its over-invalidation cost and its store-capability needs are Phase 8 work.
 
-**On acceptance of this ADR:**
+**8. Is cross-request caching required before `1.0.0`? — DEFERRED, by design.**
+Phase 8's benchmark-and-decide sequence owns it. **"No cross-request cache"
+remains a legitimate outcome** if the uncached resolver plus request-local
+memoization proves sufficient.
 
-1. Apply **roadmap correction B**, the selected recommendation: remove
-   `After-commit cache invalidation` from Phase 4, add it explicitly to Phase 8,
-   reduce the Phase 4 denominator from 21 to 20, and recalculate Phase 4 to a
-   projected 19 of 20 = 95% with `Consumer documentation and pre-v1 API freeze`
-   as its only remaining item. Roadmap correction A remains the alternative if
-   maintainers decide otherwise. **Not applied while this ADR is Proposed.**
-2. Align PACKAGE_SPEC sections 14.2 and 14.6 with the accepted sequencing, and
-   record that `gatetrail:doctor` does not yet exist so its constraint is
-   forward-looking.
-3. Update this ADR's status and add it to the ROADMAP accepted-decision table.
+## Follow-up actions
 
-**Phase 8, in order:**
+Strictly separated by owner and by phase.
 
-4. Reproducible uncached benchmark, reusing `GateTrailStatementProbe`.
-5. Decide whether cross-request caching is retained at all (question 8).
-6. If retained, a dedicated cache-strategy ADR answering questions 2–7 and
-   binding itself to the constraint set above.
-7. Implementation, expiry-safe TTL, invalidation matrix and parity tests — only
-   after that ADR.
+**Applied with this acceptance — documentation only:**
+
+1. Roadmap correction B: `After-commit cache invalidation` removed from Phase 4,
+   real after-commit cross-request invalidation added to Phase 8 as an unchecked
+   item conditional on caching being retained, Phase 4 recalculated to 19 of
+   20 = 95%, `In progress`.
+2. `PACKAGE_SPEC.md` section 14 and the architecture-decision index aligned: the
+   accepted sequencing recorded, future cache requirements relabelled as
+   requirements *only if* Phase 8 retains cross-request caching, and
+   `gatetrail:doctor`'s constraint marked forward-looking because the command
+   does not exist yet.
+3. This ADR marked Accepted and added to the ROADMAP accepted-decision table.
+
+**Phase 8, in order, and not started:**
+
+4. Define the benchmark threshold — *before* running the benchmark (decision 7).
+5. Reproducible uncached benchmark, reusing `GateTrailStatementProbe`.
+6. Decide whether cross-request caching is retained at all (deferred question 8).
+   **"No" is a legitimate answer.**
+7. If retained, a dedicated cache-strategy ADR answering deferred questions 5 and
+   6 and binding itself to the constraint set above.
+8. Implementation, expiry-safe TTL, invalidation matrix and parity tests — only
+   after that ADR, and only if caching is retained.
 
 **Independent of all of the above:**
 
-8. `Consumer documentation and pre-v1 API freeze`, the other open Phase 4 item.
-   It is unrelated to caching and is not blocked by this ADR.
+9. `Consumer documentation and pre-v1 API freeze`, now the only remaining Phase 4
+   item. It is unrelated to caching and is not blocked by this ADR.
 
 ## References
 
