@@ -126,11 +126,12 @@ Construction rejects an unknown mutation name and rejects
 2. **`targetId` is the mutated row, not the definition.** For `role.assigned`,
    `targetType` is `role_assignment` and `targetId` is the **assignment row's**
    identifier — not the role's. The event cannot say which role changed.
-3. **Only six of fourteen mutations carry a subject.** Verified per handler:
-   the four subject-scoped assignment mutations plus `role.revoked` and
-   `permission.revoked_from_subject` pass a real subject;
-   `grantPermissionToRole`, `revokePermissionFromRole` and all eight definition
-   mutations pass `subjectType: null, subjectId: null`.
+3. **Only four of fourteen mutations carry a subject**, so **ten of fourteen
+   carry none.** Verified per handler: `role.assigned`, `role.revoked`,
+   `permission.granted_to_subject` and `permission.revoked_from_subject` pass a
+   real subject. `permission.granted_to_role`, `permission.revoked_from_role`
+   and all eight definition mutations pass `subjectType: null, subjectId:
+   null` — two plus eight, ten in total.
 
 **Supported framework range is `illuminate/* ^12.0 || ^13.0`.** Any cache-store
 capability claim must hold across both.
@@ -212,7 +213,7 @@ after choosing the answer wastes it.
 
 **The event payload is not ready, and that is new information.** The gaps in
 §"Verified codebase facts" — no guard, `targetId` pointing at the assignment row
-rather than the role, eight of fourteen mutations carrying no subject — mean
+rather than the role, ten of fourteen mutations carrying no subject — mean
 targeted invalidation cannot be built on the current public event without either
 expanding it or issuing post-commit queries. Both are decisions with permanent
 consequences. Discovering that *during* a Phase 4 sprint would produce a rushed
@@ -229,30 +230,68 @@ trade is worth making is exactly what a benchmark decides.
 **Not applied by this ADR.** While this ADR is `Proposed`, no percentage, status
 or checklist item changes. Phase 4 stays at 19 of 21 = 90%, Phase 5 stays at
 100%, overall stays at approximately 41%, and the deliverable tracker stays at
-12 of 32, approximately 38%.
+12 of 32, approximately 38%. Every figure in this section is a **projected
+post-acceptance outcome**, not current state.
 
-After acceptance, exactly one of two corrections applies. This is
-[open question 1](#open-maintainer-questions).
+Two lettering sets appear in this ADR and must not be confused:
 
-**Option A — rename in place, denominator unchanged.** If maintainers judge that
-ADR 0010's ordering contract is genuinely what Phase 4 owed, the deliverable is
-renamed to `After-commit invalidation ordering contract` and checked, because
-that contract exists, is implemented and is evidenced by ADR 0010's acceptance.
-Phase 4 becomes 20 of 21 ≈ 95%. The real cache work is added as a new Phase 8
-deliverable. **Denominator unchanged at 21.**
+| Set | Meaning |
+|---|---|
+| **Architecture options A–E**, in [Options considered](#options-considered) | What GateTrail should *do* about caching. The decision is architecture option C |
+| **Roadmap corrections A and B**, in this section | How the ROADMAP should *record* that decision for Phase 4. The recommendation is roadmap correction B |
 
-**Option B — move the item, denominator reduced.** If maintainers judge that
-Phase 4 always meant real invalidation, the deliverable is removed from Phase 4
-and added to Phase 8. Phase 4 becomes 19 of 20 = 95%. **Denominator reduced to
-20.**
+Architecture option C is the decision. Roadmap correction B is the bookkeeping
+that follows from it. They are separate choices and neither implies the other's
+letter.
 
-Both land Phase 4 at ≈95% with one item left, `Consumer documentation and pre-v1
-API freeze`. They differ in honesty about what was promised, which is why it is
-a maintainer decision and not an editorial one. Option A is preferred on the
-evidence: ADR 0010 delivered a real, tested ordering guarantee that a future
-invalidator inherits, and calling that nothing would undersell it.
+### Roadmap correction B — move the item to Phase 8 — **recommended**
 
-**Neither option is applied until this ADR is Accepted.**
+The Phase 4 checklist says `After-commit cache invalidation`, and that is what it
+means. Real cross-request invalidation does not exist, so the item is not
+complete, and it belongs in the phase where the cache decision and its
+implementation genuinely live.
+
+After acceptance:
+
+- remove `After-commit cache invalidation` from Phase 4;
+- add it explicitly to Phase 8, where the benchmark-and-decide sequence already
+  governs it;
+- reduce the Phase 4 denominator from 21 to 20;
+- **Phase 4 becomes 19 of 20 = 95%** (projected), leaving `Consumer
+  documentation and pre-v1 API freeze` as its only incomplete item.
+
+**Moving the item is not deleting work.** It records the dependency in the phase
+that actually owns it, so the deliverable stays visible and unfinished rather
+than being quietly satisfied by something else.
+
+**ADR 0010's ordering guarantee remains real and valuable**, and moving this item
+takes nothing away from it. The reserved slot sits inside a tested after-commit
+boundary and already carries the outermost-commit rule, ADR 0011's exactly-once
+retry semantics and the audit-then-cache-then-event order. A future invalidator
+inherits all of that for free. What it is not is invalidation, and Phase 4's
+checklist asked for invalidation.
+
+### Roadmap correction A — rename in place — viable alternative, not preferred
+
+Rename the deliverable to `After-commit invalidation ordering contract` and check
+it, on the grounds that the ordering contract exists, is implemented and is
+evidenced by ADR 0010's acceptance. **Denominator unchanged at 21**, Phase 4
+becomes 20 of 21 ≈ 95% (projected).
+
+It reaches the same ≈95% and it is defensible, which is why it stays on the
+table. It is **not preferred** because it changes the meaning of the original
+promise after the fact. A reader comparing the roadmap before and after would see
+a cache-invalidation deliverable become an ordering deliverable and be checked,
+and would reasonably conclude that after-commit cache invalidation had been
+delivered when only its ordering point exists. Renaming a deliverable to match
+what was built, rather than building what the deliverable named, is the kind of
+bookkeeping that makes a checklist stop meaning anything.
+
+Both corrections land Phase 4 at ≈95% with one item left. They differ only in
+whether the roadmap keeps telling the truth about what was promised, which is why
+correction B is recommended.
+
+**Neither correction is applied until this ADR is Accepted.**
 
 ## Options considered
 
@@ -288,6 +327,11 @@ against, and it is worse than doing nothing because it manufactures false
 assurance.
 
 ### C. Preserve the ordering contract, defer real caching to Phase 8 — **recommended**
+
+This is the **architecture** decision. Its roadmap consequence is roadmap
+correction B in [Sequencing correction](#sequencing-correction) — move the Phase 4
+deliverable to Phase 8 — and the two should not be conflated because they carry
+different letters.
 
 | Dimension | Assessment |
 |---|---|
@@ -355,8 +399,8 @@ source, not inferred. "Guard in event" is `no` for all fourteen, because
 | `permission.granted_to_role` | Yes | **No — `null`** | **Fan-out.** Affects every subject holding that role. The event names the `role_permission` row, not the role, and not the subjects |
 | `permission.revoked_from_role` | Yes | **No — `null`** | As above. This is the widest-blast-radius assignment mutation |
 
-The four subject-scoped mutations are the only ones where targeted invalidation
-is even conceivable from the current event — and even they lack the guard that
+These four subject-scoped mutations are the only ones in the whole vocabulary
+where targeted invalidation is even conceivable from the current event — and even they lack the guard that
 PACKAGE_SPEC 14.3 requires in the key.
 
 ### Role-definition mutations — four
@@ -379,8 +423,10 @@ PACKAGE_SPEC 14.3 requires in the key.
 
 ### What the matrix shows
 
-- **Eight of fourteen mutations carry no subject**, so eight cannot be targeted
-  at all from the current event.
+- **Ten of fourteen mutations carry no subject** — the two role-permission
+  mutations and all eight definition mutations — so ten cannot be targeted at
+  all from the current event. Only the four subject-scoped assignment mutations
+  name a subject.
 - **Zero of fourteen carry a guard**, so no key satisfying PACKAGE_SPEC 14.3 can
   be built from the event alone.
 - **`create` is the interesting edge.** A newly created role or permission grants
@@ -426,8 +472,8 @@ concurrent assignment changes.
 
 **4. Guard-scoped generations.** Store a generation counter per guard; a
 definition mutation bumps it and invalidates that guard wholesale without
-enumerating anything. Cheap, tagless, and a good fit for the eight
-subject-less mutations. Costs precision — an unrelated subject loses its entry —
+enumerating anything. Cheap, tagless, and a good fit for the ten subject-less
+mutations. Costs precision — an unrelated subject loses its entry —
 and needs an atomic increment the baseline store may not provide (see
 portability). Carried forward as [open question 6](#open-maintainer-questions).
 
@@ -550,7 +596,7 @@ the consequence:
 - **Invalidating once per retry attempt.** ADR 0011 guarantees at most one
   announcement per successful mutation; per-attempt invalidation would break it
   and produce invalidations for attempts that never committed.
-- **Counting a no-op invalidator as completion.** Option B above.
+- **Counting a no-op invalidator as completion.** Architecture option B above.
 - **Adding target information to the public event without proven need.**
   Permanent API and a disclosure surface, spent on a guess.
 
@@ -573,14 +619,16 @@ correct when all of the following hold:
 Each carries a recommendation, a viable alternative, and the consequence of
 choosing the alternative.
 
-**1. Rename the Phase 4 item, or move it to Phase 8?**
-*Recommendation:* rename to `After-commit invalidation ordering contract` and
-check it (Option A, denominator stays 21) — ADR 0010 delivered a real, tested
-guarantee.
-*Alternative:* move it to Phase 8 (Option B, denominator becomes 20).
-*Consequence:* Option B records that Phase 4 never delivered any part of the
-item, which understates ADR 0010's ordering work; Option A must be justified by
-the ordering contract genuinely being what was owed.
+**1. Move the Phase 4 item to Phase 8, or rename it in place?**
+*Recommendation:* **move the real invalidation item to Phase 8** (roadmap
+correction B). The Phase 4 checklist named cache invalidation, invalidation does
+not exist, and Phase 8 is where the cache decision and implementation belong.
+*Alternative:* rename it to the ordering contract ADR 0010 delivered and keep the
+denominator at 21 (roadmap correction A).
+*Consequence:* moving it gives Phase 4 a denominator of 20 and an honest
+projected 19 of 20 = 95%, with the deliverable still visible and unfinished where
+it is actually owed. Renaming it risks implying that after-commit cache
+invalidation was delivered when only its ordering point exists.
 
 **2. Should cross-request caching remain optional and disabled by default?**
 *Recommendation:* yes, permanently — an authorization cache that switches itself
@@ -612,7 +660,7 @@ degradation to the uncached resolver is the most promising direction.
 TTL, which is a security decision made without knowing the TTL.
 
 **6. Is a guard-wide generation acceptable for definition changes?**
-*Recommendation:* treat it as the leading candidate for the eight subject-less
+*Recommendation:* treat it as the leading candidate for the ten subject-less
 mutations — it is tagless and needs no enumeration.
 *Alternative:* per-subject fan-out via post-commit lookup.
 *Consequence:* generations over-invalidate unrelated subjects; fan-out puts a
@@ -637,9 +685,12 @@ Strictly separated, and **none of them are part of this increment**.
 
 **On acceptance of this ADR:**
 
-1. Apply the chosen Phase 4 correction from
-   [Sequencing correction](#sequencing-correction) — rename or move, and
-   recalculate Phase 4 accordingly.
+1. Apply **roadmap correction B**, the selected recommendation: remove
+   `After-commit cache invalidation` from Phase 4, add it explicitly to Phase 8,
+   reduce the Phase 4 denominator from 21 to 20, and recalculate Phase 4 to a
+   projected 19 of 20 = 95% with `Consumer documentation and pre-v1 API freeze`
+   as its only remaining item. Roadmap correction A remains the alternative if
+   maintainers decide otherwise. **Not applied while this ADR is Proposed.**
 2. Align PACKAGE_SPEC sections 14.2 and 14.6 with the accepted sequencing, and
    record that `gatetrail:doctor` does not yet exist so its constraint is
    forward-looking.
