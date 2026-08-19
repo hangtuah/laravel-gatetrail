@@ -1278,9 +1278,11 @@ entry is neither returned nor evicted, so it survives a rollback intact.
 
 **Increment 9 — query instrumentation and portability hardening.**
 `GateTrailStatementProbe` and `StatementMeasurement` exist under
-`src/Diagnostics/`. The probe listens for `QueryExecuted` on the connection
-`SchemaContext` selects and filters on that **`Connection` instance**, not its
-name, because the dispatcher is shared by every connection. A measurement is
+`src/Diagnostics/`. The probe registers its listener through the `Connection`
+`SchemaContext` selects — not through the application dispatcher, which a
+connection with a dispatcher of its own would bypass entirely — and then filters
+on that **`Connection` instance**, not its name, because a connection's
+dispatcher is normally shared with every other connection. A measurement is
 seven `int` counters — `total`, `select`, `insert`, `update`, `delete`,
 `schema`, `other` — and nothing else: no SQL, no bindings, no identifier, no
 name, no guard, no duration, no `QueryExecuted`. The whole section 6.3 budget

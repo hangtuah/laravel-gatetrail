@@ -1359,11 +1359,14 @@ Cold resolution of one subject:
 The instrumentation that does this is **internal**, and it is described here
 only so the verification method is on the record:
 
-- it listens for `QueryExecuted` and counts statements that ran through the
-  **`Connection` instance** the configured GateTrail connection resolves to.
-  Object identity, not connection name, because Laravel's event dispatcher is
-  shared by every connection, so an unrelated application connection is
-  ignored;
+- it registers its listener through the resolved GateTrail `Connection` itself,
+  not through the application's event dispatcher, so a connection carrying a
+  dispatcher of its own is still observed rather than silently reporting zero;
+- it counts only statements that ran through that **`Connection` instance**.
+  Object identity, not connection name: a connection's dispatcher is normally
+  shared with every other connection, so registering on the right connection is
+  not by itself a filter, and an unrelated application connection is ignored
+  because its `Connection` object is not the one being measured;
 - it records **counts and a fixed category vocabulary only** — total, select,
   insert, update, delete, schema, other. It retains no SQL text, no bindings,
   no subject or definition identifier, no name, no guard, no duration and no

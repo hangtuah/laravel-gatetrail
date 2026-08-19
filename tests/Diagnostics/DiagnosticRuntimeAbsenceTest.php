@@ -227,7 +227,6 @@ final class DiagnosticRuntimeAbsenceTest extends TestCase
         new GateTrailStatementProbe(
             $this->app->make(DatabaseManager::class),
             $this->app->make(SchemaContext::class),
-            $this->app->make('events'),
         );
 
         $this->assertSame(

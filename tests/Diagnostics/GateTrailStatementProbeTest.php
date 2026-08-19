@@ -72,6 +72,77 @@ final class GateTrailStatementProbeTest extends TestCase
         $this->assertSame(['__construct', 'measure'], $methods);
     }
 
+    /**
+     * The constructor is the whole wiring decision, so it is pinned.
+     *
+     * No `Dispatcher` parameter: the probe must not be handed the
+     * application's dispatcher, and must not go looking for one. It resolves
+     * the GateTrail connection and registers on that.
+     */
+    public function test_it_is_constructed_from_the_manager_and_the_schema_only(): void
+    {
+        $constructor = (new ReflectionClass(GateTrailStatementProbe::class))
+            ->getConstructor();
+
+        $this->assertNotNull($constructor);
+
+        $types = array_map(
+            static function (\ReflectionParameter $parameter): string {
+                $type = $parameter->getType();
+
+                return $type instanceof \ReflectionNamedType
+                    ? $type->getName()
+                    : 'mixed';
+            },
+            $constructor->getParameters(),
+        );
+
+        $this->assertSame(
+            [DatabaseManager::class, SchemaContext::class],
+            $types,
+            'Exactly two dependencies, and neither is an event dispatcher.',
+        );
+    }
+
+    /**
+     * Registration goes through `Connection::listen()`, so a connection with a
+     * dispatcher of its own is still observed.
+     * `ProbeConnectionIsolationTest` proves that behaviourally; this pins that
+     * the probe never reaches for the application dispatcher itself.
+     */
+    public function test_it_never_resolves_the_application_dispatcher(): void
+    {
+        $path = (new ReflectionClass(GateTrailStatementProbe::class))->getFileName();
+
+        $this->assertIsString($path);
+
+        $code = '';
+
+        foreach (token_get_all((string) file_get_contents($path)) as $token) {
+            if (is_array($token)) {
+                if ($token[0] === T_COMMENT || $token[0] === T_DOC_COMMENT) {
+                    continue;
+                }
+
+                $code .= $token[1];
+
+                continue;
+            }
+
+            $code .= $token;
+        }
+
+        foreach (['Dispatcher', "app('events')", 'Event::', 'resolve('] as $forbidden) {
+            $this->assertStringNotContainsString($forbidden, $code, $forbidden);
+        }
+
+        $this->assertStringContainsString(
+            '$this->connection->listen(',
+            $code,
+            'The listener is attached to the resolved GateTrail connection.',
+        );
+    }
+
     public function test_it_observes_the_connection_schema_context_selects(): void
     {
         $this->assertNull(
@@ -505,7 +576,6 @@ final class GateTrailStatementProbeTest extends TestCase
         return new GateTrailStatementProbe(
             $this->app->make(DatabaseManager::class),
             $this->app->make(SchemaContext::class),
-            $this->app->make('events'),
         );
     }
 

@@ -397,7 +397,6 @@ final class ResolverQueryBudgetTest extends TestCase
         return new GateTrailStatementProbe(
             $this->app->make(DatabaseManager::class),
             $this->app->make(SchemaContext::class),
-            $this->app->make('events'),
         );
     }
 

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace HangTuah\GateTrail\Diagnostics;
 
 use HangTuah\GateTrail\Database\Schema\SchemaContext;
-use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Connection;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Events\QueryExecuted;
@@ -27,12 +26,30 @@ use LogicException;
  * SQL, bindings, subject identifiers, definition names, guards, models, rows,
  * durations or the `QueryExecuted` object itself.
  *
+ * # Where the listener is registered
+ *
+ * On the resolved GateTrail `Connection` itself, through `Connection::listen()`
+ * — never on the application's event dispatcher.
+ *
+ * The two are usually the same thing, because Laravel hands every connection
+ * it builds the application dispatcher. They are **not** guaranteed to be. A
+ * consumer may extend the manager, replace a connection or call
+ * `setEventDispatcher()` to give the GateTrail connection a dispatcher of its
+ * own; the connection then fires `QueryExecuted` there, a probe listening on
+ * the application dispatcher hears nothing, and every budget it reports is a
+ * confident **zero**. A diagnostic that fails silently towards "no statements"
+ * is worse than none at all, because zero is also the correct answer for a warm
+ * memo hit. Registering through the connection means the listener always lands
+ * wherever that connection actually dispatches.
+ *
  * # Connection filtering
  *
- * `QueryExecuted` is dispatched through the application's shared event
- * dispatcher, which every connection uses. Registering through one connection
- * therefore filters nothing — the callback still sees every connection's
- * statements. Filtering is done on **object identity**:
+ * Registering through the right connection is **not** a filter. Laravel's
+ * `Connection::listen()` delegates to whatever dispatcher that connection
+ * holds, and in the ordinary configuration that dispatcher is shared with every
+ * other connection — so the callback still sees foreign connections'
+ * statements. Filtering is a separate, mandatory step, done on **object
+ * identity**:
  *
  * ```php
  * $event->connection === $this->connection
@@ -50,9 +67,9 @@ use LogicException;
  * # Listener lifecycle, stated honestly
  *
  * Laravel offers no safe per-listener detachment, so the listener registered
- * in the constructor **stays on the dispatcher for the life of that
- * dispatcher**. That is accepted rather than worked around, and it is made
- * harmless by design:
+ * in the constructor **stays on the GateTrail connection's dispatcher for the
+ * life of that dispatcher**. That is accepted rather than worked around, and it
+ * is made harmless by design:
  *
  * - the listener is **inert whenever no measurement is active** — it returns
  *   on a single boolean before it looks at anything else;
@@ -109,23 +126,25 @@ final class GateTrailStatementProbe
     private array $tally = self::EMPTY_TALLY;
 
     /**
-     * Registers exactly one listener, once.
+     * Registers exactly one listener, once, **through the connection itself**.
      *
      * The connection is resolved here rather than injected so that every probe
      * measures the same connection the resolver reads — `SchemaContext` is the
-     * single place that answers "which connection is GateTrail's?".
+     * single place that answers "which connection is GateTrail's?" — and the
+     * listener is then attached to that connection rather than to the
+     * application's event dispatcher, so a connection carrying a dispatcher of
+     * its own is still observed.
      */
     public function __construct(
         DatabaseManager $connections,
         SchemaContext $schema,
-        Dispatcher $events,
     ) {
         /** @var Connection $connection */
         $connection = $connections->connection($schema->connectionName());
 
         $this->connection = $connection;
 
-        $events->listen(QueryExecuted::class, $this->observe(...));
+        $this->connection->listen($this->observe(...));
     }
 
     /**

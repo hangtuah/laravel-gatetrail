@@ -12,6 +12,7 @@ use Illuminate\Database\Connection;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\SQLiteConnection;
+use Illuminate\Events\Dispatcher;
 use Illuminate\Support\Facades\Schema;
 use PDO;
 use ReflectionProperty;
@@ -225,12 +226,156 @@ final class ProbeConnectionIsolationTest extends TestCase
         );
     }
 
+    // ------------------------------------------------- Dispatcher ownership
+
+    /**
+     * The regression this class exists for after the Increment 9 correction:
+     * a GateTrail connection with a **dispatcher of its own**.
+     *
+     * Laravel hands every connection it builds the application dispatcher, so
+     * in the ordinary configuration "listen on the app dispatcher" and "listen
+     * on the connection" are the same act — and a probe registered on the wrong
+     * one passes every test. They come apart the moment a consumer extends the
+     * manager, replaces a connection or calls `setEventDispatcher()`: the
+     * connection then fires `QueryExecuted` somewhere the application
+     * dispatcher never sees.
+     *
+     * The failure mode is the dangerous kind. A probe listening on the
+     * application dispatcher does not error — it reports a confident **zero**,
+     * which is also the correct answer for a warm memo hit. Every query budget
+     * derived from it would be false evidence.
+     *
+     * So the probe registers through `Connection::listen()`, and this pins it.
+     */
+    public function test_it_listens_on_a_connection_carrying_its_own_dispatcher(): void
+    {
+        $gateTrail = $this->gateTrail();
+        $application = $this->app['events'];
+
+        // Setup context only: out of the box the connection uses the
+        // application dispatcher, which is exactly why the defect is invisible
+        // everywhere else.
+        $this->assertSame(
+            $application,
+            $gateTrail->getEventDispatcher(),
+            'The default wiring is what hides the bug.',
+        );
+
+        $isolated = new Dispatcher($this->app);
+
+        $this->assertNotSame(
+            $application,
+            $isolated,
+            'The connection dispatcher must be a genuinely different object.',
+        );
+
+        // Installed *before* the probe is constructed, so the probe has to find
+        // it rather than having been handed it.
+        $gateTrail->setEventDispatcher($isolated);
+
+        try {
+            $this->assertSame($isolated, $gateTrail->getEventDispatcher());
+            $this->assertNotSame(
+                $isolated,
+                $this->application()->getEventDispatcher(),
+                'The unrelated connection keeps the application dispatcher.',
+            );
+
+            $probe = new GateTrailStatementProbe(
+                $this->app->make(DatabaseManager::class),
+                $this->app->make(SchemaContext::class),
+            );
+
+            $measurement = $probe->measure(function (): void {
+                Role::query()->get();
+                $this->application()->table('application_notes')->get();
+            });
+
+            $this->assertSame(
+                1,
+                $measurement->total,
+                'The GateTrail statement dispatched through the isolated '
+                    .'dispatcher and was still counted.',
+            );
+            $this->assertSame(
+                1,
+                $measurement->select,
+                'And it landed in the correct fixed category.',
+            );
+            $this->assertSame(0, $measurement->insert);
+            $this->assertSame(0, $measurement->schema);
+            $this->assertSame(
+                0,
+                $measurement->other,
+                'The statement dispatched on the application dispatcher is '
+                    .'ignored, as it is on any other connection.',
+            );
+        } finally {
+            // Restored unconditionally: a leaked dispatcher would silence
+            // query events for every later test sharing this connection.
+            $gateTrail->setEventDispatcher($application);
+        }
+
+        $this->assertSame($application, $this->gateTrail()->getEventDispatcher());
+    }
+
+    /**
+     * Registering through the connection is not itself a filter. The isolated
+     * dispatcher is shared here with an impostor `Connection`, so the probe's
+     * listener genuinely fires for it — and object identity is the only thing
+     * that rejects it.
+     */
+    public function test_identity_filtering_is_still_required_on_a_shared_dispatcher(): void
+    {
+        $gateTrail = $this->gateTrail();
+        $application = $this->app['events'];
+        $isolated = new Dispatcher($this->app);
+
+        $gateTrail->setEventDispatcher($isolated);
+
+        try {
+            $probe = new GateTrailStatementProbe(
+                $this->app->make(DatabaseManager::class),
+                $this->app->make(SchemaContext::class),
+            );
+
+            $impostor = new SQLiteConnection(
+                new PDO('sqlite::memory:'),
+                ':memory:',
+                '',
+                ['name' => self::GATETRAIL_CONNECTION, 'driver' => 'sqlite'],
+            );
+
+            // The same dispatcher the probe registered on, so the callback is
+            // really invoked for these statements.
+            $impostor->setEventDispatcher($isolated);
+
+            $measurement = $probe->measure(static function () use ($impostor): void {
+                $impostor->statement('create table impostor (id integer)');
+                $impostor->select('select * from impostor');
+            });
+
+            $this->assertSame(
+                0,
+                $measurement->total,
+                'Right dispatcher, wrong Connection: identity rejects it.',
+            );
+
+            $counted = $probe->measure(static function (): void {
+                Role::query()->get();
+            });
+
+            $this->assertSame(1, $counted->total);
+        } finally {
+            $gateTrail->setEventDispatcher($application);
+        }
+    }
+
     private function probe(): GateTrailStatementProbe
     {
         return new GateTrailStatementProbe(
             $this->app->make(DatabaseManager::class),
             $this->app->make(SchemaContext::class),
-            $this->app->make('events'),
         );
     }
 

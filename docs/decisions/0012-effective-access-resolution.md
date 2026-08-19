@@ -2692,18 +2692,53 @@ does not recognize to `other` rather than guessing at `select`. That is what
 makes "3 statements, 3 select" a real claim: an unexpected shape moves the
 count into `other` and breaks the assertion instead of hiding inside it.
 
-**Exact GateTrail-connection filtering.** `QueryExecuted` is dispatched through
-the application's shared event dispatcher, so registering "on a connection"
-filters nothing. The probe resolves its connection exactly as the resolver does
-— `DatabaseManager::connection()` given `SchemaContext::connectionName()` — and
-compares **object identity**, `$event->connection === $this->connection`, not
-the connection name. Proved with two genuinely separate SQLite connections: a
-statement on the application default is ignored, a mixed window containing
-three unrelated statements and two GateTrail statements reports **2**, and an
-impostor `Connection` constructed to report the GateTrail connection's *name*
-over its own in-memory database contributes **0** while the real instance still
-contributes 1. Regressing the probe to `connection()` fails all five isolation
-tests.
+**Where the listener is registered.** On the resolved GateTrail `Connection`
+itself, through `Connection::listen()`. The probe's constructor takes
+`DatabaseManager` and `SchemaContext` and **nothing else** — no `Dispatcher`
+parameter, and no application dispatcher resolved internally, both pinned by
+reflection and by a comment-stripped source scan.
+
+Laravel hands every connection it builds the application dispatcher, so in the
+ordinary configuration "register on the application dispatcher" and "register
+on the connection" are the same act, and the wrong one passes every other test
+in this suite. They come apart as soon as a consumer extends the manager,
+replaces a connection or calls `setEventDispatcher()`: the connection then fires
+`QueryExecuted` on a dispatcher the application never sees. The failure mode is
+the dangerous kind — a probe on the wrong dispatcher does not error, it reports
+a confident **zero**, which is also the correct answer for a warm memo hit, so
+every budget derived from it would be false evidence.
+
+**Registering on the right connection is not a filter.** `Connection::listen()`
+delegates to whatever dispatcher that connection holds, and that dispatcher is
+normally shared with every other connection, so the callback still sees foreign
+statements. Filtering stays a separate and mandatory step, on **object
+identity**: `$event->connection === $this->connection`, never the connection
+name.
+
+**Exact GateTrail-connection filtering, evidenced.** The probe resolves its
+connection exactly as the resolver does — `DatabaseManager::connection()` given
+`SchemaContext::connectionName()`. Proved with two genuinely separate SQLite
+connections: a statement on the application default is ignored, a mixed window
+containing three unrelated statements and two GateTrail statements reports
+**2**, and an impostor `Connection` constructed to report the GateTrail
+connection's *name* over its own in-memory database contributes **0** while the
+real instance still contributes 1. Regressing the probe to `connection()` fails
+all seven isolation tests.
+
+**Isolated-dispatcher regression.** A dedicated test installs a separate
+`Illuminate\Events\Dispatcher` onto the GateTrail connection **before** the
+probe is constructed — first asserting, as setup context, that the connection
+started out on the application dispatcher, which is what hides the defect — and
+restores it in a `finally` so a failed assertion cannot silence query events for
+the rest of the suite. The probe, built from `DatabaseManager` and
+`SchemaContext` alone, still counts the GateTrail statement in the `select`
+category and still ignores a statement executed on the application default. A
+second test shares that isolated dispatcher with a same-named impostor
+`Connection`, so the probe's callback genuinely fires for the impostor's
+statements and only identity filtering rejects them — which is why both layers
+exist. Against the previous implementation, which took the application
+`Dispatcher` and called `$events->listen()`, both tests fail reporting **0**
+GateTrail statements where 1 was expected.
 
 **Privacy evidence.** The probe declares three properties — a `Connection` it
 only ever compares, a `bool` window switch and a fixed-key `array` of `int`
@@ -2778,8 +2813,8 @@ counter property, and `EffectiveAccessResolver` keeps no counter of its own —
 section 8's rejection of self-reporting stands.
 
 **Listener lifecycle, stated honestly.** Laravel offers no safe per-listener
-detachment, so the listener a probe registers in its constructor stays on that
-dispatcher for the dispatcher's lifetime. It is inert whenever no measurement
+detachment, so the listener a probe registers in its constructor stays on the
+GateTrail connection's dispatcher for that dispatcher's lifetime. It is inert whenever no measurement
 is active, one probe registers exactly one listener and reuses it for every
 window — asserted across five consecutive measurements — and repeated
 *construction* is what accumulates, so a test or diagnostic builds one probe.
