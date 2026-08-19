@@ -160,7 +160,22 @@ Accepted architecture decisions:
 | 0012 | Resolve effective access once and expose it through two thin contracts | Accepted |
 | 0013 | Keep the after-commit invalidation slot reserved and defer cross-request caching to Phase 8 | Accepted |
 
-No proposed architecture decision is currently outstanding.
+One proposed architecture decision is currently outstanding.
+[ADR 0014](docs/decisions/0014-pre-v1-public-api-boundary.md) — *Define the
+Pre-v1 Public API Boundary* — is **Proposed** as of 2026-08-19. It is drafted on
+the complete 218-symbol inventory in
+[Public API Inventory 0002](docs/reviews/0002-public-api-inventory.md) and
+proposes five compatibility tiers: 39 supported public symbols, 13 consumer
+extension points, 4 framework integration surfaces, 5 operational exception
+types and 157 internal symbols. It also records fourteen corrections required
+before any freeze, nine of which block it.
+
+**No API is frozen.** No source file, annotation or signature changed, no
+documentation promise is accepted, and the boundary itself is not accepted until
+ADR 0014 is. Phase 4 therefore remains **19 of 20 = 95%**, Phase 5 remains
+**100%**, overall equal-phase progress remains **approximately 41%**, and the
+deliverable tracker remains **12 of 32, approximately 38%**.
+
 [ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md) was accepted
 on 2026-08-19; it decides the *sequencing* of cross-request caching and
 implements none of it, leaving the cache store, TTL, fan-out, generation scheme
