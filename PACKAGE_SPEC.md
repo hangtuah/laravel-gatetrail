@@ -1446,8 +1446,8 @@ input already normalized successfully.
 
 ### 11.13 Resolver portability evidence
 
-Evidence is proportional to what is claimed for each engine, and no evidence
-exists yet.
+Evidence is proportional to what is claimed for each engine. The matrix below
+is satisfied for SQLite, MySQL and Oracle; section 20.5 records the runs.
 
 | Engine | Required before Phase 5 completion |
 |---|---|
@@ -2316,13 +2316,27 @@ containers. Local runs of the default SQLite suite and the static quality gates
 are separate quality-gate evidence and are never treated as live-database
 results.
 
-Authorization resolution has **no live evidence of any kind yet**, because no
-resolver exists. Section 11.13 defines the proportional matrix it must satisfy
-before Phase 5 can be called complete: full behavioral coverage on SQLite, live
-integration on the four MySQL lanes, targeted live Oracle through the existing
-cost-controlled harness, and compilation with adapter inspection for PostgreSQL
-and SQL Server until live harnesses exist. Compilation evidence is never
-reported as live-database evidence.
+Effective access resolution is **implemented, and its section 11.13 matrix is
+satisfied**. Full behavioral coverage runs on SQLite under Laravel
+12/Testbench 10 and Laravel 13/Testbench 11.
+
+Its live evidence is remote, on commit `9a66824`. Run `CI #98` passes all four
+live MySQL lanes — MySQL 8.0.16 and 8.0.45, each against Laravel 12/Testbench 10
+and Laravel 13/Testbench 11. Run `Oracle compatibility #11` passes both targeted
+Oracle lanes against Oracle Free 23.26.1 — Laravel 13/Testbench 11 with OCI8 13,
+and Laravel 12/Testbench 10 with OCI8 12.
+
+One shared acceptance fixture produces one expected result on every engine
+exercised, so those runs are parity evidence rather than three separate smoke
+tests. They cover the section 11.10 query budget measured by connection-level
+instrumentation, request-local memoization, the half-open lifecycle boundaries
+against real engine timestamp types, a configured non-empty table prefix on
+MySQL, the configured schema context on Oracle, and exact `allows()` /
+`effectivePermissions()` and `has()` / `effectiveRoles()` parity.
+
+PostgreSQL and SQL Server remain **query-compilation and schema-adapter
+inspection only**. No live endpoint of either kind has been executed, and
+compilation evidence is never reported as live-database evidence.
 
 ## 21. Performance requirements
 
@@ -2401,13 +2415,14 @@ Bounded concurrency retry for assignment coordination is accepted in
 [ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md), implemented, and
 verified on the supported live MySQL matrix. Section 20.5 records the evidence.
 
-Effective access resolution — the shared snapshot, the two resolver contracts,
-subject identity, the lifecycle and query architecture, request-local
-memoization, and the proportional portability evidence matrix — is accepted in
-[ADR 0012](docs/decisions/0012-effective-access-resolution.md). It is
-**accepted as a design and is not implemented**. Section 11 records the
-accepted contracts; no resolver code, live evidence, or query-budget
-measurement exists yet.
+Effective access resolution is accepted in
+[ADR 0012](docs/decisions/0012-effective-access-resolution.md), implemented, and
+verified on the supported live MySQL and targeted live Oracle matrices. It
+delivered the shared snapshot, `PermissionResolver`, `RoleResolver`, shared
+subject identity, the portable lifecycle and query architecture, request-local
+memoization, and connection-level query instrumentation. Section 20.5 records
+the evidence, including the boundary that PostgreSQL and SQL Server remain
+query-compilation and schema-adapter inspection only.
 
 Architecture decisions will be stored under:
 
