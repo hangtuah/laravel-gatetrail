@@ -1,6 +1,6 @@
 # GateTrail Roadmap and Implementation Guide
 
-Last updated: 2026-08-17
+Last updated: 2026-08-19
 
 ## 1. Purpose
 
@@ -43,7 +43,7 @@ Phase 1 — Complete
 Phase 2 — Complete
 Phase 3 — In progress
 Phase 4 — In progress
-Phase 5 — In progress
+Phase 5 — Complete
 Phase 6 onward — Not started
 ```
 
@@ -57,8 +57,8 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | 40% | Equal-phase progress across Phases 0–13 |
-| Deliverable tracker | 11 of 32, approximately 34% | Completed concrete package deliverables |
+| Overall roadmap by primary phases | approximately 41% | Equal-phase progress across Phases 0–13 |
+| Deliverable tracker | 12 of 32, approximately 38% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
 
@@ -100,7 +100,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
 | 4 | Mutation services | 90% | In progress |
-| 5 | Effective permission resolver | 90% | In progress |
+| 5 | Effective permission resolver | 100% | Complete |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
 | 8 | Cache and performance | 0% | Not started |
@@ -162,11 +162,14 @@ Accepted architecture decisions:
 No proposed architecture decision is currently outstanding.
 
 Acceptance records an architectural decision, not implementation. ADR 0012 is
-accepted, and its implementation is **in progress**: Increments 1 to 9 of 10
-are complete. Both public resolvers are implemented, bound and memoized per
-scope, and the connection-level statement instrumentation of ADR 0012 section 8
-now exists. Live-engine resolver acceptance remains, and it is what gates the
-`Query-count instrumentation` deliverable.
+accepted **and its implementation is complete**: all ten increments are
+delivered as of 2026-08-19. Both public resolvers are implemented, bound and
+memoized per scope, the connection-level statement instrumentation of section 8
+exists, and the section 12.1 acceptance matrix has been produced on commit
+`9a66824` — CI run #98 for the SQLite and four live MySQL lanes, Oracle
+compatibility run #11 for both live Oracle lanes. PostgreSQL and SQL Server
+remain query-compilation and schema-adapter inspection only, with no live
+endpoint executed.
 
 ## 5. Roadmap adherence
 
@@ -1128,7 +1131,7 @@ Implement one source of truth for every GateTrail authorization decision.
 - [x] Lifecycle filtering.
 - [x] Effective permission collection.
 - [x] Request-level memoization.
-- [ ] Query-count instrumentation.
+- [x] Query-count instrumentation.
 
 ### Required rules
 
@@ -1163,7 +1166,10 @@ has since been evidenced.
 
 ### Implementation status
 
-Implementation has begun. **Increments 1 to 8 of ADR 0012 are complete.**
+**Implementation is complete: all ten increments of ADR 0012 are delivered as
+of 2026-08-19**, and the section 12.1 acceptance matrix is recorded. The
+increment-by-increment record below is chronological, so a statement inside an
+increment describes the project at that increment rather than today.
 
 **Increment 1 — shared subject identity.** `SubjectIdentity`,
 `SubjectIdentityResolver` and `InvalidSubject` exist, are container-bound, and
@@ -1236,7 +1242,8 @@ is the `ModelRegistry`-resolved class or a subclass of it, so an unrelated
 application model whose key collides cannot authorize anyone. An impossible
 input denies **before** the subject, guard, clock or any statement is touched.
 
-**Eight deliverables are now checked, and this phase stands at 80%.**
+**At Increment 7, eight deliverables were checked and this phase stood at
+80%.**
 
 - `PermissionResolver contract and implementation` — `allows()` and
   `effectivePermissions()` over one snapshot, with the complete input matrix.
@@ -1302,63 +1309,75 @@ resolver nor the internal resolver depends on it, a real authorization check
 adds no listener, and no configuration key can enable it.
 `EffectiveAccessSnapshot` still carries no query counter.
 
-**One deliverable remains unchecked, deliberately.** `Query-count
-instrumentation` stays unchecked even though the mechanism now exists, because
-ADR 0012 Increment 10 states plainly that there is **no roadmap percentage
-change until that increment passes**. The atomic deliverable is the mechanism
-*and* its acceptance across the section 12 engine matrix, and that matrix still
-needs live MySQL across all four lanes and targeted live Oracle. Checking it on
-SQLite evidence alone would move a percentage on the strength of one engine.
-
-Phase 5 therefore stays at **9 of 10 = 90%**, overall progress stays at
-**40%**, and the phase stays **In progress**.
-
-**Increment 10 — implementation ready, live acceptance pending.** The full
-acceptance matrix of ADR 0012 section 12.1 is now written and passing:
+**Increment 10 — the full acceptance matrix, and the tenth deliverable.**
 `tests/Integration/Support/ResolverAcceptanceFixture.php` holds one dataset and
-one expected answer, `tests/Integration/Concerns/AssertsResolverAcceptance.php`
-holds the assertions, and SQLite, live MySQL and live Oracle each run **that**
-fixture against **that** expectation. MySQL adds the `gt_` prefix evidence and
-the live 900/901 chunk boundary; Oracle adds schema-qualified tables, OCI8 alias
-survival, identifier normalization and half-open boundaries against a real
-`DATE` column.
+one expected answer; `tests/Integration/Concerns/AssertsResolverAcceptance.php`
+holds the assertions; and SQLite, live MySQL and live Oracle each run **that**
+fixture against **that** expectation, so parity is one expectation checked three
+times rather than three that happen to resemble each other. MySQL contributes
+the `gt_` prefix evidence — with the unprefixed names asserted absent, so a
+hard-coded table name would fail rather than silently succeed — and the live
+900/901 chunk boundary. Oracle contributes schema-qualified `GATETRAIL.acl_*`
+tables, OCI8 alias survival, `NUMBER`-to-`int` normalization and the half-open
+boundaries against a real `DATE` column.
 
-**This changes no percentage.** ADR 0012 Increment 10 requires the evidence to
-be a *recorded* CI run of the four MySQL lanes and both Oracle lanes, not a
-local pass, and states plainly that no roadmap percentage moves until it does.
-Phase 5 stays at 9 of 10 = 90%, `Query-count instrumentation` stays unchecked,
-`Effective permission resolver` stays unchecked in the global tracker at 11 of
-32, and overall progress stays at 40% until those runs conclude successfully.
+**The acceptance evidence is a recorded CI run, and it exists.** Both workflows
+ran against commit `9a66824` and concluded success:
+
+| Workflow | Run | Duration | Conclusion | Lanes proved |
+|---|---|---|---|---|
+| CI | #98 | 2m 18s | Success | Composer validate, code style, static analysis, SQLite / Laravel 12 / Testbench 10, SQLite / Laravel 13 / Testbench 11, and live MySQL 8.0.16 and 8.0.45 against each of Laravel 12 / Testbench 10 and Laravel 13 / Testbench 11 |
+| Oracle compatibility | #11 | 2m 54s | Success | `Laravel 12 and 13 / Oracle Free 23.26.1`, whose final `Both Oracle lanes must pass` gate makes the job's success proof that Lane A (Laravel 13 / OCI8 13) and Lane B (Laravel 12 / OCI8 12) both passed |
+
+Run URLs and internal run identifiers are not recorded, because they were not
+part of the supplied evidence and inventing them would make this entry
+unverifiable.
+
+**`Query-count instrumentation` is therefore checked**, and with it the tenth
+and last Phase 5 deliverable:
+
+- `Query-count instrumentation` — `GateTrailStatementProbe` and
+  `StatementMeasurement`, plus the acceptance of the section 12.1 engine matrix
+  those budgets were measured across. The atomic item was always the mechanism
+  *and* its live acceptance, which is why it stayed unchecked while only SQLite
+  evidence existed.
 
 Under section 3.2, `EffectiveAccessSnapshot`, `EffectiveAccessQueryBuilder`,
 `EffectiveAccessResolver`, `EffectiveAccessRowMapper`,
 `RequestedDefinitionNormalizer`, `RequestedDefinition`,
-`EffectiveAccessMemoKey`, `FlushEffectiveAccessMemo` and
-`SubjectIdentityResolver` are shared infrastructure counted through the
-capabilities above, never separately. `GateTrailStatementProbe` and
-`StatementMeasurement` are counted through `Query-count instrumentation`, which
-remains unchecked, so they add no progress of their own.
+`EffectiveAccessMemoKey`, `FlushEffectiveAccessMemo`,
+`SubjectIdentityResolver`, `GateTrailStatementProbe`, `StatementMeasurement`
+and the shared acceptance fixture are all shared infrastructure counted through
+the capabilities above, never separately.
 
-The global deliverable tracker stays at **11 of 32**. `Effective permission
-resolver` is one tracked deliverable covering the whole phase, and the phase is
-not complete: instrumentation and the live-engine matrix are still outstanding.
+**Phase 5 is complete at 10 of 10 = 100%**, and the global deliverable tracker
+moves to **12 of 32** as `Effective permission resolver` — one tracked
+deliverable covering the whole phase — is now satisfied.
 
-**Phase 4's cross-request cache invalidation is not touched.** This memo is
-request-local: it uses no cache store, no TTL, no tag and no broadcast, and a
-mutation committed in another process does not reach it.
+**Phase 4's cross-request cache invalidation is still not touched**, and Phase 4
+stays at 19 of 21 = 90%. This memo is request-local: it uses no cache store, no
+TTL, no tag and no broadcast, and a mutation committed in another process does
+not reach it. **No Phase 6 work has started**: no Gate hook, no subject
+concern, no middleware.
 
-Live-engine evidence remains outstanding. The behavioural matrix runs on
-SQLite. PostgreSQL and SQL Server are covered by **query compilation and
-inspection only — no live endpoint of either kind has been executed**, and no
-runtime compatibility is claimed from compiling a statement. Oracle coverage is
-likewise still compile-only. Live MySQL across all four lanes and targeted live
-Oracle resolver acceptance, per ADR 0012 section 12.1, are still required before
-this phase can complete, and they are ADR 0012 Increment 10.
+**The engine boundary, stated precisely.** SQLite carries the full behavioural
+matrix on both Laravel/Testbench lanes. Live MySQL 8.0.16 and 8.0.45 carry the
+four-lane resolver matrix. Live Oracle Free 23.26.1 carries the targeted
+resolver matrix on both dependency lanes. **PostgreSQL and SQL Server are
+covered by query compilation and schema-adapter inspection only — no live
+endpoint of either kind has ever been executed**, and no runtime compatibility
+is claimed for them from compiling a statement. Their live harnesses remain
+future work, exactly as ADR 0012 section 12.1 requires.
+
+Both CI runs surfaced a non-blocking GitHub Actions notice that Node.js 20 is
+deprecated and `actions/checkout@v4` is being forced onto Node.js 24. It is a
+runner-image observation about an action version, affects no assertion in this
+matrix, and is recorded only as future CI maintenance.
 
 ```text
-Completed: 9
+Completed: 10
 Total:     10
-Progress:  90%
+Progress:  100%
 ```
 
 ### Exit criteria
@@ -1366,7 +1385,7 @@ Progress:  90%
 The complete resolver test matrix passes without Laravel Gate, middleware, or
 cross-request caching.
 
-Status: **In progress**
+Status: **Complete**
 
 ## 13. Phase 6 — Laravel integration
 
@@ -1748,13 +1767,13 @@ Progress: **8 of 8**
 - [ ] Contracts
 - [ ] Assignment lifecycle
 - [ ] Mutation services
-- [ ] Effective permission resolver
+- [x] Effective permission resolver
 - [ ] Gate integration
 - [ ] Middleware
 - [ ] Audit trail
 - [ ] Cache invalidation
 
-Progress: **2 of 10**
+Progress: **3 of 10**
 
 ### Quality
 
@@ -1783,9 +1802,9 @@ Progress: **0 of 8**
 ### Total
 
 ```text
-Completed: 11
+Completed: 12
 Total:     32
-Progress:  34.375%, reported as approximately 34%
+Progress:  37.5%, reported as approximately 38%
 ```
 
 ## 25. Progress update rules

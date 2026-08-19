@@ -4,14 +4,15 @@
 - Proposed: 2026-08-12
 - Accepted: 2026-08-13
 - Decision owners: GateTrail maintainers
-- Implementation status: **In progress** — Increments 1–8 of 10 complete,
-  2026-08-17. See [Implementation increments](#16-implementation-increments).
-- Acceptance evidence: **partially produced.** The Increment 1–8 evidence
-  exists; production instrumentation and the live-engine matrix do not — see
-  [Acceptance criteria](#17-acceptance-criteria)
+- Implementation status: **Complete** — all 10 increments delivered,
+  2026-08-19. See [Implementation increments](#16-implementation-increments).
+- Acceptance evidence: **complete.** The section 12.1 proportional matrix is
+  satisfied and recorded, on commit `9a66824` — see
+  [Acceptance criteria](#17-acceptance-criteria) and
+  [Increment 10](#increment-10--full-resolver-acceptance-matrix)
 - Supersedes: nothing
-- Blocks: Phase 5 implementation, and the Phase 6 Gate, concern and middleware
-  adapters that depend on these signatures
+- Blocks: nothing further. Phase 5 is complete, and the Phase 6 Gate, concern
+  and middleware adapters may now be built against these frozen signatures
 - Review disposition: all ten review questions are resolved. See
   [Decision disposition](#19-decision-disposition)
 
@@ -20,20 +21,23 @@ contracts, the shared snapshot, the lifecycle algorithm, the query
 architecture, the memoization rules and the evidence matrix below are settled
 and no longer awaiting maintainer approval.
 
-**Implementation is separate and is nearly done.** Increments 1–8 are complete
-and evidenced, through to the thin `DefaultPermissionResolver` and
-`DefaultRoleResolver` adapters and the scoped request memo. **The two public
-contracts are bound**, so a consumer can ask GateTrail an authorization
-question and receive the specification's complete effective-permission
-formula, with repeated checks in one scope sharing one snapshot.
+**Implementation is complete and evidenced.** All ten increments are delivered,
+through to the thin `DefaultPermissionResolver` and `DefaultRoleResolver`
+adapters, the scoped request memo, the connection-level statement
+instrumentation of section 8, and the full acceptance matrix of section 12.1.
+**The two public contracts are bound**, so a consumer can ask GateTrail an
+authorization question and receive the specification's complete
+effective-permission formula, with repeated checks in one scope sharing one
+snapshot.
 
-**What still does not exist:** the production query instrumentation of section
-8. Live MySQL and Oracle resolver evidence (section 12.1) has also not been
-produced; the behavioural matrix runs on SQLite, with compile-only evidence for
-the other four grammars. **No cross-request cache invalidation exists** —
-section 7.3.1's cross-process boundary stands unchanged. **No Phase 6 work
-exists**: no Gate hook, no subject concern, no middleware. The acceptance
-criteria in section 17 remain the definition of done for Phase 5.
+**What this ADR still does not claim.** **No live PostgreSQL or SQL Server
+evidence exists** — both remain query-compilation and schema-adapter inspection
+only, exactly as section 12.1 requires, and no runtime compatibility is claimed
+for them. **No cross-request cache invalidation exists** — section 7.3.1's
+cross-process boundary stands unchanged, and the request memo is not a cache.
+**No Phase 6 work exists**: no Gate hook, no subject concern, no middleware.
+Every portability, security, lifecycle, query-budget, memoization and
+non-disclosure decision recorded below stands unchanged by acceptance.
 
 ## Context
 
@@ -1780,13 +1784,16 @@ lists — behaviour whose portability claims SQLite alone cannot support.
 
 Evidence is proportional to what is claimed for each engine.
 
-| Engine | Required evidence before Phase 5 completion |
-|---|---|
-| **SQLite** | Full resolver behavioural matrix (section 17) |
-| **MySQL** | Live resolver integration on the existing four-lane matrix: Laravel 12 / 8.0.16, Laravel 12 / 8.0.45, Laravel 13 / 8.0.16, Laravel 13 / 8.0.45 |
-| **Oracle** | Targeted live resolver integration through the existing cost-controlled Oracle harness |
-| **PostgreSQL** | Query-compilation and schema-adapter inspection only |
-| **SQL Server** | Query-compilation and schema-adapter inspection only |
+| Engine | Required evidence before Phase 5 completion | Produced |
+|---|---|---|
+| **SQLite** | Full resolver behavioural matrix (section 17) | **Yes** — both Laravel/Testbench lanes, CI run #98 |
+| **MySQL** | Live resolver integration on the existing four-lane matrix: Laravel 12 / 8.0.16, Laravel 12 / 8.0.45, Laravel 13 / 8.0.16, Laravel 13 / 8.0.45 | **Yes** — all four lanes, CI run #98 |
+| **Oracle** | Targeted live resolver integration through the existing cost-controlled Oracle harness | **Yes** — both dependency lanes, Oracle compatibility run #11 |
+| **PostgreSQL** | Query-compilation and schema-adapter inspection only | **Yes, and only that.** No live endpoint executed |
+| **SQL Server** | Query-compilation and schema-adapter inspection only | **Yes, and only that.** No live endpoint executed |
+
+The matrix was satisfied on commit `9a66824` and is recorded in full under
+[Increment 10](#increment-10--full-resolver-acceptance-matrix).
 
 **No live PostgreSQL or SQL Server evidence may be claimed before a dedicated
 runtime harness exists.** Compilation inspection proves the emitted SQL is
@@ -2490,9 +2497,9 @@ bound, and that both lifecycle scopes and the correlation survive.
 
 **This is compilation evidence only, for every engine including SQLite's
 siblings.** It proves the emitted SQL is well-formed for each grammar. It
-proves nothing about runtime, and section 12.1's requirement for **live MySQL
-and live Oracle resolver acceptance remains outstanding**. Only SQLite has
-behavioural evidence.
+proves nothing about runtime, and section 12.1's requirement for live MySQL and
+live Oracle resolver acceptance **remained outstanding at this increment** —
+Increment 10 produced it. At this point only SQLite had behavioural evidence.
 
 **Still absent.** No `DefaultPermissionResolver`, no `DefaultRoleResolver`, no
 `PermissionResolver` or `RoleResolver` binding, no memoization, and no
@@ -2824,72 +2831,171 @@ Nothing installs a probe in web, queue, CLI or production runtime.
 real rows. PostgreSQL and SQL Server evidence is **compilation and inspection
 only — no live endpoint of either kind was executed**, and no runtime
 compatibility is claimed from it. The compile-only Oracle grammar suite was
-re-run unchanged and still passes. **Live MySQL and targeted live Oracle
-resolver acceptance remain outstanding and are Increment 10.**
+re-run unchanged and still passes. Live MySQL and targeted live Oracle resolver
+acceptance were outstanding **at this increment**; they are Increment 10, which
+has since produced them.
 
 ### Increment 10 — Full resolver acceptance matrix
 
-**Status: implementation ready, live acceptance pending.**
+**Status: Complete, 2026-08-19.**
 
 - **Scope.** The complete section 17 matrix on SQLite, live MySQL across all
   four lanes, and targeted live Oracle.
 - **Acceptance evidence.** Section 12's proportional matrix satisfied and
   recorded with its CI run, in the form ADR 0011 used for its own live
   evidence.
-- **Non-goals.** No Phase 6 work; no cross-request caching; no roadmap
-  percentage change until this increment passes.
+- **Non-goals.** No Phase 6 work; no cross-request caching.
 
-#### Increment 10 implementation
+#### Increment 10 evidence
 
-The tests exist and pass; **the acceptance evidence does not exist yet**,
-because the evidence this increment requires is a recorded CI run of the
-section 12.1 matrix, not a local pass. Nothing is marked complete and no
-roadmap percentage has moved.
+Delivered in `tests/Integration/Support/ResolverAcceptanceFixture.php`,
+`tests/Integration/Support/AcceptanceSubject.php`,
+`tests/Integration/Concerns/AssertsResolverAcceptance.php`,
+`tests/Access/ResolverAcceptanceParityTest.php`,
+`tests/Integration/MySql/ResolverAcceptanceTest.php`,
+`tests/Integration/MySql/ResolverChunkBoundaryTest.php` and
+`tests/Integration/Oracle/ResolverAcceptanceTest.php`.
+
+**No production file was changed.** The acceptance matrix found no resolver
+defect on either live engine, so nothing in `src/` differs from Increment 9.
 
 **One shared fixture, one expected answer.** `ResolverAcceptanceFixture` holds
 the dataset, the expected effective roles, the expected effective permissions
-and the whole exclusion table; `AssertsResolverAcceptance` holds the assertions.
-SQLite, live MySQL and live Oracle each seed that fixture and assert that
-expectation, so "MySQL agrees with SQLite" is one expectation checked three
-times rather than three expectations that happen to be written similarly —
-which is what section 12.2 means by parity being the load-bearing item. The
-fixture uses explicit identifiers, `DateTimeImmutable` bindings formatted by
-each connection's own grammar, `SchemaContext`-resolved table names and
-raw-byte expected ordering, so nothing in it is engine-shaped.
+and the whole exclusion table with a reason attached to every denial;
+`AssertsResolverAcceptance` holds the assertions. SQLite, live MySQL and live
+Oracle each seed **that** fixture and assert **that** expectation, so "MySQL
+agrees with SQLite" is one expectation checked three times rather than three
+expectations that happen to be written similarly — which is what section 12.2
+means by parity being the load-bearing item. The fixture uses explicit
+identifiers, `DateTimeImmutable` bindings formatted by each connection's own
+grammar, `SchemaContext`-resolved table names and raw-byte expected ordering,
+so nothing in it is engine-shaped, and the assertions carry no driver branch
+and no per-engine tolerance.
 
-| Lane | Test |
+The canonical answer, produced on SQLite and matched byte-for-byte by both live
+engines:
+
+```text
+effective permissions  documents.approve, documents.publish, documents.review,
+                       lifecycle.at-start, lifecycle.expires-next,
+                       lifecycle.null-start
+effective roles        auditor, editor, revoked-grant
+```
+
+`documents.approve` is reachable directly **and** through `editor` and appears
+exactly once. `auditor` grants no permission and is still effective;
+`revoked-grant` is held and active while the grant hanging off it is revoked —
+the two lifecycles are separate, and that is where they part company.
+
+#### Recorded acceptance evidence
+
+Both workflows ran against commit **`9a66824`** and concluded **success**.
+
+**CI — run #98, 2m 18s, conclusion `Success`.** Nine successful jobs:
+
+| Job | Lane |
 |---|---|
-| SQLite | `tests/Access/ResolverAcceptanceParityTest.php` |
-| Live MySQL, four lanes | `tests/Integration/MySql/ResolverAcceptanceTest.php` |
-| Live MySQL chunk boundary | `tests/Integration/MySql/ResolverChunkBoundaryTest.php` |
-| Live Oracle, two lanes | `tests/Integration/Oracle/ResolverAcceptanceTest.php` |
+| Composer validate | — |
+| Code style | — |
+| Static analysis | — |
+| SQLite / Laravel 12 / Testbench 10 | SQLite behavioural matrix |
+| SQLite / Laravel 13 / Testbench 11 | SQLite behavioural matrix |
+| Live MySQL 8.0.16 / Laravel 12 / Testbench 10 | Live MySQL |
+| Live MySQL 8.0.45 / Laravel 12 / Testbench 10 | Live MySQL |
+| Live MySQL 8.0.16 / Laravel 13 / Testbench 11 | Live MySQL |
+| Live MySQL 8.0.45 / Laravel 13 / Testbench 11 | Live MySQL |
 
-MySQL contributes the **prefix** evidence (`gt_`, with the unprefixed names
-asserted absent so a hard-coded table name would fail rather than silently
-succeed) and the **900/901 chunk boundary** with real rows. Oracle contributes
-the **schema-qualification** evidence (`GATETRAIL.acl_*`), OCI8 alias survival,
-`NUMBER`-to-`int` normalization and the half-open boundaries against a real
-`DATE` column. No Oracle prefix is forced, because it would push generated
-sequence and trigger names past Oracle's identifier bound for no additional
-portability evidence.
+**Oracle compatibility — run #11, 2m 54s, conclusion `Success`.** One job,
+`Laravel 12 and 13 / Oracle Free 23.26.1`, containing:
 
-**A live finding, recorded because it changes what the evidence means.** On
-MySQL the package pins `name` and `guard_name` to `utf8mb4_bin`, so a guard
-stored as `WEB` is excluded at the SQL layer — asserted, along with a forced
-`COLLATE utf8mb4_unicode_ci` comparison showing the row *would* otherwise have
-matched. But `utf8mb4_bin` is still **PAD SPACE** in MySQL 8: a guard stored as
-`'web '` does satisfy `guard_name = 'web'` and reaches the row mapper, where
-the byte-exact post-verification is the **only** thing that excludes it. The
-post-verification is therefore load-bearing on MySQL today, not belt-and-braces,
-and both layers are now asserted separately.
+- `Lane A — Laravel 13 / Testbench 11 / OCI8 13`;
+- `Lane B — Laravel 12 / Testbench 10 / OCI8 12`;
+- a final gate step, `Both Oracle lanes must pass`.
 
-**Remaining before this increment can be accepted:** the `ci.yml` SQLite lanes
-(Laravel 12 / Testbench 10 and Laravel 13 / Testbench 11), the four live MySQL
-lanes (Laravel 12 and 13 against MySQL 8.0.16 and 8.0.45) and the two live
-Oracle lanes (Laravel 12 / OCI8 12 and Laravel 13 / OCI8 13 against Oracle Free
-23.26.1) must all conclude `success` on a recorded run, and the run numbers and
-URLs must be written down here. PostgreSQL and SQL Server remain
-**compilation-only** and no live claim may be made for them.
+Both lanes run under `continue-on-error` so neither can hide the other, and the
+gate step fails the job unless **both** outcomes are `success`. The job
+concluded `success`, which is therefore proof that both Oracle lanes passed
+rather than an inference from the first one.
+
+Run URLs and internal run identifiers are deliberately **not** recorded here:
+they were not part of the evidence supplied, and inventing them would make this
+record unverifiable.
+
+#### Three kinds of evidence, kept apart
+
+The distinction matters more than the pass, because collapsing it is how a
+portability claim becomes untrue.
+
+| Evidence | What it is | What it is not |
+|---|---|---|
+| **Local live MySQL and Oracle** | The suites were also run on this maintainer's disposable containers before the Stage A push — MySQL 18 tests / 337 assertions, Oracle 18 tests / 328 assertions — which is what caught the two fixture defects below | **Not** acceptance evidence. One engine version on one dependency lane, on a developer machine |
+| **Remote MySQL matrix** | CI run #98: four independently provisioned live MySQL services, 8.0.16 and 8.0.45, each against Laravel 12 / Testbench 10 and Laravel 13 / Testbench 11 | Nothing broader. MySQL 8.0.x only |
+| **Remote targeted Oracle** | Oracle compatibility run #11: live Oracle Free 23.26.1 through the cost-controlled harness, both dependency lanes | **Not** a full matrix. Targeted by design, per section 12.1, and one service container by design |
+| **PostgreSQL and SQL Server** | Query compilation under the real bundled grammars, plus schema-adapter inspection | **Not** live execution. No endpoint of either kind has ever been started, and no runtime compatibility is claimed |
+
+#### What the live lanes proved
+
+- **Parity.** Both live engines produced the canonical collections above —
+  identical identifiers, names, guards, raw-byte order and cardinality.
+- **Prefix, on MySQL.** `gatetrail.database.prefix = gt_`, with every manifest
+  table asserted present as `gt_acl_*` **and** the unprefixed name asserted
+  absent, so a hard-coded table name would fail rather than silently succeed.
+- **Schema qualification, on Oracle.** Every resolver table named
+  `GATETRAIL.acl_*` and confirmed in `user_tables`. No Oracle prefix is forced:
+  it would push generated sequence and trigger names past Oracle's identifier
+  bound for no additional portability evidence, and MySQL's prefix plus
+  Oracle's schema context satisfies section 12.2 between them.
+- **Chunking, live.** 901 effective roles cost **4** statements and 900 cost
+  **3**, with permissions still deduplicated across both chunks and the bound
+  asserted to be the same fixed 900. 901 roles never cost 903.
+- **Query budget, live.** Measured through `GateTrailStatementProbe` on each
+  live connection: cold with roles **3**, cold role-less **2**, warm memo hit
+  **0**, every statement classified `select` and every other category zero.
+  OCI8 dispatches `QueryExecuted` normally, so no measurement limitation had to
+  be recorded.
+- **Lifecycle against real column types.** All seven half-open boundaries — at
+  `starts_at`, one second before, `expires_at - 1s`, exactly `expires_at`,
+  `expires_at + 1s`, and the `starts_at IS NULL` fallback to `assigned_at` in
+  both directions — against MySQL `DATETIME` and Oracle `DATE`, with instants
+  bound as date objects rather than compared as strings.
+- **Deactivation and revocation.** A deactivated role and a deactivated
+  permission each grant nothing; all three revocation shapes — direct
+  assignment, subject-role assignment and role-permission grant — are excluded.
+- **Oracle result mapping.** All four selected aliases survive OCI8's result
+  mapping, and `NUMBER` identifiers normalize to PHP `int`.
+- **Read-only.** Every statement on every live lane classified `select`; no
+  insert, update, delete or schema statement was observed inside a resolver
+  window.
+
+#### Two defects found, both in the acceptance fixture
+
+Recorded because they are the reason the matrix was worth running.
+
+**The canonical expectation was wrong first.** It omitted `revoked-grant` from
+the effective roles. The role is held and its definition is active; only the
+grant hanging off it is revoked. The fixture's own first run caught it, which is
+the behaviour a shared expectation is supposed to have.
+
+**The MySQL guard defence is two layers, not one.** The migrations pin `name`
+and `guard_name` to `utf8mb4_bin`, so a guard stored as `WEB` is excluded at the
+SQL layer — asserted, together with a forced `COLLATE utf8mb4_unicode_ci`
+comparison showing the row *would* otherwise have matched, so that layer is
+demonstrably doing work. But `utf8mb4_bin` is still **PAD SPACE** in MySQL 8: a
+guard stored as `'web '` does satisfy `guard_name = 'web'`, reaches the row
+mapper, and is excluded **only** by the byte-exact post-verification of section
+5.3. That post-verification is therefore load-bearing on MySQL today rather than
+belt-and-braces, and both layers are now asserted separately.
+
+Neither was a production defect. `src/` was not changed.
+
+#### CI maintenance observation
+
+Both runs surfaced a non-blocking GitHub Actions warning that Node.js 20 is
+deprecated and that `actions/checkout@v4` is being forced onto Node.js 24. It
+is a runner-image notice about an action version, affects no assertion in this
+matrix, and has **no bearing on ADR 0012 or Phase 5 acceptance**. It is noted
+here only so a future CI maintenance pass has a record of when it first
+appeared.
 
 ## 17. Acceptance criteria
 

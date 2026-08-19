@@ -1074,23 +1074,37 @@ defined by
 
 The resolver architecture is accepted in
 [ADR 0012](docs/decisions/0012-effective-access-resolution.md). This section
-records the accepted design, and **most of it is now implemented**: ADR 0012
-Increments 1 to 9 of 10 are complete.
+records the accepted design, and **it is implemented and accepted**: all ten
+ADR 0012 increments are complete as of 2026-08-19.
 
-Built and evidenced on SQLite: the shared subject identity of section 11.8, the
-contracts of sections 11.3 and 11.5 with their bound default adapters, the
-value objects of section 11.7, the shared snapshot, all three snapshot queries
-with 900-identifier chunking, the request-local memoization of section 11.11,
-and the connection-level instrumentation that section 11.10 requires the query
+Implemented: the shared subject identity of section 11.8, the contracts of
+sections 11.3 and 11.5 with their bound default adapters, the value objects of
+section 11.7, the shared snapshot, all three snapshot queries with
+900-identifier chunking, the request-local memoization of section 11.11, and
+the connection-level instrumentation that section 11.10 requires the query
 budget to be verified by.
 
-**What is not yet evidenced is the engine matrix.** The behavioural suite runs
-on SQLite; PostgreSQL, SQL Server and Oracle are covered by query compilation
-and inspection only, with **no live endpoint executed** and no runtime
-compatibility claimed from compiling a statement; live MySQL and targeted live
-Oracle resolver acceptance are outstanding. Until that matrix passes, the
-`Effective permission resolver` deliverable stays open — see `ROADMAP.md`
-Phase 5.
+**Where the behaviour is verified**, per ADR 0012 section 12.1's proportional
+matrix:
+
+| Engine | Evidence |
+|---|---|
+| SQLite | Full resolver behavioural matrix, on both supported lanes — Laravel 12 / Testbench 10 and Laravel 13 / Testbench 11 |
+| MySQL | **Live**, four lanes: 8.0.16 and 8.0.45, each against Laravel 12 / Testbench 10 and Laravel 13 / Testbench 11 |
+| Oracle | **Live**, targeted: Oracle Free 23.26.1 on the Laravel 12 / OCI8 12 and Laravel 13 / OCI8 13 lanes |
+| PostgreSQL | Query-compilation and schema-adapter inspection **only** |
+| SQL Server | Query-compilation and schema-adapter inspection **only** |
+
+Every engine exercised produces the identical ordered, deduplicated effective
+collections from one shared acceptance fixture, which is what makes this a
+portability claim rather than five separate smoke tests.
+
+**PostgreSQL and SQL Server are not verified at runtime.** No live endpoint of
+either kind has been executed. Compilation proves the emitted SQL is well-formed
+for those grammars and that no driver-specific branch was needed to produce it;
+it proves nothing about how either engine plans or executes the statement, and
+this specification does not claim otherwise. Live harnesses for both remain
+future work.
 
 ### 11.1 Responsibility
 
