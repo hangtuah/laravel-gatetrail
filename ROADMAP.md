@@ -683,9 +683,25 @@ Validate
 → Persist mutation
 → Persist audit
 → Commit
-→ Invalidate cache
-→ Dispatch event
+→ Invalidate cross-request cache, if enabled
+  (reserved slot; currently empty; Phase 8)
+→ Dispatch MutationCommitted
 ```
+
+The cross-request invalidation step is a **reserved ordering point, not
+implemented behavior**. ADR 0010 fixed where such work would run — after the
+outermost successful commit and before the `MutationCommitted` dispatch — and
+[ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md) keeps that
+slot empty. It remains empty unless Phase 8 retains **and enables**
+cross-request caching; no cross-request cache, invalidator, container binding,
+configuration key or public API exists today.
+
+Request-local memo clearing from
+[ADR 0012](docs/decisions/0012-effective-access-resolution.md) is already
+implemented and is a **separate** mechanism: the `EffectiveAccessMemo` listener
+flushes the scoped in-process store when it observes `MutationCommitted` in the
+same process. That is same-process bookkeeping and is **not** distributed or
+cross-request invalidation.
 
 Non-strict auditing commits the mutation before attempting audit persistence
 in a separate transaction. When joining a caller-owned transaction, it waits
