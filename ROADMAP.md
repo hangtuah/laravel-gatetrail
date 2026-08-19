@@ -963,6 +963,22 @@ and unstarted: its cache store, TTL, and fan-out strategy are still an open
 architecture decision, and no cache behavior may be introduced before that
 decision is accepted.
 
+**[ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md) is
+Proposed** and is reviewing that open decision. It records a sequencing conflict
+between this phase, which lists after-commit cache invalidation as a deliverable,
+and Phase 8, which decides whether a cross-request cache is wanted at all only
+after a reproducible uncached benchmark. Its recommendation is to keep
+ADR 0010's reserved ordering point empty, leave request-local memoization as the
+only active optimization, and move real cross-request invalidation to Phase 8 —
+then correct this phase's deliverable, either by renaming it to the ordering
+contract ADR 0010 already delivered or by moving it to Phase 8.
+
+**Nothing is applied while that ADR is Proposed.** No cache behavior exists, no
+configuration key or public API is introduced, and no deliverable is completed.
+Phase 4 remains **19 of 21 = 90%**, Phase 5 remains **100%**, overall progress
+remains **approximately 41%**, and the global deliverable tracker remains
+**12 of 32, approximately 38%**.
+
 Bounded concurrency retry is implemented.
 [ADR 0011](docs/decisions/0011-bounded-concurrency-retry.md) is accepted and now
 realised in code: GateTrail retries only the six assignment mutations, only when
