@@ -1074,19 +1074,23 @@ defined by
 
 The resolver architecture is accepted in
 [ADR 0012](docs/decisions/0012-effective-access-resolution.md). This section
-records the accepted design. **No resolver is implemented yet.**
+records the accepted design, and **most of it is now implemented**: ADR 0012
+Increments 1 to 9 of 10 are complete.
 
-Two parts of this section are built. The shared subject identity of section
-11.8 exists and the assignment mutations already use it. The contracts of
-sections 11.3 and 11.5 and the value objects of section 11.7 exist as declared
-types, so their shapes are frozen — but **nothing implements the contracts**,
-and they are intentionally left unbound in the container until a real
-implementation exists. Resolving either contract fails rather than returning a
-placeholder.
+Built and evidenced on SQLite: the shared subject identity of section 11.8, the
+contracts of sections 11.3 and 11.5 with their bound default adapters, the
+value objects of section 11.7, the shared snapshot, all three snapshot queries
+with 900-identifier chunking, the request-local memoization of section 11.11,
+and the connection-level instrumentation that section 11.10 requires the query
+budget to be verified by.
 
-Everything else — the shared snapshot, the queries, the query budget and the
-memoization — is accepted design with no implementation and no evidence behind
-it.
+**What is not yet evidenced is the engine matrix.** The behavioural suite runs
+on SQLite; PostgreSQL, SQL Server and Oracle are covered by query compilation
+and inspection only, with **no live endpoint executed** and no runtime
+compatibility claimed from compiling a statement; live MySQL and targeted live
+Oracle resolver acceptance are outstanding. Until that matrix passes, the
+`Effective permission resolver` deliverable stays open — see `ROADMAP.md`
+Phase 5.
 
 ### 11.1 Responsibility
 
@@ -1351,6 +1355,27 @@ Cold resolution of one subject:
 - the budget must be verified by **actual connection-level instrumentation** —
   a listener counting the statements the connection executed — not by a
   self-reported counter on the resolver.
+
+The instrumentation that does this is **internal**, and it is described here
+only so the verification method is on the record:
+
+- it listens for `QueryExecuted` and counts statements that ran through the
+  **`Connection` instance** the configured GateTrail connection resolves to.
+  Object identity, not connection name, because Laravel's event dispatcher is
+  shared by every connection, so an unrelated application connection is
+  ignored;
+- it records **counts and a fixed category vocabulary only** — total, select,
+  insert, update, delete, schema, other. It retains no SQL text, no bindings,
+  no subject or definition identifier, no name, no guard, no duration and no
+  event object;
+- it is **not registered in normal runtime.** No service-provider binding, no
+  container binding, no configuration key, no facade and no command. No
+  authorization check installs it, in web, queue or CLI. It exists only where a
+  test or a diagnostic explicitly constructs one;
+- it is **not consumer API.** The classes are `@internal`, their names and
+  signatures are not compatibility surface, and nothing in this specification
+  invites an application to use them. Phase 8's reproducible benchmark is
+  expected to reuse the same mechanism.
 
 ### 11.11 Request-local memoization
 

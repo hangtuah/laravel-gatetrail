@@ -1513,6 +1513,13 @@ Phase 8's benchmark reuses the same mechanism, so the roadmap's "reproducible
 benchmark" and this phase's "query-count instrumentation" measure the same
 thing by the same means.
 
+**Delivered by Increment 9** as `GateTrailStatementProbe` and
+`StatementMeasurement` under `src/Diagnostics/`, both `@internal`. The probe
+filters on the resolved `Connection` **instance**, not its name, and the
+measurement is seven `int` counters and nothing else. Neither is bound in the
+container, registered by the service provider or reachable from configuration.
+See the Increment 9 evidence in section 16.
+
 ## 9. Transaction and concurrent-read semantics
 
 ### 9.1 Resolver reads are read-only
@@ -2644,12 +2651,146 @@ Oracle execution was performed**; that remains Increment 10.
 
 ### Increment 9 — Query instrumentation and portability hardening
 
+**Status: Complete, 2026-08-19.**
+
 - **Scope.** The connection-level statement listener for tests and diagnostics;
   PostgreSQL and SQL Server query-compilation inspection.
 - **Acceptance evidence.** Budgets asserted from real connection activity; the
   listener retains no SQL, bindings or identifiers; compiled SQL inspected for
   both unhosted engines.
 - **Non-goals.** No claim of live PostgreSQL or SQL Server evidence.
+
+#### Increment 9 evidence
+
+Delivered in `src/Diagnostics/GateTrailStatementProbe.php` and
+`src/Diagnostics/StatementMeasurement.php`. Asserted by
+`tests/Diagnostics/StatementMeasurementTest.php` (8 tests),
+`tests/Diagnostics/GateTrailStatementProbeTest.php` (20 tests),
+`tests/Diagnostics/ProbeConnectionIsolationTest.php` (5 tests),
+`tests/Diagnostics/DiagnosticRuntimeAbsenceTest.php` (12 tests),
+`tests/Access/ResolverQueryBudgetTest.php` (14 tests) and
+`tests/Access/PostgresAndSqlServerCompilationTest.php` (55 tests).
+
+**No production file was changed.** The resolver, the query builder, the
+snapshot, the memo and `GateTrailServiceProvider` are byte-identical to
+Increment 8.
+
+**The safe counter shape.** `StatementMeasurement` is `final readonly` with
+seven properties, every one a non-nullable `int`: `total`, `select`, `insert`,
+`update`, `delete`, `schema`, `other`. There is no eighth field and no field of
+any other type, so there is nowhere for SQL text, a binding, an identifier, a
+name, a guard, a duration or a connection name to be kept. `total` is derived
+from the six categories in the factory rather than supplied, so it cannot drift
+from them, and a negative count raises the internal `LogicException` of section
+10.1 with a message that names nothing.
+
+The vocabulary is **fixed and closed**. A caller cannot supply a category key,
+because a caller-supplied key is a caller-supplied string. The classifier reads
+the first alphabetic token of the statement and nothing else — it parses no
+identifier and no value, carries no per-engine branch, and sends anything it
+does not recognize to `other` rather than guessing at `select`. That is what
+makes "3 statements, 3 select" a real claim: an unexpected shape moves the
+count into `other` and breaks the assertion instead of hiding inside it.
+
+**Exact GateTrail-connection filtering.** `QueryExecuted` is dispatched through
+the application's shared event dispatcher, so registering "on a connection"
+filters nothing. The probe resolves its connection exactly as the resolver does
+— `DatabaseManager::connection()` given `SchemaContext::connectionName()` — and
+compares **object identity**, `$event->connection === $this->connection`, not
+the connection name. Proved with two genuinely separate SQLite connections: a
+statement on the application default is ignored, a mixed window containing
+three unrelated statements and two GateTrail statements reports **2**, and an
+impostor `Connection` constructed to report the GateTrail connection's *name*
+over its own in-memory database contributes **0** while the real instance still
+contributes 1. Regressing the probe to `connection()` fails all five isolation
+tests.
+
+**Privacy evidence.** The probe declares three properties — a `Connection` it
+only ever compares, a `bool` window switch and a fixed-key `array` of `int`
+tallies — asserted by reflection to be exactly those types. A statement carrying
+a distinctive canary both as a **binding** and as a **literal in the SQL text**
+leaves the canary absent from the measurement's `print_r`, `var_export`,
+`serialize` and JSON forms and from every probe property; the framework query
+log is asserted still disabled and still empty afterwards. A failing query's
+exception propagates as the identical object with a byte-identical message, and
+is not copied into any measurement.
+
+**Actual query-budget evidence**, every number measured on the GateTrail
+connection rather than self-reported:
+
+| Path | Measured |
+|---|---|
+| Cold, no effective role | **2**, all `select` |
+| Cold, one effective role | **3**, all `select` |
+| Cold, 901 roles | **4**, all `select` — `2 + ceil(901 / 900)` |
+| Warm memo hit | **0**, and every category zero |
+| Impossible input | **0**, with the injected clock untouched, so `EffectiveAccessResolver` was never entered |
+| 1, 2, 50 and exactly 900 roles | **3** in all four cases |
+| Direct grant plus role-derived grant | **3**, with `allows()`/`effectivePermissions()` parity unchanged |
+| Query-3 revalidation, granting and excluding | **3** in both cases — the correlated `EXISTS` adds no statement |
+| Inside a caller-owned transaction | **3** on each of three consecutive calls, all `select` |
+
+Every case also asserts the category breakdown, so `insert`, `update`,
+`delete`, `schema` and `other` are zero throughout: a resolver read is
+`SELECT`-only, measured rather than assumed.
+
+**Negative verification.** One extra `SELECT` temporarily added inside
+`EffectiveAccessResolver::build()` moved every measured path up by exactly one
+and failed 13 of the 14 budget tests — the fourteenth being the impossible-input
+case, which never reaches the resolver. The instrumentation therefore measures
+what the connection executed, not what the resolver believes it executed, which
+is the whole point of rejecting a self-reported counter. The source was
+restored before commit.
+
+**PostgreSQL and SQL Server — compilation only.** All three shapes compile
+under `Illuminate\Database\Query\Grammars\PostgresGrammar` and
+`SqlServerGrammar`, asserted to be the framework classes themselves. Per
+grammar: configured prefix and schema survive (`"gt"."x_acl_role_permissions"`
+and `[gt].[x_acl_role_permissions]`); joins use the configured primary-key
+name; each joined definition keeps an explicit, qualified `deleted_at is null`
+and a qualified `guard_name = ?`; the `activeAt()` lifecycle fragments appear
+once per lifecycle-bearing scope — once in queries 1 and 2, twice in query 3,
+one outer and one inside the `EXISTS`; query 3 keeps `exists (select * from
+<role_assignments>` with the correlation qualified on both sides; the outer
+query never joins `role_assignments`; all four selected aliases survive
+wrapping; and the instant is bound rather than formatted. Absent from every
+compiled statement: raw fragments (asserted by walking the builder for
+`Expression` instances, subqueries and joins included), CTE, `UNION`,
+`DISTINCT`, window function, lateral or `APPLY` join, `ORDER BY`,
+`LIMIT`/`OFFSET`/`TOP`/`FETCH`, any lock hint, and any engine-specific date or
+null function. Unwrapped, the PostgreSQL and SQL Server statements are
+character-for-character the same statement, which is the "no driver branching"
+claim made mechanical. The 900 chunk is asserted to live on
+`EffectiveAccessResolver` and **not** on the query builder, whose executable
+source is asserted to contain no engine name and no `*Raw` call.
+
+**Runtime-absence evidence.** `GateTrailServiceProvider` is asserted to have no
+binding for either class, never to resolve one, and never to name them in its
+source. No file under `src/` outside `src/Diagnostics/` references the
+namespace or either class. Neither `EffectiveAccessResolver` nor
+`DefaultPermissionResolver` nor `DefaultRoleResolver` takes one as a
+constructor dependency or mentions it. A real `allows()` and
+`effectivePermissions()` through the public contract leaves the dispatcher's
+`QueryExecuted` listener count unchanged; only explicit construction adds one.
+No key in `gatetrail` configuration, and nothing in the published config file,
+can enable it. `EffectiveAccessSnapshot` still has no `queryCount()` and no
+counter property, and `EffectiveAccessResolver` keeps no counter of its own —
+section 8's rejection of self-reporting stands.
+
+**Listener lifecycle, stated honestly.** Laravel offers no safe per-listener
+detachment, so the listener a probe registers in its constructor stays on that
+dispatcher for the dispatcher's lifetime. It is inert whenever no measurement
+is active, one probe registers exactly one listener and reuses it for every
+window — asserted across five consecutive measurements — and repeated
+*construction* is what accumulates, so a test or diagnostic builds one probe.
+Nothing installs a probe in web, queue, CLI or production runtime.
+
+**Database evidence.** SQLite behavioural evidence for every budget above, on
+real rows. PostgreSQL and SQL Server evidence is **compilation and inspection
+only — no live endpoint of either kind was executed**, and no runtime
+compatibility is claimed from it. The compile-only Oracle grammar suite was
+re-run unchanged and still passes. **Live MySQL and targeted live Oracle
+resolver acceptance remain outstanding and are Increment 10.**
 
 ### Increment 10 — Full resolver acceptance matrix
 

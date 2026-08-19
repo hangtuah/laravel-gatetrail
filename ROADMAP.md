@@ -162,9 +162,11 @@ Accepted architecture decisions:
 No proposed architecture decision is currently outstanding.
 
 Acceptance records an architectural decision, not implementation. ADR 0012 is
-accepted, and its implementation is **in progress**: Increments 1 to 8 of 10
+accepted, and its implementation is **in progress**: Increments 1 to 9 of 10
 are complete. Both public resolvers are implemented, bound and memoized per
-scope; production query instrumentation and live-engine acceptance remain.
+scope, and the connection-level statement instrumentation of ADR 0012 section 8
+now exists. Live-engine resolver acceptance remains, and it is what gates the
+`Query-count instrumentation` deliverable.
 
 ## 5. Roadmap adherence
 
@@ -1274,16 +1276,49 @@ entry is neither returned nor evicted, so it survives a rollback intact.
 - `Request-level memoization` — the scoped bounded store, the whole-second UTC
   key, the wholesale same-scope flush, and the caller-transaction bypass.
 
-**One remains unchecked.** `Query-count instrumentation` is unchecked because
-the deliverable is the production and diagnostic mechanism of ADR 0012 section
-8, and a test that counts statements is evidence, not that mechanism.
+**Increment 9 — query instrumentation and portability hardening.**
+`GateTrailStatementProbe` and `StatementMeasurement` exist under
+`src/Diagnostics/`. The probe listens for `QueryExecuted` on the connection
+`SchemaContext` selects and filters on that **`Connection` instance**, not its
+name, because the dispatcher is shared by every connection. A measurement is
+seven `int` counters — `total`, `select`, `insert`, `update`, `delete`,
+`schema`, `other` — and nothing else: no SQL, no bindings, no identifier, no
+name, no guard, no duration, no `QueryExecuted`. The whole section 6.3 budget
+is now measured rather than asserted — 2 cold without roles, 3 with roles, 4 at
+901 roles, 0 warm, 0 for an impossible input, 3 per call inside a caller's
+transaction — and every one of those statements is measured to be a `SELECT`.
+Adding one extra `SELECT` to the resolver moved 13 of the 14 budget cases,
+which is the evidence that the mechanism measures the connection rather than
+the algorithm's opinion of itself. Alongside it, the three snapshot shapes are
+compiled under the framework's real PostgreSQL and SQL Server grammars and
+inspected for qualification, correlation, aliases and every construct section
+6.4 forbids.
+
+The instrumentation is **test and diagnostic only**. `GateTrailServiceProvider`
+binds nothing, no file outside `src/Diagnostics/` references it, neither public
+resolver nor the internal resolver depends on it, a real authorization check
+adds no listener, and no configuration key can enable it.
+`EffectiveAccessSnapshot` still carries no query counter.
+
+**One deliverable remains unchecked, deliberately.** `Query-count
+instrumentation` stays unchecked even though the mechanism now exists, because
+ADR 0012 Increment 10 states plainly that there is **no roadmap percentage
+change until that increment passes**. The atomic deliverable is the mechanism
+*and* its acceptance across the section 12 engine matrix, and that matrix still
+needs live MySQL across all four lanes and targeted live Oracle. Checking it on
+SQLite evidence alone would move a percentage on the strength of one engine.
+
+Phase 5 therefore stays at **9 of 10 = 90%**, overall progress stays at
+**40%**, and the phase stays **In progress**.
 
 Under section 3.2, `EffectiveAccessSnapshot`, `EffectiveAccessQueryBuilder`,
 `EffectiveAccessResolver`, `EffectiveAccessRowMapper`,
 `RequestedDefinitionNormalizer`, `RequestedDefinition`,
 `EffectiveAccessMemoKey`, `FlushEffectiveAccessMemo` and
 `SubjectIdentityResolver` are shared infrastructure counted through the
-capabilities above, never separately.
+capabilities above, never separately. `GateTrailStatementProbe` and
+`StatementMeasurement` are counted through `Query-count instrumentation`, which
+remains unchecked, so they add no progress of their own.
 
 The global deliverable tracker stays at **11 of 32**. `Effective permission
 resolver` is one tracked deliverable covering the whole phase, and the phase is
@@ -1294,8 +1329,12 @@ request-local: it uses no cache store, no TTL, no tag and no broadcast, and a
 mutation committed in another process does not reach it.
 
 Live-engine evidence remains outstanding. The behavioural matrix runs on
-SQLite; MySQL and Oracle resolver acceptance, per ADR 0012 section 12.1, is
-still required before this phase can complete.
+SQLite. PostgreSQL and SQL Server are covered by **query compilation and
+inspection only — no live endpoint of either kind has been executed**, and no
+runtime compatibility is claimed from compiling a statement. Oracle coverage is
+likewise still compile-only. Live MySQL across all four lanes and targeted live
+Oracle resolver acceptance, per ADR 0012 section 12.1, are still required before
+this phase can complete, and they are ADR 0012 Increment 10.
 
 ```text
 Completed: 9
