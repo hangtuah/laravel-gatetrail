@@ -1313,6 +1313,23 @@ SQLite evidence alone would move a percentage on the strength of one engine.
 Phase 5 therefore stays at **9 of 10 = 90%**, overall progress stays at
 **40%**, and the phase stays **In progress**.
 
+**Increment 10 — implementation ready, live acceptance pending.** The full
+acceptance matrix of ADR 0012 section 12.1 is now written and passing:
+`tests/Integration/Support/ResolverAcceptanceFixture.php` holds one dataset and
+one expected answer, `tests/Integration/Concerns/AssertsResolverAcceptance.php`
+holds the assertions, and SQLite, live MySQL and live Oracle each run **that**
+fixture against **that** expectation. MySQL adds the `gt_` prefix evidence and
+the live 900/901 chunk boundary; Oracle adds schema-qualified tables, OCI8 alias
+survival, identifier normalization and half-open boundaries against a real
+`DATE` column.
+
+**This changes no percentage.** ADR 0012 Increment 10 requires the evidence to
+be a *recorded* CI run of the four MySQL lanes and both Oracle lanes, not a
+local pass, and states plainly that no roadmap percentage moves until it does.
+Phase 5 stays at 9 of 10 = 90%, `Query-count instrumentation` stays unchecked,
+`Effective permission resolver` stays unchecked in the global tracker at 11 of
+32, and overall progress stays at 40% until those runs conclude successfully.
+
 Under section 3.2, `EffectiveAccessSnapshot`, `EffectiveAccessQueryBuilder`,
 `EffectiveAccessResolver`, `EffectiveAccessRowMapper`,
 `RequestedDefinitionNormalizer`, `RequestedDefinition`,

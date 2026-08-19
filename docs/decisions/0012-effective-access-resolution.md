@@ -2829,6 +2829,8 @@ resolver acceptance remain outstanding and are Increment 10.**
 
 ### Increment 10 — Full resolver acceptance matrix
 
+**Status: implementation ready, live acceptance pending.**
+
 - **Scope.** The complete section 17 matrix on SQLite, live MySQL across all
   four lanes, and targeted live Oracle.
 - **Acceptance evidence.** Section 12's proportional matrix satisfied and
@@ -2836,6 +2838,58 @@ resolver acceptance remain outstanding and are Increment 10.**
   evidence.
 - **Non-goals.** No Phase 6 work; no cross-request caching; no roadmap
   percentage change until this increment passes.
+
+#### Increment 10 implementation
+
+The tests exist and pass; **the acceptance evidence does not exist yet**,
+because the evidence this increment requires is a recorded CI run of the
+section 12.1 matrix, not a local pass. Nothing is marked complete and no
+roadmap percentage has moved.
+
+**One shared fixture, one expected answer.** `ResolverAcceptanceFixture` holds
+the dataset, the expected effective roles, the expected effective permissions
+and the whole exclusion table; `AssertsResolverAcceptance` holds the assertions.
+SQLite, live MySQL and live Oracle each seed that fixture and assert that
+expectation, so "MySQL agrees with SQLite" is one expectation checked three
+times rather than three expectations that happen to be written similarly —
+which is what section 12.2 means by parity being the load-bearing item. The
+fixture uses explicit identifiers, `DateTimeImmutable` bindings formatted by
+each connection's own grammar, `SchemaContext`-resolved table names and
+raw-byte expected ordering, so nothing in it is engine-shaped.
+
+| Lane | Test |
+|---|---|
+| SQLite | `tests/Access/ResolverAcceptanceParityTest.php` |
+| Live MySQL, four lanes | `tests/Integration/MySql/ResolverAcceptanceTest.php` |
+| Live MySQL chunk boundary | `tests/Integration/MySql/ResolverChunkBoundaryTest.php` |
+| Live Oracle, two lanes | `tests/Integration/Oracle/ResolverAcceptanceTest.php` |
+
+MySQL contributes the **prefix** evidence (`gt_`, with the unprefixed names
+asserted absent so a hard-coded table name would fail rather than silently
+succeed) and the **900/901 chunk boundary** with real rows. Oracle contributes
+the **schema-qualification** evidence (`GATETRAIL.acl_*`), OCI8 alias survival,
+`NUMBER`-to-`int` normalization and the half-open boundaries against a real
+`DATE` column. No Oracle prefix is forced, because it would push generated
+sequence and trigger names past Oracle's identifier bound for no additional
+portability evidence.
+
+**A live finding, recorded because it changes what the evidence means.** On
+MySQL the package pins `name` and `guard_name` to `utf8mb4_bin`, so a guard
+stored as `WEB` is excluded at the SQL layer — asserted, along with a forced
+`COLLATE utf8mb4_unicode_ci` comparison showing the row *would* otherwise have
+matched. But `utf8mb4_bin` is still **PAD SPACE** in MySQL 8: a guard stored as
+`'web '` does satisfy `guard_name = 'web'` and reaches the row mapper, where
+the byte-exact post-verification is the **only** thing that excludes it. The
+post-verification is therefore load-bearing on MySQL today, not belt-and-braces,
+and both layers are now asserted separately.
+
+**Remaining before this increment can be accepted:** the `ci.yml` SQLite lanes
+(Laravel 12 / Testbench 10 and Laravel 13 / Testbench 11), the four live MySQL
+lanes (Laravel 12 and 13 against MySQL 8.0.16 and 8.0.45) and the two live
+Oracle lanes (Laravel 12 / OCI8 12 and Laravel 13 / OCI8 13 against Oracle Free
+23.26.1) must all conclude `success` on a recorded run, and the run numbers and
+URLs must be written down here. PostgreSQL and SQL Server remain
+**compilation-only** and no live claim may be made for them.
 
 ## 17. Acceptance criteria
 

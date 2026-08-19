@@ -17,6 +17,26 @@ on:
       - 'tests/Database/Oracle*.php'
       - 'tests/Integration/Oracle/**/*.php'
       - 'tools/oracle-integration/**'
+      # Resolver surface. The live Oracle lane is the only place the snapshot
+      # queries meet a real Oracle DATE column, OCI8 result mapping and a
+      # schema-qualified installation, so a change to any of these can break
+      # Oracle without breaking SQLite. Kept to the resolver's own reach rather
+      # than all of src/, because this workflow provisions a database.
+      - 'src/Access/**'
+      - 'src/Contracts/PermissionResolver.php'
+      - 'src/Contracts/RoleResolver.php'
+      - 'src/Diagnostics/**'
+      - 'src/GateTrailServiceProvider.php'
+      - 'src/Guards/**'
+      - 'src/Models/**'
+      - 'src/PermissionReference.php'
+      - 'src/RoleReference.php'
+      - 'src/Subjects/**'
+      # The shared cross-engine acceptance fixture and assertions. Oracle
+      # compares against the same expectation SQLite produced, so a change here
+      # changes what Oracle is asked.
+      - 'tests/Integration/Concerns/**'
+      - 'tests/Integration/Support/**'
 
 permissions:
   contents: read
@@ -78,7 +98,14 @@ jobs:
           --no-interaction
           --no-progress
 
-      - name: Run Laravel 13 Oracle integration
+      # Both lanes run, and both results are visible, even when the first
+      # fails: `continue-on-error` records the outcome without stopping the
+      # job, and the gate step below turns either failure into a job failure.
+      # A hard failure here would otherwise hide whether the other lane was
+      # healthy, on a workflow that is deliberately run rarely.
+      - name: Lane A — Laravel 13 / Testbench 11 / OCI8 13 / Oracle Free 23.26.1
+        id: laravel-13
+        continue-on-error: true
         run: composer test:oracle
 
       - name: Prepare Laravel 12 compatibility checkout
@@ -93,6 +120,15 @@ jobs:
             --no-interaction \
             --no-progress
 
-      - name: Run Laravel 12 Oracle integration
+      - name: Lane B — Laravel 12 / Testbench 10 / OCI8 12 / Oracle Free 23.26.1
+        id: laravel-12
+        continue-on-error: true
         working-directory: ${{ runner.temp }}/gatetrail-laravel-12
         run: composer test:oracle
+
+      - name: Both Oracle lanes must pass
+        run: |
+          echo "Laravel 13 / OCI8 13: ${{ steps.laravel-13.outcome }}"
+          echo "Laravel 12 / OCI8 12: ${{ steps.laravel-12.outcome }}"
+          test "${{ steps.laravel-13.outcome }}" = "success" \
+            && test "${{ steps.laravel-12.outcome }}" = "success"
