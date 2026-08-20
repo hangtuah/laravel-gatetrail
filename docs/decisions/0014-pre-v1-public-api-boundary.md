@@ -7,6 +7,9 @@
   promise before `1.0.0`, and which do not.** It freezes nothing, changes no
   source, and accepts no documentation promise.
 - Public API freeze status: **not frozen**
+- Open questions O-1 to O-5: **resolved by maintainer decision, 2026-08-20**
+  (section 21). The ADR remains **Proposed**; resolving them removes the last
+  stated blocker to reviewing it, and changes no source file.
 - Evidence base: [Public API Inventory 0002](../reviews/0002-public-api-inventory.md),
   218 symbols at commit `992af7b`
 - Supersedes: nothing. Refines the compatibility rules of `PACKAGE_SPEC.md`
@@ -326,17 +329,23 @@ checks `method_exists()` first. Both guard-declaration styles are Tier 2 surface
 the trait is one of two supported routes, not the only one.
 
 **`Models\Concerns\HasAssignmentPeriodScopes`** — reached only by inheritance
-through the three supported assignment models. Per finding S-1 its scopes split:
+through the three supported assignment models. **All four scopes are Tier 2
+compatibility surface** (decision O-2), with one of them carrying an additional
+constraint that finding S-1 identified:
 
-| Scope | Proposed stability |
+| Scope | Stability |
 |---|---|
-| `scopeActiveAt(Builder $query, DateTimeInterface $time): Builder` | **Tier 2 surface, in both directions.** Consumers may call it; `Access\EffectiveAccessQueryBuilder` calls it on the configured model. **Overriding it changes authorization semantics** |
-| `scopeScheduledAt(Builder $query, DateTimeInterface $time): Builder` | Open — question O-2 |
-| `scopeExpiredAt(Builder $query, DateTimeInterface $time): Builder` | Open — question O-2 |
-| `scopeRevoked(Builder $query): Builder` | Open — question O-2 |
+| `scopeActiveAt(Builder $query, DateTimeInterface $time): Builder` | **Tier 2, in both directions.** Consumers may call it; `Access\EffectiveAccessQueryBuilder` calls it on the configured model at 4 sites. **Overriding it changes authorization semantics** |
+| `scopeScheduledAt(Builder $query, DateTimeInterface $time): Builder` | **Tier 2.** Inherited and consumer-facing; no internal caller |
+| `scopeExpiredAt(Builder $query, DateTimeInterface $time): Builder` | **Tier 2.** Inherited and consumer-facing; no internal caller |
+| `scopeRevoked(Builder $query): Builder` | **Tier 2.** Inherited and consumer-facing; no internal caller |
 
-`activeAt()`'s two-way binding is the sharpest inherited constraint in the
-package and is recorded here rather than deferred.
+The signatures of all four are frozen surface once the freeze lands. Only
+`activeAt()` additionally constrains consumers in the reverse direction: because
+`EffectiveAccessQueryBuilder` calls it on the configured assignment model, a
+subclass that overrides it changes what "active" means for every authorization
+decision, including widening it. That two-way binding is the sharpest inherited
+constraint in the package.
 
 ### 6.4 Explicitly not a Tier 2 extension target
 
@@ -446,9 +455,24 @@ two resolver contracts is itself a promise — a consumer relying on per-request
 memo coherence under Octane depends on it. The concrete classes those bindings
 resolve to are not surface and may be replaced.
 
-`Psr\Clock\ClockInterface` → `Time\SystemClock` is a seventh binding. The
-interface is PSR's, not GateTrail's; whether rebinding it is a supported testing
-seam is open question O-3.
+`Psr\Clock\ClockInterface` → `Time\SystemClock` is a seventh binding, and
+**rebinding it is a supported testing seam** (decision O-3). The interface is
+PSR's rather than GateTrail's, so what GateTrail promises is the *seam*, not the
+interface: every time-dependent decision resolves `ClockInterface` from the
+container, so replacing that binding controls all of them.
+
+The seam is real rather than nominal. All 15 `now()` call sites reach the clock
+through constructor injection — the three managers, the fourteen mutation
+commands and `Access\EffectiveAccessResolver` each declare a
+`ClockInterface $clock` parameter — and there are **zero** `new SystemClock`
+constructions anywhere outside the service provider. A consumer who rebinds the
+interface therefore controls assignment activation, expiry, audit timestamps and
+resolver evaluation instants alike.
+
+What this commits GateTrail to: resolving time through the container rather than
+calling a clock directly. `Time\SystemClock` itself stays Tier 4 and may be
+replaced; the binding and the injection pattern may not silently stop being the
+single time source.
 
 ## 9. Internal implementation policy
 
@@ -492,9 +516,11 @@ observable data; the constants, `all()`, `assignments()`, `isKnown()` and
 not make it supported. Consumers use their configured model subclasses and the
 Tier 1 managers and resolvers. Its six accessors return `class-string` values and
 would be a plausible discovery API, but freezing today's implementation is the
-wrong way to provide one — if validated model-class discovery is later needed, a
-small explicit contract should be introduced. Recorded as open question O-4
-because the workaround has a real cost.
+wrong way to provide one. **Deferred (decision O-4): no `ModelResolver` contract
+is introduced without demonstrated consumer need.** If validated model-class
+discovery is later shown to be necessary, a small explicit contract is added
+then, which is strictly additive under section 16 and needs no amendment to this
+boundary.
 
 **`Database\Schema\SchemaContext` is internal (Q12).** Consumers and DBAs use
 documented configuration, generated artifacts and future explicit operational
@@ -700,10 +726,30 @@ assumes a mutation and reads `$event->mutation` would begin receiving an event
 without that property and fail at runtime.
 
 This is a genuine behavioral change, acceptable pre-`1.0.0`, and it must ship
-with a changelog entry and migration guidance under section 15. It also raises a
-question the direction does not settle — how a catch-all listener should
-distinguish event kinds once both implement one empty marker — recorded as open
-question O-1.
+with a changelog entry and migration guidance under section 15.
+
+**How catch-all listeners distinguish event kinds: `instanceof` (decision O-1).**
+No second marker interface is introduced. A listener bound to `GateTrailEvent`
+that needs mutation-specific fields narrows the type itself:
+
+```php
+public function handle(GateTrailEvent $event): void
+{
+    if (! $event instanceof MutationCommitted) {
+        return;
+    }
+
+    // $event->mutation, $event->outcome, … are now type-safe.
+}
+```
+
+Every GateTrail event exposes `context(): array<string, mixed>`, so a listener
+that only logs or forwards needs no narrowing at all. A second, narrower marker
+would create a two-marker vocabulary before any consumer has asked for one, and
+ADR 0010 chose a single marker deliberately; it stays available if demand
+appears. The migration guidance shipped with correction 3 must state the
+`instanceof` requirement explicitly, because a listener written before the
+correction will not have it.
 
 ### 13.3 Event construction and payload stability
 
@@ -771,10 +817,33 @@ and should be aligned.
   `UnauthorizedMutation`, both Phase 6 middleware and authorization-gate work
   that has not started. They must stay labelled as future and **must not be
   documented as currently available** (correction 10).
-- Some validation still raises PHP's own `InvalidArgumentException` rather than a
-  GateTrail type — the three reference factories, both change objects and
-  `MutationResult`'s constructor. A consumer catching by namespace will miss
-  them. Whether to convert these is open question O-5.
+### 14.5 Standard argument validation stays standard
+
+**Six Tier 1 validation paths raise PHP's own `InvalidArgumentException`, and
+they keep doing so** (decision O-5): `AssignmentReference::id()`,
+`RoleReference::id()`, `PermissionReference::id()`,
+`RoleChanges::description()`, `PermissionChanges::description()` and
+`MutationResult::__construct()`.
+
+The argument for converting them was that a consumer catching GateTrail errors
+"by namespace" would otherwise miss them. **That argument does not survive
+contact with the hierarchy.** GateTrail has no common exception base: of the 25
+exception classes, 15 extend `RuntimeException` and 10 extend
+`InvalidArgumentException` directly, and none extends a shared GateTrail parent.
+Catching by namespace is therefore not achievable today for *any* GateTrail
+exception, and adding six more classes would not make it achievable. It would
+add six types and change what existing code catches, for no gain in catchability.
+
+New exception types are not introduced merely to replace standard argument
+validation. What is required instead is **documentation**: each of the six sites
+must state its exact throw behavior in `docs/PUBLIC_API.md` and be asserted by
+the surface test, so the behavior is a stated promise rather than an
+implementation accident. That is correction 15.
+
+The throw behavior itself is Tier 1 surface: the three reference factories reject
+an empty string ID and one exceeding 191 characters; both change objects reject
+non-UTF-8 input; `MutationResult` rejects `MutationOutcome::Unchanged` paired
+with a non-null `$auditId`.
 
 ## 15. Pre-v1 compatibility and change policy
 
@@ -855,7 +924,7 @@ forecast.
 
 ## 17. Known defects that must be corrected before freeze
 
-Fourteen items. **None is fixed by this ADR** — it changes no source, no test,
+Fifteen items. **None is fixed by this ADR** — it changes no source, no test,
 no specification and no annotation. Each becomes a post-acceptance increment in
 section 22.
 
@@ -867,7 +936,7 @@ section 22.
 | 4 | Align package-only construction: annotate or privatise the constructors of `MutationResult`, `AuditPersistenceFailed`, `ActorIdentity`, and the 7 implicitly-public Tier 1 exceptions | §10.2 | **Yes** |
 | 5 | Resolve `AccessAudit` model validation — require the configured model to extend `Models\AccessAudit` | S-2, E-4 | **Yes** |
 | 6 | Document `GateTrailModel`'s transitive inherited surface and the seven valid `tableKey()` values | §12.3 | **Yes** |
-| 7 | Decide and document `HasAssignmentPeriodScopes` scope stability — `activeAt()` settled, the other three open | S-1, O-2 | **Yes** |
+| 7 | Document `HasAssignmentPeriodScopes` scope stability — **decided by O-2: all four scopes are Tier 2**; record `activeAt()`'s additional two-way constraint | S-1, O-2 | **Yes** |
 | 8 | Correct the stale `Audit\AuditMode::Disabled` "Not implemented yet" comment | E-7 | No |
 | 9 | Add the eight implemented-but-undocumented exceptions to `PACKAGE_SPEC.md` section 15 | E-6, §14.4 | No |
 | 10 | Keep `InvalidMiddlewareParameter` and `UnauthorizedMutation` labelled as future/unimplemented | §14.4, §16 | No |
@@ -875,10 +944,15 @@ section 22.
 | 12 | Build a reflection-based public surface test | §18 | **Yes** |
 | 13 | Add contract container-resolution tests where missing, including scoped-lifecycle assertions | §11 | No |
 | 14 | Write `README.md` and the consumer guide **only after** the corrected surface exists | E-5 | **Yes** — for Phase 4, not for this ADR |
+| 15 | Document the exact `InvalidArgumentException` throw behavior of the six Tier 1 validation sites and assert it in the surface test | O-5, §14.5 | No |
 
-**Nine of the fourteen block the freeze.** Corrections 1–7 and 11–12 change what
+**Nine of the fifteen block the freeze.** Corrections 1–7 and 11–12 change what
 would otherwise be frozen; 14 is the Phase 4 deliverable itself. Corrections 8,
-9, 10 and 13 are documentation and test hygiene that can follow.
+9, 10, 13 and 15 are documentation and test hygiene that can follow.
+
+Correction 15 replaces the exception-conversion work that O-5 was expected to
+authorise. Because that decision chose documentation over new types, the item is
+non-blocking and folds naturally into corrections 7 and 12's deliverables.
 
 > **This is why the freeze cannot happen in this increment.** Freezing before
 > corrections 1–5 would make a wrong generic, a false marker promise, an
@@ -1049,81 +1123,109 @@ match an omission; correction 3 fixes the omission instead.
 Rejected for now. Its six accessors would be a plausible discovery surface, but
 adopting it freezes today's implementation — including the positional-argument
 validation quirk behind E-2. If discovery is needed, a small explicit contract
-should be introduced. Recorded as O-4 because the workaround has a real cost.
+should be introduced. **Deferral confirmed by decision O-4**; the workaround's
+cost is accepted in section 21.
 
 **K. Promote `Database\Schema\SchemaContext` to the operational tier.** Rejected.
 Its eight public methods are configuration resolution, not an operations
 interface. The consumer-visible constraint is documented at the model boundary
 (§12.3) where consumers actually meet it.
 
-## 21. Open maintainer questions
+**L. Introduce a second, narrower event marker so catch-all listeners can bind to
+mutation events only.** Rejected by decision O-1. It would create a two-marker
+vocabulary before any consumer has asked for one, and ADR 0010 chose a single
+marker deliberately. `instanceof` solves the same problem with no new surface,
+and a listener that only logs or forwards can use `context()` without narrowing
+at all. The option remains available if demand appears.
 
-Q1–Q12 of Inventory 0002 are **decided** by sections 5–14 and are not repeated.
-Five questions genuinely remain after applying those directions.
+**M. Convert the six Tier 1 `InvalidArgumentException` throw sites to GateTrail
+exception types.** Rejected by decision O-5, on hierarchy evidence. The stated
+benefit was catching GateTrail errors by namespace — but 15 of the 25 exception
+classes extend `RuntimeException` and 10 extend `InvalidArgumentException`, with
+**no shared GateTrail base**, so namespace-catching is unavailable for every
+existing exception too. Six more classes would change what current code catches
+and deliver no catchability. Standard argument validation stays standard, and the
+behavior is pinned by documentation and the surface test instead (correction 15).
 
-**O-1. Once both events implement `GateTrailEvent`, how should a catch-all
-listener distinguish event kinds?**
-*Recommendation:* Ship correction 3 as-is and rely on `instanceof`. Add a second,
-narrower marker only if a real listener needs it.
-*Alternative:* Introduce `Contracts\MutationEvent` alongside `GateTrailEvent`, so
-catch-all listeners can bind to the narrower one.
-*Consequence:* Doing nothing leaves every catch-all listener responsible for its
-own type check, and a listener that forgets will fatal on a missing `$mutation`
-property. Adding a second marker now creates a two-marker vocabulary before any
-consumer has asked for it, and ADR 0010 chose one marker deliberately.
-*Blocks acceptance?* **No.** It refines correction 3; it does not change the
-boundary.
+## 21. Resolved maintainer questions
 
-**O-2. Are `scopeScheduledAt`, `scopeExpiredAt` and `scopeRevoked` compatibility
-surface?**
-*Recommendation:* Yes — include all three in Tier 2 alongside `activeAt()`. They
-are inherited by every supported assignment model, tested by
+Q1-Q12 of Inventory 0002 are **decided** by sections 5-14 and are not repeated.
+
+Five further questions arose from applying those directions. All five were
+**resolved by maintainer decision on 2026-08-20** and are recorded here with the
+reasoning and the evidence supporting them. **No open question remains.**
+
+**O-1 - How should a catch-all listener distinguish event kinds once both events
+implement `GateTrailEvent`?**
+**Decided: use `instanceof`. No second marker interface is introduced.** A
+listener needing mutation-specific fields narrows the type itself; a listener
+that only logs or forwards uses `context()` and needs no narrowing. A second
+marker would create a two-marker vocabulary before any consumer has asked for
+one, and ADR 0010 chose a single marker deliberately. The option stays available
+if demand appears.
+*Consequence accepted:* every catch-all listener carries its own type check, and
+a listener written before correction 3 will not have one - so correction 3's
+migration guidance must state the requirement explicitly. Recorded in §13.2.
+
+**O-2 - Are `scopeScheduledAt`, `scopeExpiredAt` and `scopeRevoked`
+compatibility surface?**
+**Decided: yes. All four assignment-period scopes are Tier 2 surface** -
+`activeAt`, `scheduledAt`, `expiredAt` and `revoked`. They are inherited by every
+supported assignment model, covered by
 `tests/Models/AssignmentPeriodScopeTest.php`, and are the natural way to query
-assignment lifecycle.
-*Alternative:* Support only `activeAt()`, since it is the only scope the package
-itself calls, and leave the other three unsupported.
-*Consequence:* Supporting all four freezes three query shapes the package does
-not use, so a lifecycle redesign would need a major version. Supporting only
-`activeAt()` leaves consumers with an inherited, tested, obvious-looking API that
-carries no promise — the exact confusion this ADR exists to remove.
-*Blocks acceptance?* **No**, but it blocks correction 7 and therefore the freeze.
+assignment lifecycle. Supporting only the one scope the package happens to call
+would leave consumers with an inherited, tested, obvious-looking API carrying no
+promise - the exact confusion this boundary exists to remove.
+*Consequence accepted:* three query shapes the package does not itself use become
+frozen surface, so a lifecycle redesign would need a major version.
+*Effect:* settles correction 7. Recorded in §6.3.
 
-**O-3. Is rebinding `Psr\Clock\ClockInterface` a supported testing seam?**
-*Recommendation:* Yes, document it as supported. The interface is PSR's, the
-binding already exists, and time control is the single most common authorization
-test need.
-*Alternative:* Leave it undocumented and internal.
-*Consequence:* Supporting it commits GateTrail to resolving time through the
-container rather than calling a clock directly — a real constraint, but one the
-current design already accepts. Leaving it undocumented means consumers testing
-scheduled and expiring assignments will rebind it anyway, unsupported.
-*Blocks acceptance?* **No.** Later implementation detail.
+**O-3 - Is rebinding `Psr\Clock\ClockInterface` a supported testing seam?**
+**Decided: yes, and it is documented as supported.** The seam is real rather than
+nominal: all 15 `now()` call sites reach the clock through constructor injection
+across the three managers, the fourteen mutation commands and
+`Access\EffectiveAccessResolver`, and there are **zero** `new SystemClock`
+constructions outside the service provider. Rebinding therefore controls
+assignment activation, expiry, audit timestamps and resolver evaluation instants
+alike. Time control is the most common authorization test need, and consumers
+testing scheduled or expiring assignments would rebind it regardless -
+supporting it makes that legitimate instead of unsupported.
+*Consequence accepted:* GateTrail commits to resolving time through the container
+rather than calling a clock directly. `Time\SystemClock` stays Tier 4 and may be
+replaced; the binding may not silently stop being the single time source.
+Recorded in §8.
 
-**O-4. Should a small model-discovery contract replace `ModelRegistry` for
+**O-4 - Should a small model-discovery contract replace `ModelRegistry` for
 consumers?**
-*Recommendation:* Defer until a consumer needs it. `ModelRegistry` stays internal
-(§9).
-*Alternative:* Introduce a `Contracts\ModelResolver` with the six accessors now.
-*Consequence:* Deferring means a consumer who extends `Models\Role` and needs the
-configured class either resolves an internal singleton or re-reads
-`config('gatetrail.models.role')` and duplicates the validation — silently
-skipping every `InvalidModelConfiguration` check. Introducing it now adds a
-sixth supported contract before the need is demonstrated.
-*Blocks acceptance?* **No.**
+**Decided: deferred. `Support\ModelRegistry` remains Tier 4 internal, and no
+`ModelResolver` contract is introduced without demonstrated consumer need.**
+*Consequence accepted:* a consumer who extends `Models\Role` and needs the
+configured class must either resolve an internal singleton or re-read
+`config('gatetrail.models.role')` and duplicate the validation, silently skipping
+every `InvalidModelConfiguration` check. That cost is accepted rather than
+answered by freezing today's registry - whose positional-argument validation is
+itself the source of defect E-2. Adding the contract later is strictly additive
+under §16. Recorded in §9 and §20 J.
 
-**O-5. Should the value types raise GateTrail exceptions instead of PHP's
+**O-5 - Should the value types raise GateTrail exceptions instead of PHP's
 `InvalidArgumentException`?**
-*Recommendation:* Yes, eventually — `AssignmentReference::id()`,
-`RoleReference::id()`, `PermissionReference::id()`, `RoleChanges::description()`,
-`PermissionChanges::description()` and `MutationResult::__construct()` currently
-throw PHP's own type.
-*Alternative:* Leave them; they are documented as `InvalidArgumentException` and
-that is catchable.
-*Consequence:* Leaving them means a consumer catching GateTrail errors by
-namespace misses six validation paths on Tier 1 types. Changing them is itself a
-breaking change for anyone catching the PHP type, so it must happen **before**
-the freeze or not until a major version.
-*Blocks acceptance?* **No**, but the timing is forced: pre-freeze or post-`1.0.0`.
+**Decided: no. Keep `InvalidArgumentException` and document its exact throw
+behavior.** New exception types are not introduced merely to replace standard
+argument validation.
+
+The argument for converting the six sites was that a consumer catching GateTrail
+errors "by namespace" would otherwise miss them. **The hierarchy refutes it.**
+GateTrail has no common exception base: 15 of the 25 exception classes extend
+`RuntimeException` and 10 extend `InvalidArgumentException`, none a shared
+GateTrail parent. Catching by namespace is not achievable today for *any*
+GateTrail exception, so six more classes would add types and change what existing
+code catches without making it achievable.
+*Consequence accepted:* validation failures on Tier 1 value types surface as a
+standard PHP type - catchable and idiomatic, but indistinguishable from any other
+library's argument validation.
+*Effect:* replaces the anticipated conversion work with correction 15 -
+documenting the exact throw behavior of the six sites and asserting it in the
+surface test. Recorded in §14.5.
 
 ## 22. Ordered post-acceptance increments
 
@@ -1138,7 +1240,7 @@ Each increment is atomic, independently reviewable, and leaves the suite green.
 | 4 | **Reflection public-surface test** | assert the exact Tier 1 and Tier 2 manifest: names, signatures, parameter names, fields, enum cases and backing values, constructor visibility | 12 |
 | 5 | **Container-resolution and event-listener tests** | five contracts resolve to expected concretes; resolver contracts genuinely scoped; a `GateTrailEvent` listener receives both events | 13 |
 | 6 | **`PACKAGE_SPEC.md` alignment** | add the eight missing exceptions; keep the two Phase 6 names labelled unimplemented; correct the stale `AuditMode::Disabled` comment; reconcile section 22 with these tiers | 8, 9, 10 |
-| 7 | **`docs/PUBLIC_API.md`** | the authoritative Tier 1 and Tier 2 list by FQCN with exact signatures, asserting the same set as increment 4's test | — |
+| 7 | **`docs/PUBLIC_API.md`** | the authoritative Tier 1 and Tier 2 list by FQCN with exact signatures, including the four assignment-period scopes, the `ClockInterface` testing seam and the six documented `InvalidArgumentException` throw sites; asserting the same set as increment 4's test | 15 |
 | 8 | **README and consumer guide** | installation, configuration, publishing, migration, a first mutation and a first check, and the tier boundary — **written only now**, against the corrected surface | 14 |
 | 9 | **Final independent freeze review** | verify every blocking correction landed; verify no Phase 6–13 surface is documented as available; verify the surface test matches `PUBLIC_API.md` | — |
 | 10 | **Phase 4 acceptance and completion** | accept the freeze; check the final Phase 4 item; recompute Phase 4 to 20 of 20 | — |
@@ -1174,8 +1276,9 @@ This ADR may be accepted when:
 10. The correction backlog of section 17 is agreed, including which nine items
     block the freeze.
 11. The required safeguards of section 18 are agreed.
-12. Open questions O-1 through O-5 are either answered or explicitly accepted as
-    non-blocking.
+12. **Satisfied.** Open questions O-1 through O-5 were resolved by maintainer
+    decision on 2026-08-20 and are recorded with their reasoning and accepted
+    consequences in section 21. No open question remains.
 
 ### What acceptance would and would not do
 

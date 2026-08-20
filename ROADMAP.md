@@ -167,8 +167,17 @@ the complete 218-symbol inventory in
 [Public API Inventory 0002](docs/reviews/0002-public-api-inventory.md) and
 proposes five compatibility tiers: 39 supported public symbols, 13 consumer
 extension points, 4 framework integration surfaces, 5 operational exception
-types and 157 internal symbols. It also records fourteen corrections required
+types and 157 internal symbols. It also records fifteen corrections required
 before any freeze, nine of which block it.
+
+Its five open questions were **resolved by maintainer decision on 2026-08-20**
+and are recorded in ADR 0014 section 21: catch-all event listeners use
+`instanceof` rather than a second marker; all four assignment-period scopes are
+extension surface; rebinding `Psr\Clock\ClockInterface` is a supported testing
+seam; `ModelRegistry` stays internal with no discovery contract; and value-object
+validation keeps PHP's `InvalidArgumentException` with its behavior documented
+instead of gaining new exception types. **No open question remains.** The tier
+counts are unchanged by these decisions.
 
 **No API is frozen.** No source file, annotation or signature changed, no
 documentation promise is accepted, and the boundary itself is not accepted until
