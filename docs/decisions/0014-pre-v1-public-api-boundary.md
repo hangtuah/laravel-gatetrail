@@ -199,11 +199,43 @@ short and referenced precisely to Inventory 0002 where long. Namespace prefix
 | `Contracts\PermissionManager` | explicit → `Managers\DefaultPermissionManager` | singleton | **call** | 4 methods, Inventory 0002 §10.2 |
 | `Contracts\PermissionResolver` | explicit → `Access\DefaultPermissionResolver` | **scoped** | **call** | 2 methods, Inventory 0002 §10.3 |
 | `Contracts\RoleResolver` | explicit → `Access\DefaultRoleResolver` | **scoped** | **call** | 2 methods, Inventory 0002 §10.3 |
-| `Contracts\GateTrailEvent` | none | — | **listen** | empty marker |
+| `Contracts\GateTrailEvent` | **none — not container-bound** | — | **listen** | `context(): array`, documented shape `array<string, mixed>` |
 
 The five service contracts carry 18 public methods between them. Their parameter
 lists, parameter **names** (named arguments are the documented calling style per
-ADR 0002), types, defaults and return types are all compatibility surface.
+ADR 0002), types, defaults and return types are all compatibility surface. All
+five are container-bound; `Contracts\GateTrailEvent` is the sixth Tier 1
+contract and is **not** bound, because consumers listen through it rather than
+resolve it.
+
+**`Contracts\GateTrailEvent` is proposed as a small event contract, not an empty
+marker.** Today it declares nothing, which is why §13.1 and §20 N treat the
+current shape as a defect. The proposed Tier 1 surface is:
+
+```php
+interface GateTrailEvent
+{
+    /** @return array<string, mixed> */
+    public function context(): array;
+}
+```
+
+Frozen surface: the interface name `GateTrailEvent`, the public method name
+`context`, **no parameters**, the runtime return type `array`, and the documented
+generic shape `array<string, mixed>`.
+
+**The exact keys are deliberately not frozen across events.** They remain
+event-specific and are documented on each concrete event, together with that
+event's own safe-data rules. `MutationCommitted::context()` and
+`AuditPersistenceFailed::context()` legitimately return different key sets;
+promising identical keys would couple a domain event to an operational one and
+block either from gaining a field. Each event's key list and ordering is part of
+**that event's** Tier 1 policy (§5.4, §13.3).
+
+Both concrete events already declare `public function context(): array` with the
+`@return array<string, mixed>` annotation, so declaring the method on the
+interface is a widening of the contract that neither class has to change to
+satisfy.
 
 Consumers **must not** type-hint the `Default*` concretes. Those five classes,
 their constructors and their collaborator graphs are Tier 4 — see section 9.
@@ -448,26 +480,54 @@ do not call them.
 `config('gatetrail.database.provisioning') === 'package'` **and** the application
 is running in console. Both conditions are operational surface per section 7.1.
 
-**Service-container aliases and contracts.** The six contract-to-concrete
-bindings are surface *as bindings*: resolving `Contracts\PermissionResolver` must
-keep yielding a working `PermissionResolver`, and the **scoped** lifecycle of the
-two resolver contracts is itself a promise — a consumer relying on per-request
-memo coherence under Octane depends on it. The concrete classes those bindings
-resolve to are not surface and may be replaced.
+**Service-container aliases and contracts.** GateTrail registers **five**
+manager/resolver contract-to-concrete bindings:
 
-`Psr\Clock\ClockInterface` → `Time\SystemClock` is a seventh binding, and
-**rebinding it is a supported testing seam** (decision O-3). The interface is
-PSR's rather than GateTrail's, so what GateTrail promises is the *seam*, not the
-interface: every time-dependent decision resolves `ClockInterface` from the
-container, so replacing that binding controls all of them.
+| # | Contract | Concrete | Form | Lifecycle |
+|---:|---|---|---|---|
+| 1 | `Contracts\AssignmentManager` | `Managers\DefaultAssignmentManager` | class-to-class | singleton |
+| 2 | `Contracts\RoleManager` | `Managers\DefaultRoleManager` | class-to-class | singleton |
+| 3 | `Contracts\PermissionManager` | `Managers\DefaultPermissionManager` | class-to-class | singleton |
+| 4 | `Contracts\PermissionResolver` | `Access\DefaultPermissionResolver` | closure resolving through the concrete | **scoped** |
+| 5 | `Contracts\RoleResolver` | `Access\DefaultRoleResolver` | closure resolving through the concrete | **scoped** |
 
-The seam is real rather than nominal. All 15 `now()` call sites reach the clock
-through constructor injection — the three managers, the fourteen mutation
-commands and `Access\EffectiveAccessResolver` each declare a
-`ClockInterface $clock` parameter — and there are **zero** `new SystemClock`
-constructions anywhere outside the service provider. A consumer who rebinds the
-interface therefore controls assignment activation, expiry, audit timestamps and
-resolver evaluation instants alike.
+These five are surface *as bindings*: resolving `Contracts\PermissionResolver`
+must keep yielding a working `PermissionResolver`, and the **scoped** lifecycle
+of the two resolver contracts is itself a promise — a consumer relying on
+per-request memo coherence under Octane depends on it. The concrete classes those
+bindings resolve to are not surface and may be replaced.
+
+**`Contracts\GateTrailEvent` has no container binding.** It is a public event
+contract that consumers listen through, not a service they resolve, so it is not
+part of the binding count. Tier 1 membership and container-resolvability are
+independent (§3).
+
+`Psr\Clock\ClockInterface` → `Time\SystemClock` is the **sixth** relevant
+contract binding, and **rebinding it is a supported testing seam** (decision
+O-3). The interface is PSR's rather than GateTrail's, so what GateTrail promises
+is the *seam*, not the interface: every time-dependent decision resolves
+`ClockInterface` from the container, so replacing that binding controls all of
+them.
+
+The seam is real rather than nominal, but the path is not uniform and the ADR
+states it precisely rather than approximately. There are exactly **15
+`now()` call sites**:
+
+| Where | Sites | How the clock arrives |
+|---|---:|---|
+| `Mutations\Commands\*` — the 14 immutable command capture factories | **14** | `ClockInterface $clock` as a **static factory parameter**, not constructor injection; each reads `$clock->now()` once while capturing |
+| `Access\EffectiveAccessResolver` | **1** | `private ClockInterface $clock` by **constructor injection**; reads `$this->clock->now()` once per evaluation |
+
+The three `Managers\Default*Manager` implementations **inject `ClockInterface`
+by constructor and pass it to the command capture factories — they never call
+`now()` themselves** (0 call sites across all three). `Time\SystemClock` is
+constructed only through the service-provider binding; **no production class
+instantiates it directly** (0 occurrences of `new SystemClock` outside the
+provider).
+
+Rebinding `ClockInterface` therefore controls **mutation request timestamps** —
+through the 14 command factories the managers feed — and **effective-access
+evaluation time**, through the resolver.
 
 What this commits GateTrail to: resolving time through the container rather than
 calling a clock directly. `Time\SystemClock` itself stays Tier 4 and may be
@@ -602,8 +662,10 @@ injectable services.
 
 Consequences:
 
-1. Only the **six contract bindings** are supported resolution targets: the five
-   service contracts plus `Psr\Clock\ClockInterface`.
+1. Only **six bindings** are supported resolution targets: the **five**
+   GateTrail manager/resolver contracts plus `Psr\Clock\ClockInterface`.
+   `Contracts\GateTrailEvent` is Tier 1 but is **not** container-bound — it is
+   listened to, not resolved.
 2. Resolving any other bound class — `AssignRoleHandler`, `RoleInputResolver`,
    `AuditContextBuilder`, `RetryOrchestrator`, `EffectiveAccessQueryBuilder`,
    `SubjectIdentityResolver`, `SchemaAdapterFactory` and 66 others — is
@@ -695,8 +757,10 @@ The valid `tableKey()` values are the seven `gatetrail.tables` keys: `roles`,
 ## 13. Public event policy
 
 Both `MutationCommitted` and `AuditPersistenceFailed` are Tier 1 supported public
-events. `Contracts\GateTrailEvent` is the public marker for every event GateTrail
-dispatches.
+events. `Contracts\GateTrailEvent` is the **single public event contract** for
+every event GateTrail dispatches — proposed as a small contract declaring
+`context(): array` rather than as an empty marker (§5.1). It is Tier 1 but is not
+container-bound: consumers listen through it, they do not resolve it.
 
 ### 13.1 The marker asymmetry is a defect
 
@@ -713,10 +777,26 @@ the marker to mutation events. `AuditPersistenceFailed`'s docblock distinguishes
 itself from the *successful mutation* event, which is a different claim from
 being outside the marker.
 
-**Proposed correction (correction 3): `AuditPersistenceFailed` implements
-`Contracts\GateTrailEvent`.** The alternative — rewriting the marker's docblock
-to say "every mutation event" — is rejected in section 20 because it narrows a
-documented promise to match an omission.
+**Proposed correction (correction 3), in three parts:**
+
+1. **Declare `context(): array` on `Contracts\GateTrailEvent`**, with the
+   documented shape `array<string, mixed>`, turning the empty marker into a small
+   event contract. Both concrete events already satisfy the method.
+2. **Make `Events\AuditPersistenceFailed` implement `Contracts\GateTrailEvent`**,
+   so the interface's "every event" promise becomes true.
+3. **Align its package-controlled construction** with `MutationCommitted`'s
+   private-constructor-plus-`@internal`-factory pattern (§10.2).
+
+`GateTrailEvent` remains the **single** public interface for all GateTrail
+events; no second marker is introduced (decision O-1). Consumers listen to and
+receive package events; they do not implement or construct authentic package
+events — a consumer class implementing `GateTrailEvent` is not a GateTrail event
+and is outside the supported surface.
+
+The alternative — rewriting the marker's docblock to say "every mutation event" —
+is rejected in section 20 I because it narrows a documented promise to match an
+omission. Retaining an empty marker while relying on an undeclared `context()` is
+rejected in section 20 N.
 
 ### 13.2 The consequence this correction carries
 
@@ -743,13 +823,28 @@ public function handle(GateTrailEvent $event): void
 }
 ```
 
-Every GateTrail event exposes `context(): array<string, mixed>`, so a listener
-that only logs or forwards needs no narrowing at all. A second, narrower marker
-would create a two-marker vocabulary before any consumer has asked for one, and
-ADR 0010 chose a single marker deliberately; it stays available if demand
-appears. The migration guidance shipped with correction 3 must state the
-`instanceof` requirement explicitly, because a listener written before the
-correction will not have it.
+A listener that only logs or forwards needs no narrowing at all, because
+`context()` is declared **on the interface**:
+
+```php
+public function handle(GateTrailEvent $event): void
+{
+    $this->logger->info('gatetrail', $event->context());   // type-safe
+}
+```
+
+This is the reason `GateTrailEvent` must stop being an empty marker. Both
+concrete events already implement `context()`, so a generic listener calling it
+works *dynamically* today — but on an empty interface that call is unchecked, and
+an unchecked call is not a compatibility boundary. Declaring
+`context(): array` on the interface is what makes the generic path type-safe and
+statically verifiable (§20 N).
+
+A second, narrower marker would create a two-marker vocabulary before any
+consumer has asked for one, and ADR 0010 chose a single marker deliberately; it
+stays available if demand appears. The migration guidance shipped with correction
+3 must state the `instanceof` requirement explicitly for event-specific fields,
+because a listener written before the correction will not have it.
 
 ### 13.3 Event construction and payload stability
 
@@ -932,7 +1027,7 @@ section 22.
 |---:|---|---|:-:|
 | 1 | `RoleManager::create()` generic → `MutationResult<Model&RoleContract>`; same for `ModelRegistry::role()`'s `@var` | E-2 | **Yes** |
 | 2 | `PermissionManager::create()` generic → `MutationResult<Model&PermissionContract>`; same for `ModelRegistry::permission()`'s `@var` | E-2 | **Yes** |
-| 3 | `Events\AuditPersistenceFailed` implements `Contracts\GateTrailEvent` | E-3, §13.1 | **Yes** |
+| 3 | Event contract, in three parts: declare `context(): array` on `Contracts\GateTrailEvent`; make `Events\AuditPersistenceFailed` implement it; align that event's package-controlled construction | E-3, §5.1, §13.1 | **Yes** |
 | 4 | Align package-only construction: annotate or privatise the constructors of `MutationResult`, `AuditPersistenceFailed`, `ActorIdentity`, and the 7 implicitly-public Tier 1 exceptions | §10.2 | **Yes** |
 | 5 | Resolve `AccessAudit` model validation — require the configured model to extend `Models\AccessAudit` | S-2, E-4 | **Yes** |
 | 6 | Document `GateTrailModel`'s transitive inherited surface and the seven valid `tableKey()` values | §12.3 | **Yes** |
@@ -984,11 +1079,23 @@ that they resolve to the expected concretes, and that `PermissionResolver` and
 `RoleResolver` are genuinely **scoped** — the Octane and queue-worker leak the
 provider's own comments warn about is otherwise invisible until production.
 
-**An event-listener test for the marker.** After correction 3, assert that a
-listener registered against `Contracts\GateTrailEvent` receives **both**
-`MutationCommitted` and `AuditPersistenceFailed`. This is the regression test for
-the defect in section 13.1 and the reason the marker's promise becomes checkable
-rather than aspirational.
+**An event-listener test for the event contract.** After correction 3 it must
+prove all four of:
+
+1. a listener registered against `Contracts\GateTrailEvent` receives **both**
+   `MutationCommitted` and `AuditPersistenceFailed`;
+2. **both are handled through `context()`** called on the interface type, not on
+   a narrowed concrete type — this is what proves the generic path is type-safe
+   rather than merely working dynamically;
+3. **event-specific fields require `instanceof` narrowing** — reading
+   `$event->mutation` from the interface type is not available, and the test
+   asserts the narrowing path is the supported one;
+4. **context payloads retain their safe-data guarantees** — no snapshots, no
+   consumer metadata, no reasons, no credentials, no Eloquent models, no
+   exception messages or traces, for each event's own documented key set.
+
+This is the regression test for the defect in section 13.1 and the reason the
+interface's promise becomes checkable rather than aspirational.
 
 ### 18.2 Recommended, not required
 
@@ -1138,6 +1245,18 @@ marker deliberately. `instanceof` solves the same problem with no new surface,
 and a listener that only logs or forwards can use `context()` without narrowing
 at all. The option remains available if demand appears.
 
+**N. Keep `GateTrailEvent` an empty marker and let generic listeners call
+`context()` anyway.** Rejected. Both concrete events declare
+`public function context(): array`, so the call *works dynamically* today — PHP
+resolves it at runtime and nothing fails. But on an empty interface the call is
+unchecked: static analysis cannot verify it, an IDE cannot complete it, and
+nothing prevents a future GateTrail event from shipping without the method. A
+compatibility boundary that holds only by coincidence of the current
+implementations is not a boundary. Declaring the method costs nothing — neither
+event has to change to satisfy it — and converts an accidental convention into a
+verifiable Tier 1 contract. Rejecting this is what makes correction 3 a
+three-part change rather than a one-line `implements` edit.
+
 **M. Convert the six Tier 1 `InvalidArgumentException` throw sites to GateTrail
 exception types.** Rejected by decision O-5, on hierarchy evidence. The stated
 benefit was catching GateTrail errors by namespace — but 15 of the 25 exception
@@ -1182,12 +1301,15 @@ frozen surface, so a lifecycle redesign would need a major version.
 
 **O-3 - Is rebinding `Psr\Clock\ClockInterface` a supported testing seam?**
 **Decided: yes, and it is documented as supported.** The seam is real rather than
-nominal: all 15 `now()` call sites reach the clock through constructor injection
-across the three managers, the fourteen mutation commands and
-`Access\EffectiveAccessResolver`, and there are **zero** `new SystemClock`
-constructions outside the service provider. Rebinding therefore controls
-assignment activation, expiry, audit timestamps and resolver evaluation instants
-alike. Time control is the most common authorization test need, and consumers
+nominal. There are exactly 15 `now()` call sites: **14** in the immutable command
+capture factories of `Mutations\Commands\*`, which receive `ClockInterface` as a
+**static factory parameter**, and **1** in `Access\EffectiveAccessResolver`,
+which receives it by **constructor injection**. The three `Default*Manager`
+implementations inject the clock and pass it to those factories but call `now()`
+**zero** times themselves, and there are **zero** `new SystemClock` constructions
+outside the service-provider binding. Rebinding therefore controls mutation
+request timestamps and effective-access evaluation time. Time control is the most
+common authorization test need, and consumers
 testing scheduled or expiring assignments would rebind it regardless -
 supporting it makes that legitimate instead of unsupported.
 *Consequence accepted:* GateTrail commits to resolving time through the container
@@ -1234,7 +1356,7 @@ Each increment is atomic, independently reviewable, and leaves the suite green.
 
 | # | Increment | Contents | Corrections |
 |---:|---|---|---|
-| 1 | **Public signature and event corrections** | manager `create()` generics and the matching `ModelRegistry` `@var`s; `AuditPersistenceFailed implements GateTrailEvent`; package-controlled constructor alignment across `MutationResult`, `AuditPersistenceFailed`, `ActorIdentity` and the 7 implicitly-public exceptions | 1, 2, 3, 4 |
+| 1 | **Public signature and event corrections** | manager `create()` generics and the matching `ModelRegistry` `@var`s; **declare `context(): array` on `Contracts\GateTrailEvent`**; `AuditPersistenceFailed implements GateTrailEvent`; package-controlled constructor alignment across `MutationResult`, `AuditPersistenceFailed`, `ActorIdentity` and the 7 implicitly-public exceptions | 1, 2, 3, 4 |
 | 2 | **Configurable-model validation and inherited surface** | require the access-audit model to extend `Models\AccessAudit`; document `GateTrailModel`'s transitive surface and the seven `tableKey()` values; settle O-2 and document scope stability | 5, 6, 7 |
 | 3 | **`@internal` annotation sweep** | apply `@internal` to every Tier 4 symbol currently unannotated — `Default*` managers and resolvers, input resolvers, query components, schema and DDL classes, `ModelRegistry`, `SchemaContext`, infrastructure. Remove none | 11 |
 | 4 | **Reflection public-surface test** | assert the exact Tier 1 and Tier 2 manifest: names, signatures, parameter names, fields, enum cases and backing values, constructor visibility | 12 |
@@ -1264,9 +1386,13 @@ This ADR may be accepted when:
    38 implementation classes.
 5. The internal classification of section 9 is agreed — 157 symbols, 72.0% of the
    package.
-6. The event decision of section 13 is agreed, specifically that the
+6. The event decision of section 13 is agreed, specifically: that the
    `GateTrailEvent` asymmetry is a **defect to correct** rather than an intention
-   to document.
+   to document; and that **`GateTrailEvent::context(): array` is accepted as Tier
+   1 surface** — the interface name, the method name `context`, no parameters,
+   the runtime return type `array` and the documented shape
+   `array<string, mixed>` — while the exact keys remain event-specific and are
+   documented per event rather than promised identical across events.
 7. The exception split of section 14 is agreed — 20 Tier 1, 5 operational.
 8. The model policy of section 12 is agreed, specifically: Role and Permission
    keep flexible replacement; assignment models are **not** required to use
