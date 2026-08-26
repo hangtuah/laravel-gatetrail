@@ -19,6 +19,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use LogicException;
 use ReflectionMethod;
 
+/**
+ * @internal
+ */
 final readonly class RolePermissionDefinitionResolver
 {
     private const CONTEXT = 'role-permission assignment';

@@ -12,6 +12,9 @@ use HangTuah\GateTrail\Support\ModelRegistry;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
+/**
+ * @internal
+ */
 final readonly class PermissionAssignmentInputResolver
 {
     public function __construct(private ModelRegistry $models, private AssignmentIdentifierNormalizer $identifiers) {}

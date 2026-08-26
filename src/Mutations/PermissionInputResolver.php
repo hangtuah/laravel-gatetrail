@@ -16,6 +16,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use LogicException;
 use ReflectionMethod;
 
+/**
+ * @internal
+ */
 final readonly class PermissionInputResolver
 {
     public function __construct(

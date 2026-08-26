@@ -14,6 +14,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use LogicException;
 use ReflectionMethod;
 
+/**
+ * @internal
+ */
 final readonly class PermissionDefinitionInputResolver
 {
     private const CONTEXT = 'permission definition';

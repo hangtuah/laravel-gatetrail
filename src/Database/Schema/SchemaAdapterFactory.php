@@ -11,6 +11,9 @@ use HangTuah\GateTrail\Database\Schema\Adapters\SQLiteAdapter;
 use HangTuah\GateTrail\Database\Schema\Adapters\SqlServerAdapter;
 use HangTuah\GateTrail\Exceptions\UnsupportedDatabaseDriver;
 
+/**
+ * @internal
+ */
 final class SchemaAdapterFactory
 {
     public function forDriver(string $driver): SchemaAdapter

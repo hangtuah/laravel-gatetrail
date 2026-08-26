@@ -6,6 +6,9 @@ namespace HangTuah\GateTrail\Audit;
 
 use stdClass;
 
+/**
+ * @internal
+ */
 final readonly class NormalizedMetadata
 {
     /**

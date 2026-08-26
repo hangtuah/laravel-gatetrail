@@ -7,6 +7,9 @@ namespace HangTuah\GateTrail\Guards;
 use HangTuah\GateTrail\Exceptions\InvalidGuard;
 use Illuminate\Contracts\Config\Repository;
 
+/**
+ * @internal
+ */
 final readonly class DefaultGuardResolver
 {
     public function __construct(

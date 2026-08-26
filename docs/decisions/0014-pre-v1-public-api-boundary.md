@@ -8,10 +8,10 @@
   promise before `1.0.0`, and which do not.** It freezes nothing, changes no
   source, and accepts no documentation promise.
 - Public API freeze status: **not frozen**
-- Implementation status: **Increments 1–2 of 10 complete** — public signature,
-  event-contract, package-controlled-construction, configurable-audit-model and
-  inherited-surface corrections landed on 2026-08-26; the public API remains
-  unfrozen
+- Implementation status: **Increments 1–3 of 10 complete** — public signature,
+  event-contract, package-controlled-construction, configurable-audit-model,
+  inherited-surface and internal-annotation corrections landed on 2026-08-26;
+  the public API remains unfrozen
 - Open questions O-1 to O-5: **resolved by maintainer decision, 2026-08-20**
   (section 21). Resolving them removed the last stated blocker to acceptance
   review and changed no source file.
@@ -541,8 +541,8 @@ single time source.
 
 ## 9. Internal implementation policy
 
-157 symbols — 72.0% of the package. No compatibility promise. Recommended for
-`@internal` where not already annotated.
+157 symbols — 72.0% of the package. No compatibility promise. All 157 carry a
+class-level `@internal` annotation after Increment 3.
 
 **Minimum internal set, confirmed against source rather than assumed:**
 
@@ -564,12 +564,11 @@ single time source.
 | `Models\GateTrailModel` | 1 | Q5 — with the transitive constraint of section 12.3 |
 | Remaining infrastructure | 15 | `Database\UniqueConstraintViolationClassifier`, `Assignments` enums, and other single-purpose components |
 
-**`@internal` annotations are not the evidence for this classification — they are
-its intended output.** 140 of the 218 symbols carry no annotation today,
-including every `Managers\Default*`, both `Access\Default*Resolver`, all eleven
-`Mutations\*InputResolver` classes and the entire `Database\Schema\*` tree. This
-ADR decides where annotations *should* be applied; correction 11 in section 17
-applies them.
+**`@internal` annotations are not the evidence for this classification — the
+accepted manifest is.** Increment 3 applied the manifest mechanically: 76 Tier 4
+symbols already had a class-level annotation, 81 were missing one, and the sweep
+ended at 157 of 157 with no annotation removed. This makes IDE and static-analysis
+visibility match the accepted boundary without changing runtime behavior.
 
 **`Mutations\MutationName` is internal as a class while its emitted string
 vocabulary is Tier 1** (section 5.4). The distinction is deliberate: the strings
@@ -1040,7 +1039,7 @@ section 22.
 | 8 | Correct the stale `Audit\AuditMode::Disabled` "Not implemented yet" comment | E-7 | No |
 | 9 | Add the eight implemented-but-undocumented exceptions to `PACKAGE_SPEC.md` section 15 | E-6, §14.4 | No |
 | 10 | Keep `InvalidMiddlewareParameter` and `UnauthorizedMutation` labelled as future/unimplemented | §14.4, §16 | No |
-| 11 | Apply `@internal` consistently across `Default*` classes, handlers, input resolvers, query components and infrastructure — ~140 symbols currently unannotated | E-1 | **Yes** |
+| 11 | Apply `@internal` consistently across `Default*` classes, handlers, input resolvers, query components and infrastructure — completed by Increment 3 | E-1 | **Yes** |
 | 12 | Build a reflection-based public surface test | §18 | **Yes** |
 | 13 | Add contract container-resolution tests where missing, including scoped-lifecycle assertions | §11 | No |
 | 14 | Write `README.md` and the consumer guide **only after** the corrected surface exists | E-5 | **Yes** — for Phase 4, not for this ADR |
@@ -1387,7 +1386,11 @@ Acceptance itself implemented nothing; delivery progress is recorded below.
   supported concrete models and the seven valid table keys are pinned; and all
   four assignment-period scopes are documented and tested as Tier 2 surface,
   including `activeAt()`'s two-way authorization constraint.
-- [ ] Increments 3–10 remain outstanding.
+- [x] **Increment 3 — `@internal` annotation sweep.** Completed on 2026-08-26.
+  The accepted 218-symbol manifest was partitioned into 61 non-internal and 157
+  Tier 4 symbols. All 157 now have a class-level annotation: 76 retained and 81
+  added, with none removed and no executable statement changed.
+- [ ] Increments 4–10 remain outstanding.
 
 Targeted reflection tests pin the corrected annotations, event contract,
 constructor visibility and factory boundary. The full SQLite suite, PHPStan at
@@ -1396,6 +1399,8 @@ increment. `CHANGELOG.md` records the pre-v1 behavioral change and tells
 catch-all event listeners to narrow with `instanceof MutationCommitted` before
 reading mutation-specific fields. Increment 2 adds targeted model-configuration,
 inherited-signature and scope-surface tests under the same quality gates.
+Increment 3 additionally verifies the exact manifest counts and permits only
+class-docblock additions in its source diff.
 
 Increments 1 and 2 change runtime behavior and must not be combined. Increment 3
 is mechanical and touches no logic. Increment 8 depends on increments 1–7 because

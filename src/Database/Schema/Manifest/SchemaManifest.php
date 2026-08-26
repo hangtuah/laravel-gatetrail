@@ -6,6 +6,9 @@ namespace HangTuah\GateTrail\Database\Schema\Manifest;
 
 use InvalidArgumentException;
 
+/**
+ * @internal
+ */
 final readonly class SchemaManifest
 {
     /**

@@ -6,6 +6,9 @@ namespace HangTuah\GateTrail\Audit;
 
 use HangTuah\GateTrail\Exceptions\InvalidAuditMetadata;
 
+/**
+ * @internal
+ */
 final class SensitiveMetadataRedactor
 {
     public const MARKER = '__gatetrail_redacted__';

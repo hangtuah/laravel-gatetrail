@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail\Database\Schema\Manifest;
 
+/**
+ * @internal
+ */
 enum ColumnType: string
 {
     case BigInteger = 'big_integer';

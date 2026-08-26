@@ -7,6 +7,9 @@ namespace HangTuah\GateTrail\Database\Schema\Ddl\Oracle;
 use HangTuah\GateTrail\Database\Schema\IdentifierValidator;
 use InvalidArgumentException;
 
+/**
+ * @internal
+ */
 final readonly class OracleSchemaOptions
 {
     /**

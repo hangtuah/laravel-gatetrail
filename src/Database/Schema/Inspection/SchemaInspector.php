@@ -7,6 +7,9 @@ namespace HangTuah\GateTrail\Database\Schema\Inspection;
 use HangTuah\GateTrail\Database\Schema\Manifest\SchemaManifest;
 use HangTuah\GateTrail\Database\Schema\SchemaContext;
 
+/**
+ * @internal
+ */
 interface SchemaInspector
 {
     public function inspect(

@@ -9,6 +9,9 @@ use HangTuah\GateTrail\SystemActor;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
+/**
+ * @internal
+ */
 final class ActorIdentityResolver
 {
     public function resolve(Model|SystemActor $actor): ActorIdentity

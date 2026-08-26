@@ -6,6 +6,9 @@ namespace HangTuah\GateTrail\Database\Schema\Ddl\Oracle;
 
 use InvalidArgumentException;
 
+/**
+ * @internal
+ */
 enum OracleGeneratedKeyStrategy: string
 {
     case Identity = 'identity';

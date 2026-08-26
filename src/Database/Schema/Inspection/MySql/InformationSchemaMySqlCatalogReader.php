@@ -7,6 +7,9 @@ namespace HangTuah\GateTrail\Database\Schema\Inspection\MySql;
 use HangTuah\GateTrail\Database\Schema\SchemaContext;
 use Illuminate\Database\ConnectionInterface;
 
+/**
+ * @internal
+ */
 final readonly class InformationSchemaMySqlCatalogReader implements MySqlCatalogReader
 {
     public function __construct(

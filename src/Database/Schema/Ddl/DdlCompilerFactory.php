@@ -8,6 +8,9 @@ use HangTuah\GateTrail\Database\Schema\Ddl\MySql\MySqlDdlCompiler;
 use HangTuah\GateTrail\Database\Schema\Ddl\Oracle\OracleDdlCompiler;
 use HangTuah\GateTrail\Exceptions\DdlCompilerUnavailable;
 
+/**
+ * @internal
+ */
 final class DdlCompilerFactory
 {
     public function forDriver(string $driver): DdlCompiler

@@ -13,6 +13,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use LogicException;
 
+/**
+ * @internal
+ */
 final readonly class AssignmentConflictQuery
 {
     public function __construct(

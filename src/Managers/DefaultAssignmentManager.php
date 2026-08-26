@@ -34,6 +34,9 @@ use HangTuah\GateTrail\SystemActor;
 use Illuminate\Database\Eloquent\Model;
 use Psr\Clock\ClockInterface;
 
+/**
+ * @internal
+ */
 final readonly class DefaultAssignmentManager implements AssignmentManager
 {
     public function __construct(

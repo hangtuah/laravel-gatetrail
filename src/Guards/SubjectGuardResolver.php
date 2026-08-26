@@ -10,6 +10,9 @@ use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Eloquent\Model;
 use ReflectionMethod;
 
+/**
+ * @internal
+ */
 final readonly class SubjectGuardResolver
 {
     public function __construct(

@@ -7,6 +7,9 @@ namespace HangTuah\GateTrail\Assignments;
 use HangTuah\GateTrail\AssignmentPeriod;
 use Illuminate\Support\Collection;
 
+/**
+ * @internal
+ */
 final class AssignmentDecisionMaker
 {
     /**

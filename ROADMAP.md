@@ -202,6 +202,13 @@ documented and tested as Tier 2 surface. Corrections 5–7 are complete. This
 hardens the boundary without freezing it or completing a separate roadmap
 deliverable, so Phase 4 and all global progress figures remain unchanged.
 
+ADR 0014 **Increment 3 of 10** was completed on 2026-08-26. The accepted
+218-symbol manifest was split into 61 non-internal symbols and 157 Tier 4
+symbols; all 157 now carry class-level `@internal` annotations, with 81 added and
+none removed. Correction 11 is complete. The sweep changes documentation
+visibility only, so Phase 4 remains 19 of 20 and every global progress figure is
+unchanged.
+
 [ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md) was accepted
 on 2026-08-19; it decides the *sequencing* of cross-request caching and
 implements none of it, leaving the cache store, TTL, fan-out, generation scheme

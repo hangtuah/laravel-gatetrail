@@ -21,6 +21,9 @@ use HangTuah\GateTrail\SystemActor;
 use Illuminate\Database\Eloquent\Model;
 use Psr\Clock\ClockInterface;
 
+/**
+ * @internal
+ */
 final readonly class DefaultRoleManager implements RoleManager
 {
     public function __construct(

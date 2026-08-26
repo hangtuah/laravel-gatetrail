@@ -6,6 +6,9 @@ namespace HangTuah\GateTrail\Mutations;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @internal
+ */
 final readonly class AssignmentIdentifierNormalizer
 {
     /**

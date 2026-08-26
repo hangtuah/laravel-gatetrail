@@ -6,6 +6,9 @@ namespace HangTuah\GateTrail\Database\Schema;
 
 use HangTuah\GateTrail\Exceptions\InvalidDatabaseIdentifier;
 
+/**
+ * @internal
+ */
 final class IdentifierValidator
 {
     public const MAX_LENGTH = 30;

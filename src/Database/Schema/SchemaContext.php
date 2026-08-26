@@ -8,6 +8,9 @@ use HangTuah\GateTrail\Database\Schema\Ddl\Oracle\OracleSchemaOptions;
 use HangTuah\GateTrail\Database\Schema\Manifest\SchemaManifest;
 use InvalidArgumentException;
 
+/**
+ * @internal
+ */
 final class SchemaContext
 {
     /**

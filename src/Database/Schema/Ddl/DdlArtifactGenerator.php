@@ -7,6 +7,9 @@ namespace HangTuah\GateTrail\Database\Schema\Ddl;
 use HangTuah\GateTrail\Database\Schema\Manifest\SchemaManifest;
 use HangTuah\GateTrail\Database\Schema\SchemaContext;
 
+/**
+ * @internal
+ */
 final readonly class DdlArtifactGenerator
 {
     public const SCHEMA_RELEASE = '0001';

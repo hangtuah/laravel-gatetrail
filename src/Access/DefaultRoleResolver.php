@@ -45,6 +45,8 @@ use Illuminate\Support\Collection;
  * unchanged.
  *
  * @see docs/decisions/0012-effective-access-resolution.md
+ *
+ * @internal
  */
 final readonly class DefaultRoleResolver implements RoleResolver
 {

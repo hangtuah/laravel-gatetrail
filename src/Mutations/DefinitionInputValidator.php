@@ -7,6 +7,9 @@ namespace HangTuah\GateTrail\Mutations;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
+/**
+ * @internal
+ */
 final readonly class DefinitionInputValidator
 {
     public function name(string $value): string

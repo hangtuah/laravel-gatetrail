@@ -12,6 +12,9 @@ use HangTuah\GateTrail\Support\ModelRegistry;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
+/**
+ * @internal
+ */
 final readonly class RolePermissionInputResolver
 {
     public function __construct(

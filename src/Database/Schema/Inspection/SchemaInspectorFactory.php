@@ -11,6 +11,9 @@ use HangTuah\GateTrail\Database\Schema\Inspection\Oracle\OracleSchemaInspector;
 use HangTuah\GateTrail\Exceptions\SchemaInspectorUnavailable;
 use Illuminate\Database\ConnectionInterface;
 
+/**
+ * @internal
+ */
 final class SchemaInspectorFactory
 {
     public function forDriver(

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail\Database\Schema\Inspection;
 
+/**
+ * @internal
+ */
 final readonly class SchemaInspection
 {
     /**

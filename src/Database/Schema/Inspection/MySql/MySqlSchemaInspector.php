@@ -16,6 +16,9 @@ use HangTuah\GateTrail\Database\Schema\Manifest\SchemaManifest;
 use HangTuah\GateTrail\Database\Schema\Manifest\TableDefinition;
 use HangTuah\GateTrail\Database\Schema\SchemaContext;
 
+/**
+ * @internal
+ */
 final readonly class MySqlSchemaInspector implements SchemaInspector
 {
     public function __construct(

@@ -22,6 +22,9 @@ All notable changes to GateTrail will be documented in this file.
 - The inherited connection/table behavior of the six supported package models,
   the seven valid table keys, and all four assignment-period scopes are now
   documented and regression-tested as extension-surface constraints.
+- All 157 Tier 4 implementation symbols now carry a class-level `@internal`
+  annotation. This changes IDE and static-analysis visibility only; no runtime
+  behavior or supported symbol is changed.
 
 ### Migration guidance
 

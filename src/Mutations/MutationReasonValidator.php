@@ -6,6 +6,9 @@ namespace HangTuah\GateTrail\Mutations;
 
 use HangTuah\GateTrail\Exceptions\ReasonRequired;
 
+/**
+ * @internal
+ */
 final readonly class MutationReasonValidator
 {
     public function __construct(

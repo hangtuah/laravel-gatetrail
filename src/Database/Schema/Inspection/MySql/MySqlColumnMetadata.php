@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail\Database\Schema\Inspection\MySql;
 
+/**
+ * @internal
+ */
 final readonly class MySqlColumnMetadata
 {
     public function __construct(

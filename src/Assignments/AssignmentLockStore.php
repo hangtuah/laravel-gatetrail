@@ -15,6 +15,9 @@ use Illuminate\Database\QueryException;
 use LogicException;
 use stdClass;
 
+/**
+ * @internal
+ */
 final readonly class AssignmentLockStore
 {
     public function __construct(

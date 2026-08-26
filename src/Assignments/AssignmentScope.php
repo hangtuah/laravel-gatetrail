@@ -6,6 +6,9 @@ namespace HangTuah\GateTrail\Assignments;
 
 use InvalidArgumentException;
 
+/**
+ * @internal
+ */
 final readonly class AssignmentScope
 {
     private const FORMAT_VERSION = 'v1';

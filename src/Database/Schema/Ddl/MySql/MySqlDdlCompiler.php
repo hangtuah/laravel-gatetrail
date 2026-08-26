@@ -15,6 +15,9 @@ use HangTuah\GateTrail\Database\Schema\Manifest\TableDefinition;
 use HangTuah\GateTrail\Database\Schema\SchemaContext;
 use LogicException;
 
+/**
+ * @internal
+ */
 final class MySqlDdlCompiler implements DdlCompiler
 {
     public function compileInstall(

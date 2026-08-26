@@ -10,6 +10,9 @@ use DateTimeZone;
 use HangTuah\GateTrail\AssignmentPeriod;
 use HangTuah\GateTrail\Exceptions\InvalidAssignmentPeriod;
 
+/**
+ * @internal
+ */
 final readonly class EffectiveAssignmentPeriod
 {
     private function __construct(

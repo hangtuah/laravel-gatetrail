@@ -6,6 +6,9 @@ namespace HangTuah\GateTrail\Database\Schema\Adapters;
 
 use HangTuah\GateTrail\Database\Schema\SchemaAdapter;
 
+/**
+ * @internal
+ */
 abstract class AbstractSchemaAdapter implements SchemaAdapter
 {
     public function physicalPrimaryKeyName(string $logicalName): ?string

@@ -19,6 +19,9 @@ use HangTuah\GateTrail\Models\RolePermission;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @internal
+ */
 final class ModelRegistry
 {
     /**

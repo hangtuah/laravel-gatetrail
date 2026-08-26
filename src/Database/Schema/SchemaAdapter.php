@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail\Database\Schema;
 
+/**
+ * @internal
+ */
 interface SchemaAdapter
 {
     public function driver(): string;

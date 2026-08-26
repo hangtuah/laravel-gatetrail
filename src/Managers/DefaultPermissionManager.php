@@ -21,6 +21,9 @@ use HangTuah\GateTrail\SystemActor;
 use Illuminate\Database\Eloquent\Model;
 use Psr\Clock\ClockInterface;
 
+/**
+ * @internal
+ */
 final readonly class DefaultPermissionManager implements PermissionManager
 {
     public function __construct(

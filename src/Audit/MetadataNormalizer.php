@@ -9,6 +9,9 @@ use Illuminate\Contracts\Config\Repository;
 use JsonException;
 use stdClass;
 
+/**
+ * @internal
+ */
 final readonly class MetadataNormalizer
 {
     public function __construct(

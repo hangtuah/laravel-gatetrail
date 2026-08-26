@@ -8,6 +8,9 @@ use HangTuah\GateTrail\Database\Schema\SchemaContext;
 use Illuminate\Database\ConnectionInterface;
 use RuntimeException;
 
+/**
+ * @internal
+ */
 final readonly class AllViewsOracleCatalogReader implements OracleCatalogReader
 {
     public function __construct(
