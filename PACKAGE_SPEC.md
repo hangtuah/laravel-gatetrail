@@ -1592,6 +1592,11 @@ public function approve(User $user, Document $document): bool
 
 ### 12.5 Middleware
 
+**Status: proposed for Phase 6; not implemented.** No middleware class or alias
+below is currently registered. The names, examples and failure rules in this
+section constrain the future implementation and must not be presented as
+available consumer API until Phase 6 delivers and classifies it.
+
 Initial permission middleware aliases:
 
 ```text
@@ -1959,7 +1964,15 @@ description of existing behaviour.
 
 ## 15. Exceptions
 
-GateTrail uses specific domain exceptions. Initial exception categories:
+GateTrail uses specific exceptions and assigns them to the compatibility tiers
+accepted by [ADR 0014](docs/decisions/0014-pre-v1-public-api-boundary.md).
+Exceptions must provide safe diagnostic context without exposing sensitive
+data.
+
+### 15.1 Implemented Tier 1 exceptions
+
+These 20 exception types can escape supported manager or resolver calls and are
+part of the pre-v1 supported public API:
 
 ```text
 RoleNotFound
@@ -1968,23 +1981,55 @@ DuplicateRole
 DuplicatePermission
 DuplicateActiveAssignment
 AssignmentNotActive
+AssignmentScopeCollision
 InvalidAssignmentPeriod
 InvalidGuard
-InvalidMiddlewareParameter
 GuardMismatch
 InvalidSubject
 InvalidActor
 ReasonRequired
+InvalidAuditConfiguration
 InvalidAuditMetadata
 InvalidConcurrencyConfiguration
+InvalidModelConfiguration
 UnsupportedAfterCommitBoundary
 AuditWriteFailed
 ConcurrencyRetryExhausted
-UnauthorizedMutation
 ```
 
-Exceptions must provide safe diagnostic context without exposing sensitive
-data.
+`AssignmentScopeCollision` reports a collision in the hashed coordination scope
+used to serialize equivalent assignment mutations. `InvalidAuditConfiguration`
+reports a malformed audit-mode flag by configuration key without echoing the
+rejected value. `InvalidModelConfiguration` reports a configured model that is
+missing, is not an Eloquent model, lacks its required contract or `SoftDeletes`,
+or does not extend the required GateTrail base model.
+
+### 15.2 Implemented operational exceptions
+
+These five types surface during installation, schema inspection, DDL generation
+or migration. They use the separate operational stability policy of ADR 0014;
+they are not Tier 1 authorization exceptions:
+
+```text
+DdlCompilerUnavailable
+SchemaInspectorUnavailable
+UnsupportedDatabaseDriver
+InvalidDatabaseIdentifier
+MigrationDependencyError
+```
+
+The stable operational promise attaches primarily to generated SQL artifacts,
+provisioning modes, migration layout and publish tags—not to the internal
+compiler, inspector or adapter classes that raise these exceptions.
+
+### 15.3 Planned Phase 6 exceptions
+
+`InvalidMiddlewareParameter` and `UnauthorizedMutation` are **not implemented**.
+They are reserved names for the future middleware and Laravel-integration work
+in Phase 6 and must not be documented as currently catchable exceptions before
+that phase implements and classifies them.
+
+### 15.4 Detailed contracts
 
 `ConcurrencyRetryExhausted` is raised only when a positively classified
 assignment concurrency failure cannot be retried, or exhausts its bounded
@@ -2461,6 +2506,28 @@ No performance claim may be published without a reproducible benchmark.
 - Internal commands, handlers, repositories, adapters, and orchestration
   services are not public API.
 - Breaking changes require changelog entries and an upgrade guide.
+
+The accepted pre-v1 boundary in
+[ADR 0014](docs/decisions/0014-pre-v1-public-api-boundary.md) classifies all 218
+source symbols without freezing them:
+
+- Tier 1 contains 39 supported public symbols that consumers call, receive,
+  catch or listen to;
+- Tier 2 contains 13 consumer extension points whose documented requirements
+  are compatibility surface;
+- framework integration contains 4 reachable symbols whose effects, rather
+  than class APIs, are the supported surface;
+- the operational tier contains the 5 exception types in section 15.2, while
+  its primary promises remain artifacts and provisioning behavior; and
+- Tier 4 contains 157 implementation symbols with no compatibility promise,
+  all marked with class-level `@internal` annotations.
+
+`InvalidMiddlewareParameter`, `UnauthorizedMutation`, the proposed subject API,
+the Gate hook, middleware, Blade directives, console commands and cross-request
+cache APIs remain unimplemented and are excluded from the available public
+surface. Each future phase must classify new consumer-facing symbols before it
+can complete. The public API remains **unfrozen** until ADR 0014's ordered
+corrections, consumer documentation and final freeze review are complete.
 
 ## 23. Explicit non-goals
 

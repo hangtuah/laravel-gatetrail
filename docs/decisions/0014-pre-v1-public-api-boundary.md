@@ -8,11 +8,11 @@
   promise before `1.0.0`, and which do not.** It freezes nothing, changes no
   source, and accepts no documentation promise.
 - Public API freeze status: **not frozen**
-- Implementation status: **Increments 1–5 of 10 complete** — public signature,
+- Implementation status: **Increments 1–6 of 10 complete** — public signature,
   event-contract, package-controlled-construction, configurable-audit-model,
-  inherited-surface, internal-annotation, reflection-boundary, container and
-  event-listener corrections landed on 2026-08-26; the public API remains
-  unfrozen
+  inherited-surface, internal-annotation, reflection-boundary, container,
+  event-listener and package-specification corrections landed on 2026-08-26;
+  the public API remains unfrozen
 - Open questions O-1 to O-5: **resolved by maintainer decision, 2026-08-20**
   (section 21). Resolving them removed the last stated blocker to acceptance
   review and changed no source file.
@@ -1037,9 +1037,9 @@ section 22.
 | 5 | Resolve `AccessAudit` model validation — require the configured model to extend `Models\AccessAudit` | S-2, E-4 | **Yes** |
 | 6 | Document `GateTrailModel`'s transitive inherited surface and the seven valid `tableKey()` values | §12.3 | **Yes** |
 | 7 | Document `HasAssignmentPeriodScopes` scope stability — **decided by O-2: all four scopes are Tier 2**; record `activeAt()`'s additional two-way constraint | S-1, O-2 | **Yes** |
-| 8 | Correct the stale `Audit\AuditMode::Disabled` "Not implemented yet" comment | E-7 | No |
-| 9 | Add the eight implemented-but-undocumented exceptions to `PACKAGE_SPEC.md` section 15 | E-6, §14.4 | No |
-| 10 | Keep `InvalidMiddlewareParameter` and `UnauthorizedMutation` labelled as future/unimplemented | §14.4, §16 | No |
+| 8 | Correct the stale `Audit\AuditMode::Disabled` "Not implemented yet" comment — completed by Increment 6 | E-7 | No |
+| 9 | Add the eight implemented-but-undocumented exceptions to `PACKAGE_SPEC.md` section 15 — completed by Increment 6 | E-6, §14.4 | No |
+| 10 | Keep `InvalidMiddlewareParameter` and `UnauthorizedMutation` labelled as future/unimplemented — completed by Increment 6 | §14.4, §16 | No |
 | 11 | Apply `@internal` consistently across `Default*` classes, handlers, input resolvers, query components and infrastructure — completed by Increment 3 | E-1 | **Yes** |
 | 12 | Build a reflection-based public surface test — completed by Increment 4 | §18 | **Yes** |
 | 13 | Add contract container-resolution tests where missing, including scoped-lifecycle assertions — completed by Increment 5 | §11 | No |
@@ -1406,7 +1406,13 @@ Acceptance itself implemented nothing; delivery progress is recorded below.
   reading event-specific fields, and verifies exact safe keys plus the absence
   of snapshots, reasons, consumer metadata, credentials, exception messages,
   traces and object values.
-- [ ] Increments 6–10 remain outstanding.
+- [x] **Increment 6 — `PACKAGE_SPEC.md` alignment.** Completed on 2026-08-26.
+  The specification now records all 20 implemented Tier 1 and 5 operational
+  exceptions, keeps both planned Phase 6 exception names unavailable, labels
+  the middleware design as proposed, and reconciles public-stability language
+  with the accepted five-tier boundary. `AuditMode::Disabled` now documents its
+  implemented mutation-and-event behavior instead of claiming it is pending.
+- [ ] Increments 7–10 remain outstanding.
 
 Targeted reflection tests pin the corrected annotations, event contract,
 constructor visibility and factory boundary. The full SQLite suite, PHPStan at
@@ -1421,6 +1427,8 @@ Increment 4 adds two targeted tests with 443 assertions and changes no runtime
 source.
 Increment 5 extends the existing resolver-container suite and adds the generic
 event-listener acceptance test; it changes no runtime source.
+Increment 6 changes specification and source commentary only; no executable
+statement changes.
 
 Increments 1 and 2 change runtime behavior and must not be combined. Increment 3
 is mechanical and touches no logic. Increment 8 depends on increments 1–7 because

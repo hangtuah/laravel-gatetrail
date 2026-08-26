@@ -24,7 +24,8 @@ enum AuditMode
     case NonStrict;
 
     /**
-     * No audit write is attempted. Not implemented yet.
+     * No audit write is attempted. The mutation still commits and announces
+     * its durable change with a null audit identifier.
      */
     case Disabled;
 }

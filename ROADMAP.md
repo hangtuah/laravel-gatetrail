@@ -224,6 +224,15 @@ and `AuditPersistenceFailed`, consumes their safe contexts generically and uses
 explicit narrowing for event-specific fields. Correction 13 is complete. This
 test hardening changes no roadmap deliverable or global progress figure.
 
+ADR 0014 **Increment 6 of 10** was completed on 2026-08-26. `PACKAGE_SPEC.md`
+now classifies all 25 implemented exceptions as 20 Tier 1 and 5 operational
+types, keeps `InvalidMiddlewareParameter` and `UnauthorizedMutation` explicitly
+unimplemented for Phase 6, labels the middleware design as proposed, and aligns
+its public-stability section with the accepted 218-symbol boundary. The stale
+`AuditMode::Disabled` comment now describes its implemented behavior. Corrections
+8–10 are complete. This documentation alignment changes no roadmap deliverable
+or global progress figure.
+
 [ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md) was accepted
 on 2026-08-19; it decides the *sequencing* of cross-request caching and
 implements none of it, leaving the cache store, TTL, fan-out, generation scheme

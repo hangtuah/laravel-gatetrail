@@ -31,6 +31,10 @@ All notable changes to GateTrail will be documented in this file.
 - Container and event-listener safeguards now pin all five public service
   bindings, the resolver scope lifecycle and generic `GateTrailEvent` delivery
   for both mutation-commit and audit-persistence-failure events.
+- The package specification now records all 25 implemented exceptions in their
+  accepted Tier 1 or operational category, labels the two planned Phase 6
+  exceptions and middleware as unimplemented, and reflects the working disabled
+  audit mode.
 
 ### Migration guidance
 
