@@ -28,6 +28,9 @@ All notable changes to GateTrail will be documented in this file.
 - A reflection-based boundary test now rejects unclassified source symbols,
   missing Tier 4 annotations and drift in the accepted Tier 1 and Tier 2
   signatures, readable fields, constants, enum values and constructors.
+- Container and event-listener safeguards now pin all five public service
+  bindings, the resolver scope lifecycle and generic `GateTrailEvent` delivery
+  for both mutation-commit and audit-persistence-failure events.
 
 ### Migration guidance
 

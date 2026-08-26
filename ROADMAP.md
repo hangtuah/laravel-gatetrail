@@ -216,6 +216,14 @@ runtime surface of all 39 Tier 1 and 13 Tier 2 symbols. Correction 12 is complet
 This safeguard completes no separate roadmap deliverable, so Phase 4 remains
 19 of 20 and every global progress figure is unchanged.
 
+ADR 0014 **Increment 5 of 10** was completed on 2026-08-26. Container tests now
+pin all five public contract-to-concrete bindings and prove that the two public
+resolvers are replaced across scope boundaries while the three managers remain
+singletons. A contract-typed event listener receives both `MutationCommitted`
+and `AuditPersistenceFailed`, consumes their safe contexts generically and uses
+explicit narrowing for event-specific fields. Correction 13 is complete. This
+test hardening changes no roadmap deliverable or global progress figure.
+
 [ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md) was accepted
 on 2026-08-19; it decides the *sequencing* of cross-request caching and
 implements none of it, leaving the cache store, TTL, fan-out, generation scheme

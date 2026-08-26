@@ -17,6 +17,9 @@ use HangTuah\GateTrail\Contracts\PermissionManager;
 use HangTuah\GateTrail\Contracts\PermissionResolver;
 use HangTuah\GateTrail\Contracts\RoleManager;
 use HangTuah\GateTrail\Contracts\RoleResolver;
+use HangTuah\GateTrail\Managers\DefaultAssignmentManager;
+use HangTuah\GateTrail\Managers\DefaultPermissionManager;
+use HangTuah\GateTrail\Managers\DefaultRoleManager;
 use HangTuah\GateTrail\Tests\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionProperty;
@@ -46,6 +49,20 @@ final class ResolverContainerTest extends TestCase
         return [
             'permission' => [PermissionResolver::class, DefaultPermissionResolver::class],
             'role' => [RoleResolver::class, DefaultRoleResolver::class],
+        ];
+    }
+
+    /**
+     * @return array<string, array{class-string, class-string}>
+     */
+    public static function publicServices(): array
+    {
+        return [
+            'assignment manager' => [AssignmentManager::class, DefaultAssignmentManager::class],
+            'role manager' => [RoleManager::class, DefaultRoleManager::class],
+            'permission manager' => [PermissionManager::class, DefaultPermissionManager::class],
+            'permission resolver' => [PermissionResolver::class, DefaultPermissionResolver::class],
+            'role resolver' => [RoleResolver::class, DefaultRoleResolver::class],
         ];
     }
 
@@ -82,8 +99,8 @@ final class ResolverContainerTest extends TestCase
 
     // -------------------------------------------------------------- Bindings
 
-    #[DataProvider('resolvers')]
-    public function test_each_contract_resolves_to_its_real_adapter(
+    #[DataProvider('publicServices')]
+    public function test_each_public_contract_resolves_to_its_expected_concrete(
         string $contract,
         string $concrete,
     ): void {
