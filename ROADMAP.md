@@ -209,6 +209,13 @@ none removed. Correction 11 is complete. The sweep changes documentation
 visibility only, so Phase 4 remains 19 of 20 and every global progress figure is
 unchanged.
 
+ADR 0014 **Increment 4 of 10** was completed on 2026-08-26. A reflection-based
+boundary test now classifies all 218 source symbols, requires the 157 Tier 4
+symbols to retain real class-level `@internal` tags and snapshots the exact
+runtime surface of all 39 Tier 1 and 13 Tier 2 symbols. Correction 12 is complete.
+This safeguard completes no separate roadmap deliverable, so Phase 4 remains
+19 of 20 and every global progress figure is unchanged.
+
 [ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md) was accepted
 on 2026-08-19; it decides the *sequencing* of cross-request caching and
 implements none of it, leaving the cache store, TTL, fan-out, generation scheme

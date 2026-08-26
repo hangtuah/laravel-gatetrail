@@ -25,6 +25,9 @@ All notable changes to GateTrail will be documented in this file.
 - All 157 Tier 4 implementation symbols now carry a class-level `@internal`
   annotation. This changes IDE and static-analysis visibility only; no runtime
   behavior or supported symbol is changed.
+- A reflection-based boundary test now rejects unclassified source symbols,
+  missing Tier 4 annotations and drift in the accepted Tier 1 and Tier 2
+  signatures, readable fields, constants, enum values and constructors.
 
 ### Migration guidance
 
