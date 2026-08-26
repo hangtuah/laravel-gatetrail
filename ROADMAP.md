@@ -1,6 +1,6 @@
 # GateTrail Roadmap and Implementation Guide
 
-Last updated: 2026-08-19
+Last updated: 2026-08-26
 
 ## 1. Purpose
 
@@ -159,13 +159,13 @@ Accepted architecture decisions:
 | 0011 | Retry only assignment coordination on confirmed transient failures | Accepted |
 | 0012 | Resolve effective access once and expose it through two thin contracts | Accepted |
 | 0013 | Keep the after-commit invalidation slot reserved and defer cross-request caching to Phase 8 | Accepted |
+| 0014 | Define the pre-v1 public API boundary | Accepted |
 
-One proposed architecture decision is currently outstanding.
 [ADR 0014](docs/decisions/0014-pre-v1-public-api-boundary.md) — *Define the
-Pre-v1 Public API Boundary* — is **Proposed** as of 2026-08-19. It is drafted on
+Pre-v1 Public API Boundary* — was **Accepted** on 2026-08-26. It is based on
 the complete 218-symbol inventory in
 [Public API Inventory 0002](docs/reviews/0002-public-api-inventory.md) and
-proposes five compatibility tiers: 39 supported public symbols, 13 consumer
+defines five compatibility tiers: 39 supported public symbols, 13 consumer
 extension points, 4 framework integration surfaces, 5 operational exception
 types and 157 internal symbols. It also records fifteen corrections required
 before any freeze, nine of which block it.
@@ -179,11 +179,12 @@ validation keeps PHP's `InvalidArgumentException` with its behavior documented
 instead of gaining new exception types. **No open question remains.** The tier
 counts are unchanged by these decisions.
 
-**No API is frozen.** No source file, annotation or signature changed, no
-documentation promise is accepted, and the boundary itself is not accepted until
-ADR 0014 is. Phase 4 therefore remains **19 of 20 = 95%**, Phase 5 remains
-**100%**, overall equal-phase progress remains **approximately 41%**, and the
-deliverable tracker remains **12 of 32, approximately 38%**.
+**No API is frozen.** Accepting ADR 0014 settles the boundary and authorises its
+ordered correction increments; it does not itself change a source file,
+annotation or signature, accept a documentation promise, or complete Phase 4.
+Phase 4 therefore remains **19 of 20 = 95%**, Phase 5 remains **100%**, overall
+equal-phase progress remains **approximately 41%**, and the deliverable tracker
+remains **12 of 32, approximately 38%**.
 
 [ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md) was accepted
 on 2026-08-19; it decides the *sequencing* of cross-request caching and

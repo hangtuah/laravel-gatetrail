@@ -1,15 +1,18 @@
 # ADR 0014: Define the Pre-v1 Public API Boundary
 
-- Status: **Proposed**
+- Status: **Accepted**
 - Proposed: 2026-08-19
+- Accepted: 2026-08-26
 - Decision owners: GateTrail maintainers
 - **What this ADR decides: which implemented symbols receive a compatibility
   promise before `1.0.0`, and which do not.** It freezes nothing, changes no
   source, and accepts no documentation promise.
 - Public API freeze status: **not frozen**
+- Implementation status: **not started** — acceptance authorises the ordered
+  correction increments in section 22; it changes no source or public API
 - Open questions O-1 to O-5: **resolved by maintainer decision, 2026-08-20**
-  (section 21). The ADR remains **Proposed**; resolving them removes the last
-  stated blocker to reviewing it, and changes no source file.
+  (section 21). Resolving them removed the last stated blocker to acceptance
+  review and changed no source file.
 - Evidence base: [Public API Inventory 0002](../reviews/0002-public-api-inventory.md),
   218 symbols at commit `992af7b`
 - Supersedes: nothing. Refines the compatibility rules of `PACKAGE_SPEC.md`
@@ -147,9 +150,9 @@ The inventory established the distinction; this ADR makes it normative.
 > the language, not a promise. This is the rule ADR 0012 already applied to
 > `EffectivePermission::of()`; this ADR generalizes it to the whole package.
 
-**Nothing in this ADR is frozen.** Status is Proposed. Acceptance of this ADR
-would settle the *boundary*; the freeze itself is a later, separate act that
-cannot occur until the section 17 corrections land.
+**Nothing in this ADR is frozen.** Acceptance settles the *boundary*; the freeze
+itself is a later, separate act that cannot occur until the section 17
+corrections land.
 
 ## 4. Compatibility tiers
 
@@ -1374,7 +1377,7 @@ to prevent.
 
 ## 23. Acceptance criteria
 
-This ADR may be accepted when:
+This ADR was accepted on 2026-08-26 after maintainers confirmed that:
 
 1. Maintainers agree with the five-tier model of section 4 and the
    reachable-versus-supported distinction of section 3.
@@ -1414,6 +1417,11 @@ section 22; make the correction backlog binding.
 **Acceptance would not:** freeze any API; change any source file, annotation or
 signature; accept any documentation promise; complete Phase 4; or alter any
 progress figure. Phase 4 remains **19 of 20 = 95%** until increment 10.
+
+All twelve acceptance criteria above are satisfied. Acceptance settles the
+boundary and makes the correction backlog binding; implementation evidence will
+be recorded increment by increment. The public API remains explicitly unfrozen
+until increment 10 completes the independent review and Phase 4 acceptance.
 
 ## References
 
