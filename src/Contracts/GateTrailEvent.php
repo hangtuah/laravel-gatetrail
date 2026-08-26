@@ -12,4 +12,12 @@ namespace HangTuah\GateTrail\Contracts;
  * It does not resolve listeners registered against a parent class, which is
  * why the package marks its events rather than sharing a base class.
  */
-interface GateTrailEvent {}
+interface GateTrailEvent
+{
+    /**
+     * The event-specific safe context exposed to generic listeners.
+     *
+     * @return array<string, mixed>
+     */
+    public function context(): array;
+}

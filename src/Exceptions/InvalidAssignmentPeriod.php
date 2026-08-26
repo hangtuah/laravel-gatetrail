@@ -9,6 +9,11 @@ use InvalidArgumentException;
 
 final class InvalidAssignmentPeriod extends InvalidArgumentException
 {
+    private function __construct(string $message)
+    {
+        parent::__construct($message);
+    }
+
     public static function expiryNotAfterStart(
         DateTimeInterface $startsAt,
         DateTimeInterface $expiresAt,

@@ -8,6 +8,11 @@ use InvalidArgumentException;
 
 final class InvalidModelConfiguration extends InvalidArgumentException
 {
+    private function __construct(string $message)
+    {
+        parent::__construct($message);
+    }
+
     public static function missing(string $key): self
     {
         return new self(sprintf(

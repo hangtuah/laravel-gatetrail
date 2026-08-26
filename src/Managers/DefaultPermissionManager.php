@@ -6,7 +6,6 @@ namespace HangTuah\GateTrail\Managers;
 
 use HangTuah\GateTrail\Contracts\PermissionContract;
 use HangTuah\GateTrail\Contracts\PermissionManager;
-use HangTuah\GateTrail\Models\Permission;
 use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\Commands\CreatePermissionCommand;
 use HangTuah\GateTrail\Mutations\Commands\DeactivatePermissionCommand;
@@ -34,7 +33,7 @@ final readonly class DefaultPermissionManager implements PermissionManager
 
     /**
      * @param  array<string, mixed>  $metadata
-     * @return MutationResult<Permission>
+     * @return MutationResult<Model&PermissionContract>
      */
     public function create(
         string $name,

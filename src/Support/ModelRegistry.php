@@ -29,26 +29,46 @@ final class ModelRegistry
     ) {}
 
     /**
-     * @return class-string<Role&RoleContract>
+     * @return class-string<Model&RoleContract>
+     *
+     * @phpstan-return class-string<Role&RoleContract>
      */
     public function role(): string
     {
-        /** @var class-string<Role&RoleContract> */
-        return $this->resolve('role', Role::class, RoleContract::class, true);
+        /** @var class-string<Model&RoleContract> $class */
+        $class = $this->resolve(
+            'role',
+            Role::class,
+            RoleContract::class,
+            true,
+        );
+
+        // PHPStan cannot express the runtime-validated SoftDeletes trait in a
+        // class-string intersection. The default base supplies the equivalent
+        // internal query surface; live custom-model tests guard portability.
+        /** @phpstan-var class-string<Role&RoleContract> $class */
+        return $class;
     }
 
     /**
-     * @return class-string<Permission&PermissionContract>
+     * @return class-string<Model&PermissionContract>
+     *
+     * @phpstan-return class-string<Permission&PermissionContract>
      */
     public function permission(): string
     {
-        /** @var class-string<Permission&PermissionContract> */
-        return $this->resolve(
+        /** @var class-string<Model&PermissionContract> $class */
+        $class = $this->resolve(
             'permission',
             Permission::class,
             PermissionContract::class,
             true,
         );
+
+        // See role(): the PHPStan refinement represents the validated internal
+        // query capability, not a requirement to extend the default model.
+        /** @phpstan-var class-string<Permission&PermissionContract> $class */
+        return $class;
     }
 
     /**

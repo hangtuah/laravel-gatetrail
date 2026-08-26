@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace HangTuah\GateTrail\Events;
 
 use HangTuah\GateTrail\Audit\PendingAuditRecord;
+use HangTuah\GateTrail\Contracts\GateTrailEvent;
 use HangTuah\GateTrail\Exceptions\AuditWriteFailed;
 use Throwable;
 
@@ -20,9 +21,9 @@ use Throwable;
  * deliberately excluded: this event travels to logs, queues, and external
  * monitoring, none of which are audit storage.
  */
-final readonly class AuditPersistenceFailed
+final readonly class AuditPersistenceFailed implements GateTrailEvent
 {
-    public function __construct(
+    private function __construct(
         public string $event,
         public string $targetType,
         public int|string $targetId,
@@ -32,6 +33,9 @@ final readonly class AuditPersistenceFailed
         public string $exceptionClass,
     ) {}
 
+    /**
+     * @internal
+     */
     public static function forRecord(
         PendingAuditRecord $record,
         Throwable $failure,

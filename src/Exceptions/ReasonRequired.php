@@ -8,6 +8,11 @@ use InvalidArgumentException;
 
 final class ReasonRequired extends InvalidArgumentException
 {
+    private function __construct(string $message)
+    {
+        parent::__construct($message);
+    }
+
     public static function forAssignment(): self
     {
         return new self(

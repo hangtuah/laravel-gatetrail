@@ -12,7 +12,6 @@ use HangTuah\GateTrail\Audit\SensitiveAuditValueRedactor;
 use HangTuah\GateTrail\Contracts\RoleContract;
 use HangTuah\GateTrail\Database\UniqueConstraintViolationClassifier;
 use HangTuah\GateTrail\Exceptions\DuplicateRole;
-use HangTuah\GateTrail\Models\Role;
 use HangTuah\GateTrail\MutationOutcome;
 use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
@@ -50,7 +49,7 @@ final readonly class CreateRoleHandler
     ) {}
 
     /**
-     * @return MutationResult<Role&RoleContract>
+     * @return MutationResult<Model&RoleContract>
      */
     public function handle(CreateRoleCommand $command): MutationResult
     {

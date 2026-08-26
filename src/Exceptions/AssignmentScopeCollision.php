@@ -9,6 +9,11 @@ use RuntimeException;
 
 final class AssignmentScopeCollision extends RuntimeException
 {
+    private function __construct(string $message)
+    {
+        parent::__construct($message);
+    }
+
     public static function forScope(AssignmentScope $scope): self
     {
         return new self(

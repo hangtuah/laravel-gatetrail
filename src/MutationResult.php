@@ -8,12 +8,14 @@ use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 
 /**
- * @template TResource of Model
+ * @template-covariant TResource of Model
  */
 final readonly class MutationResult
 {
     /**
      * @param  TResource  $resource
+     *
+     * @internal
      */
     public function __construct(
         public Model $resource,

@@ -186,6 +186,14 @@ Phase 4 therefore remains **19 of 20 = 95%**, Phase 5 remains **100%**, overall
 equal-phase progress remains **approximately 41%**, and the deliverable tracker
 remains **12 of 32, approximately 38%**.
 
+ADR 0014 **Increment 1 of 10** was completed on 2026-08-26. It corrects the
+configurable-model result generics, makes `GateTrailEvent::context()` a typed
+contract implemented by both package events, and aligns package-controlled
+constructors. Targeted reflection tests and `CHANGELOG.md` migration guidance
+pin the new boundary. This completes corrections 1–4 but does not freeze the API
+or complete another roadmap deliverable, so every progress figure above remains
+unchanged.
+
 [ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md) was accepted
 on 2026-08-19; it decides the *sequencing* of cross-request caching and
 implements none of it, leaving the cache store, TTL, fan-out, generation scheme

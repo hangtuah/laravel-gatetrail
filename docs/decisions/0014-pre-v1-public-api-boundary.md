@@ -8,8 +8,9 @@
   promise before `1.0.0`, and which do not.** It freezes nothing, changes no
   source, and accepts no documentation promise.
 - Public API freeze status: **not frozen**
-- Implementation status: **not started** — acceptance authorises the ordered
-  correction increments in section 22; it changes no source or public API
+- Implementation status: **Increment 1 of 10 complete** — public signature,
+  event-contract and package-controlled-construction corrections landed on
+  2026-08-26; the public API remains unfrozen
 - Open questions O-1 to O-5: **resolved by maintainer decision, 2026-08-20**
   (section 21). Resolving them removed the last stated blocker to acceptance
   review and changed no source file.
@@ -1355,7 +1356,7 @@ surface test. Recorded in §14.5.
 ## 22. Ordered post-acceptance increments
 
 Each increment is atomic, independently reviewable, and leaves the suite green.
-**No implementation occurs in this ADR draft.**
+Acceptance itself implemented nothing; delivery progress is recorded below.
 
 | # | Increment | Contents | Corrections |
 |---:|---|---|---|
@@ -1369,6 +1370,24 @@ Each increment is atomic, independently reviewable, and leaves the suite green.
 | 8 | **README and consumer guide** | installation, configuration, publishing, migration, a first mutation and a first check, and the tier boundary — **written only now**, against the corrected surface | 14 |
 | 9 | **Final independent freeze review** | verify every blocking correction landed; verify no Phase 6–13 surface is documented as available; verify the surface test matches `PUBLIC_API.md` | — |
 | 10 | **Phase 4 acceptance and completion** | accept the freeze; check the final Phase 4 item; recompute Phase 4 to 20 of 20 | — |
+
+### 22.1 Implementation progress
+
+- [x] **Increment 1 — Public signature and event corrections.** Completed on
+  2026-08-26. The configurable-model generics are honest across both manager
+  contracts, default managers, create handlers and `ModelRegistry`;
+  `GateTrailEvent` declares `context(): array`; `AuditPersistenceFailed`
+  implements it with package-controlled construction; `MutationResult` and
+  `ActorIdentity` construction is explicitly internal; and all seven
+  factory-created Tier 1 exceptions now have private constructors.
+- [ ] Increments 2–10 remain outstanding.
+
+Targeted reflection tests pin the corrected annotations, event contract,
+constructor visibility and factory boundary. The full SQLite suite, PHPStan at
+level max, Pint and Composer validation are the acceptance gates for this
+increment. `CHANGELOG.md` records the pre-v1 behavioral change and tells
+catch-all event listeners to narrow with `instanceof MutationCommitted` before
+reading mutation-specific fields.
 
 Increments 1 and 2 change runtime behavior and must not be combined. Increment 3
 is mechanical and touches no logic. Increment 8 depends on increments 1–7 because

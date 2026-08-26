@@ -12,7 +12,6 @@ use HangTuah\GateTrail\Audit\SensitiveAuditValueRedactor;
 use HangTuah\GateTrail\Contracts\PermissionContract;
 use HangTuah\GateTrail\Database\UniqueConstraintViolationClassifier;
 use HangTuah\GateTrail\Exceptions\DuplicatePermission;
-use HangTuah\GateTrail\Models\Permission;
 use HangTuah\GateTrail\MutationOutcome;
 use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\ActorIdentityResolver;
@@ -50,7 +49,7 @@ final readonly class CreatePermissionHandler
     ) {}
 
     /**
-     * @return MutationResult<Permission&PermissionContract>
+     * @return MutationResult<Model&PermissionContract>
      */
     public function handle(CreatePermissionCommand $command): MutationResult
     {

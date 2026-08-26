@@ -6,7 +6,6 @@ namespace HangTuah\GateTrail\Managers;
 
 use HangTuah\GateTrail\Contracts\RoleContract;
 use HangTuah\GateTrail\Contracts\RoleManager;
-use HangTuah\GateTrail\Models\Role;
 use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\Mutations\Commands\CreateRoleCommand;
 use HangTuah\GateTrail\Mutations\Commands\DeactivateRoleCommand;
@@ -34,7 +33,7 @@ final readonly class DefaultRoleManager implements RoleManager
 
     /**
      * @param  array<string, mixed>  $metadata
-     * @return MutationResult<Role>
+     * @return MutationResult<Model&RoleContract>
      */
     public function create(
         string $name,

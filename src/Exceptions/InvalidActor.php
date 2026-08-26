@@ -8,6 +8,11 @@ use InvalidArgumentException;
 
 final class InvalidActor extends InvalidArgumentException
 {
+    private function __construct(string $message)
+    {
+        parent::__construct($message);
+    }
+
     public static function emptySystemName(): self
     {
         return new self('GateTrail system actor name cannot be empty.');

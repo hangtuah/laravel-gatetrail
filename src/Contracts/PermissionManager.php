@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail\Contracts;
 
-use HangTuah\GateTrail\Models\Permission;
 use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\PermissionChanges;
 use HangTuah\GateTrail\PermissionReference;
@@ -15,7 +14,7 @@ interface PermissionManager
 {
     /**
      * @param  array<string, mixed>  $metadata
-     * @return MutationResult<Permission>
+     * @return MutationResult<Model&PermissionContract>
      */
     public function create(
         string $name,

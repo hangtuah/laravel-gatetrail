@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail\Contracts;
 
-use HangTuah\GateTrail\Models\Role;
 use HangTuah\GateTrail\MutationResult;
 use HangTuah\GateTrail\RoleChanges;
 use HangTuah\GateTrail\RoleReference;
@@ -15,7 +14,7 @@ interface RoleManager
 {
     /**
      * @param  array<string, mixed>  $metadata
-     * @return MutationResult<Role>
+     * @return MutationResult<Model&RoleContract>
      */
     public function create(
         string $name,

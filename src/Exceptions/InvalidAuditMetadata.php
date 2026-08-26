@@ -9,6 +9,14 @@ use Throwable;
 
 final class InvalidAuditMetadata extends InvalidArgumentException
 {
+    private function __construct(
+        string $message,
+        int $code = 0,
+        ?Throwable $previous = null,
+    ) {
+        parent::__construct($message, $code, $previous);
+    }
+
     public static function topLevelMustBeObject(): self
     {
         return new self(
