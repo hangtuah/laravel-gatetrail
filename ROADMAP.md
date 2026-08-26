@@ -194,6 +194,14 @@ pin the new boundary. This completes corrections 1–4 but does not freeze the A
 or complete another roadmap deliverable, so every progress figure above remains
 unchanged.
 
+ADR 0014 **Increment 2 of 10** was completed on 2026-08-26. The configured
+access-audit model must now extend `Models\AccessAudit`; the observable
+connection/table behavior inherited by the six supported concrete models and
+all seven table keys is pinned; and all four assignment-period scopes are
+documented and tested as Tier 2 surface. Corrections 5–7 are complete. This
+hardens the boundary without freezing it or completing a separate roadmap
+deliverable, so Phase 4 and all global progress figures remain unchanged.
+
 [ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md) was accepted
 on 2026-08-19; it decides the *sequencing* of cross-request caching and
 implements none of it, leaving the cache store, TTL, fan-out, generation scheme

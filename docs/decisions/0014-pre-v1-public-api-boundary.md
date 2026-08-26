@@ -8,9 +8,10 @@
   promise before `1.0.0`, and which do not.** It freezes nothing, changes no
   source, and accepts no documentation promise.
 - Public API freeze status: **not frozen**
-- Implementation status: **Increment 1 of 10 complete** — public signature,
-  event-contract and package-controlled-construction corrections landed on
-  2026-08-26; the public API remains unfrozen
+- Implementation status: **Increments 1–2 of 10 complete** — public signature,
+  event-contract, package-controlled-construction, configurable-audit-model and
+  inherited-surface corrections landed on 2026-08-26; the public API remains
+  unfrozen
 - Open questions O-1 to O-5: **resolved by maintainer decision, 2026-08-20**
   (section 21). Resolving them removed the last stated blocker to acceptance
   review and changed no source file.
@@ -699,7 +700,7 @@ existing consumer models; loosening one is safe.**
 | `role_assignment` | `Models\RoleAssignment` | yes | `RoleAssignmentContract` | **yes** | **no** |
 | `permission_assignment` | `Models\PermissionAssignment` | yes | `PermissionAssignmentContract` | **yes** | **no** |
 | `role_permission` | `Models\RolePermission` | yes | `RolePermissionContract` | **yes** | **no** |
-| `access_audit` | `Models\AccessAudit` | yes | **none** | **no** | **no** |
+| `access_audit` | `Models\AccessAudit` | yes | **none** | **yes** | **no** |
 
 ### 12.2 Three deliberate decisions about this table
 
@@ -728,11 +729,11 @@ the lifecycle design in spec 9.
 S-2, the writer relies on three inherited behaviors that nothing validates:
 `getConnectionName()`, `getTable()` via `tableKey() === 'access_audits'`, and
 `const UPDATED_AT = null` against a table with no `updated_at` column. The
-recommendation is to **require a configured access-audit model to extend
-`Models\AccessAudit`**. An empty `AccessAuditContract` added for symmetry is
-explicitly rejected: it would guarantee none of the three. This is recorded as
-correction 5 and **is not applied by this ADR**; it changes runtime validation
-behavior and needs its own increment.
+accepted correction requires a configured access-audit model to extend
+`Models\AccessAudit`. An empty `AccessAuditContract` added for symmetry is
+explicitly rejected: it would guarantee none of the three. Increment 2 applies
+that runtime validation and supplies regression coverage for both rejection of
+an independent Eloquent model and acceptance of an `AccessAudit` subclass.
 
 ### 12.3 The transitive inherited surface
 
@@ -1380,14 +1381,21 @@ Acceptance itself implemented nothing; delivery progress is recorded below.
   implements it with package-controlled construction; `MutationResult` and
   `ActorIdentity` construction is explicitly internal; and all seven
   factory-created Tier 1 exceptions now have private constructors.
-- [ ] Increments 2–10 remain outstanding.
+- [x] **Increment 2 — Configurable-model validation and inherited surface.**
+  Completed on 2026-08-26. A configured access-audit model must extend
+  `Models\AccessAudit`; the inherited connection/table behavior of all six
+  supported concrete models and the seven valid table keys are pinned; and all
+  four assignment-period scopes are documented and tested as Tier 2 surface,
+  including `activeAt()`'s two-way authorization constraint.
+- [ ] Increments 3–10 remain outstanding.
 
 Targeted reflection tests pin the corrected annotations, event contract,
 constructor visibility and factory boundary. The full SQLite suite, PHPStan at
 level max, Pint and Composer validation are the acceptance gates for this
 increment. `CHANGELOG.md` records the pre-v1 behavioral change and tells
 catch-all event listeners to narrow with `instanceof MutationCommitted` before
-reading mutation-specific fields.
+reading mutation-specific fields. Increment 2 adds targeted model-configuration,
+inherited-signature and scope-surface tests under the same quality gates.
 
 Increments 1 and 2 change runtime behavior and must not be combined. Increment 3
 is mechanical and touches no logic. Increment 8 depends on increments 1–7 because

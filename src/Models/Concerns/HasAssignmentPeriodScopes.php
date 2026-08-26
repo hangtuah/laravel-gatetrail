@@ -7,6 +7,13 @@ namespace HangTuah\GateTrail\Models\Concerns;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 
+/**
+ * Stable lifecycle query surface inherited by all assignment models.
+ *
+ * All four scopes are Tier 2 extension API. Effective-access resolution also
+ * depends on activeAt(), so its half-open lifecycle semantics constrain both
+ * consumer queries and GateTrail's authorization result.
+ */
 trait HasAssignmentPeriodScopes
 {
     /**

@@ -145,6 +145,40 @@ final class ModelConfigurationTest extends TestCase
             $registry->rolePermission(),
         );
     }
+
+    public function test_access_audit_model_must_extend_the_package_base(): void
+    {
+        config()->set(
+            'gatetrail.models.access_audit',
+            IndependentAccessAudit::class,
+        );
+
+        $this->expectException(InvalidModelConfiguration::class);
+        $this->expectExceptionMessage(sprintf(
+            'must extend [%s]',
+            AccessAudit::class,
+        ));
+
+        app(ModelRegistry::class)->accessAudit();
+    }
+
+    public function test_access_audit_subclass_resolves_from_configuration(): void
+    {
+        config()->set(
+            'gatetrail.models.access_audit',
+            ExtendedAccessAudit::class,
+        );
+
+        $this->assertSame(
+            ExtendedAccessAudit::class,
+            app(ModelRegistry::class)->accessAudit(),
+        );
+        $this->assertNull(ExtendedAccessAudit::UPDATED_AT);
+        $this->assertSame(
+            'acl_access_audits',
+            (new ExtendedAccessAudit)->getTable(),
+        );
+    }
 }
 
 final class CustomRole extends Role {}
@@ -164,3 +198,7 @@ final class ExtendedRoleAssignment extends RoleAssignment {}
 final class ExtendedPermissionAssignment extends PermissionAssignment {}
 
 final class ExtendedRolePermission extends RolePermission {}
+
+final class IndependentAccessAudit extends Model {}
+
+final class ExtendedAccessAudit extends AccessAudit {}

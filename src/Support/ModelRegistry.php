@@ -119,7 +119,11 @@ final class ModelRegistry
     public function accessAudit(): string
     {
         /** @var class-string<AccessAudit> */
-        return $this->resolve('access_audit', AccessAudit::class);
+        return $this->resolve(
+            'access_audit',
+            AccessAudit::class,
+            requiresBaseModel: true,
+        );
     }
 
     /**

@@ -16,6 +16,12 @@ All notable changes to GateTrail will be documented in this file.
 - Constructors used only by GateTrail are now private or explicitly marked
   `@internal`; consumers should obtain results and events from package APIs and
   catch exceptions produced by their named factories.
+- A configured `access_audit` model must now extend `Models\AccessAudit`, which
+  guarantees GateTrail connection/table resolution and the absence of an
+  `updated_at` write.
+- The inherited connection/table behavior of the six supported package models,
+  the seven valid table keys, and all four assignment-period scopes are now
+  documented and regression-tested as extension-surface constraints.
 
 ### Migration guidance
 
@@ -25,3 +31,7 @@ All notable changes to GateTrail will be documented in this file.
 - Do not construct `AuditPersistenceFailed`, `ActorIdentity`, GateTrail
   exceptions, or authentic mutation results in consumer code. Their construction
   is package-controlled and is not part of the pre-v1 compatibility promise.
+- Change a custom audit model that extends Eloquent `Model` directly to extend
+  `HangTuah\GateTrail\Models\AccessAudit` instead. Custom role and permission
+  models remain independent Eloquent models when they satisfy their existing
+  marker-contract and `SoftDeletes` requirements.
