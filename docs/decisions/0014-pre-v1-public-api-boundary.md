@@ -8,11 +8,11 @@
   promise before `1.0.0`, and which do not.** It freezes nothing, changes no
   source, and accepts no documentation promise.
 - Public API freeze status: **not frozen**
-- Implementation status: **Increments 1–6 of 10 complete** — public signature,
+- Implementation status: **Increments 1–7 of 10 complete** — public signature,
   event-contract, package-controlled-construction, configurable-audit-model,
   inherited-surface, internal-annotation, reflection-boundary, container,
-  event-listener and package-specification corrections landed on 2026-08-26;
-  the public API remains unfrozen
+  event-listener, package-specification and authoritative-public-API corrections
+  landed on 2026-08-26; the public API remains unfrozen
 - Open questions O-1 to O-5: **resolved by maintainer decision, 2026-08-20**
   (section 21). Resolving them removed the last stated blocker to acceptance
   review and changed no source file.
@@ -1044,7 +1044,7 @@ section 22.
 | 12 | Build a reflection-based public surface test — completed by Increment 4 | §18 | **Yes** |
 | 13 | Add contract container-resolution tests where missing, including scoped-lifecycle assertions — completed by Increment 5 | §11 | No |
 | 14 | Write `README.md` and the consumer guide **only after** the corrected surface exists | E-5 | **Yes** — for Phase 4, not for this ADR |
-| 15 | Document the exact `InvalidArgumentException` throw behavior of the six Tier 1 validation sites and assert it in the surface test | O-5, §14.5 | No |
+| 15 | Document the exact `InvalidArgumentException` throw behavior of the six Tier 1 validation sites and assert it in the surface test — completed by Increment 7 | O-5, §14.5 | No |
 
 **Nine of the fifteen block the freeze.** Corrections 1–7 and 11–12 change what
 would otherwise be frozen; 14 is the Phase 4 deliverable itself. Corrections 8,
@@ -1412,7 +1412,13 @@ Acceptance itself implemented nothing; delivery progress is recorded below.
   the middleware design as proposed, and reconciles public-stability language
   with the accepted five-tier boundary. `AuditMode::Disabled` now documents its
   implemented mutation-and-event behavior instead of claiming it is pending.
-- [ ] Increments 7–10 remain outstanding.
+- [x] **Increment 7 — `docs/PUBLIC_API.md`.** Completed on 2026-08-27. The
+  authoritative consumer document lists the exact 39 Tier 1 and 13 Tier 2 FQCNs
+  with signatures and readable surface, all four assignment-period scopes, the
+  `ClockInterface` testing seam, and the exact behavior of the six standard
+  `InvalidArgumentException` sites. Machine-readable tier markers are compared
+  with the reflection manifest, and nine behavioral cases pin those six sites.
+- [ ] Increments 8–10 remain outstanding.
 
 Targeted reflection tests pin the corrected annotations, event contract,
 constructor visibility and factory boundary. The full SQLite suite, PHPStan at
@@ -1429,6 +1435,8 @@ Increment 5 extends the existing resolver-container suite and adds the generic
 event-listener acceptance test; it changes no runtime source.
 Increment 6 changes specification and source commentary only; no executable
 statement changes.
+Increment 7 adds consumer documentation and test safeguards only; no runtime
+source changes.
 
 Increments 1 and 2 change runtime behavior and must not be combined. Increment 3
 is mechanical and touches no logic. Increment 8 depends on increments 1–7 because

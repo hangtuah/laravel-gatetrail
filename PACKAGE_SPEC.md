@@ -2522,6 +2522,10 @@ source symbols without freezing them:
 - Tier 4 contains 157 implementation symbols with no compatibility promise,
   all marked with class-level `@internal` annotations.
 
+The exact current Tier 1 and Tier 2 names, signatures and readable surface are
+maintained in [Public API](docs/PUBLIC_API.md). Its 52-symbol manifest is checked
+against the reflection boundary in the automated suite.
+
 `InvalidMiddlewareParameter`, `UnauthorizedMutation`, the proposed subject API,
 the Gate hook, middleware, Blade directives, console commands and cross-request
 cache APIs remain unimplemented and are excluded from the available public

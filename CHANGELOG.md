@@ -35,6 +35,11 @@ All notable changes to GateTrail will be documented in this file.
   accepted Tier 1 or operational category, labels the two planned Phase 6
   exceptions and middleware as unimplemented, and reflects the working disabled
   audit mode.
+- `docs/PUBLIC_API.md` now provides the authoritative pre-v1 Tier 1 and Tier 2
+  inventory, exact consumer signatures, model and scope extension surface,
+  event and exception fields, the supported clock seam, and standard argument
+  validation behavior. Automated tests require its 52-symbol manifest to match
+  the reflected source boundary.
 
 ### Migration guidance
 

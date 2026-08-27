@@ -1,6 +1,6 @@
 # GateTrail Roadmap and Implementation Guide
 
-Last updated: 2026-08-26
+Last updated: 2026-08-27
 
 ## 1. Purpose
 
@@ -232,6 +232,15 @@ its public-stability section with the accepted 218-symbol boundary. The stale
 `AuditMode::Disabled` comment now describes its implemented behavior. Corrections
 8–10 are complete. This documentation alignment changes no roadmap deliverable
 or global progress figure.
+
+ADR 0014 **Increment 7 of 10** was completed on 2026-08-27. The new authoritative
+`docs/PUBLIC_API.md` lists the exact 39 Tier 1 and 13 Tier 2 symbols and documents
+their consumer signatures, readable fields, model and lifecycle-scope extension
+surface, event and exception contracts, the `ClockInterface` testing seam and
+the six standard `InvalidArgumentException` sites. The reflection safeguard now
+requires the document's 52-symbol manifest to equal the source manifest and
+behaviorally pins all six validation sites. Correction 15 is complete. This
+documentation increment changes no roadmap deliverable or global percentage.
 
 [ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md) was accepted
 on 2026-08-19; it decides the *sequencing* of cross-request caching and

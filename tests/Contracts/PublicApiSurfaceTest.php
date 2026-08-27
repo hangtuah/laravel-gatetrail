@@ -65,6 +65,8 @@ use HangTuah\GateTrail\PermissionReference;
 use HangTuah\GateTrail\RoleChanges;
 use HangTuah\GateTrail\RoleReference;
 use HangTuah\GateTrail\SystemActor;
+use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -91,7 +93,7 @@ final class PublicApiSurfaceTest extends TestCase
     private const NAMESPACE = 'HangTuah\\GateTrail\\';
 
     /** @var list<class-string> */
-    private const TIER_ONE = [
+    public const TIER_ONE = [
         AssignmentManager::class,
         RoleManager::class,
         PermissionManager::class,
@@ -134,7 +136,7 @@ final class PublicApiSurfaceTest extends TestCase
     ];
 
     /** @var list<class-string> */
-    private const TIER_TWO = [
+    public const TIER_TWO = [
         RoleContract::class,
         PermissionContract::class,
         RoleAssignmentContract::class,
@@ -221,6 +223,76 @@ final class PublicApiSurfaceTest extends TestCase
         );
     }
 
+    public function test_public_api_document_lists_the_same_supported_symbols(): void
+    {
+        $this->assertSame(self::TIER_ONE, $this->documentedSymbols('1'));
+        $this->assertSame(self::TIER_TWO, $this->documentedSymbols('2'));
+    }
+
+    public function test_public_api_document_pins_the_inherited_and_clock_surface(): void
+    {
+        $documentation = file_get_contents(
+            dirname(__DIR__, 2).'/docs/PUBLIC_API.md',
+        );
+
+        $this->assertIsString($documentation);
+
+        foreach ([
+            'scopeActiveAt(Builder $query, DateTimeInterface $time): Builder',
+            'scopeScheduledAt(Builder $query, DateTimeInterface $time): Builder',
+            'scopeExpiredAt(Builder $query, DateTimeInterface $time): Builder',
+            'scopeRevoked(Builder $query): Builder',
+            'Psr\\Clock\\ClockInterface',
+            'all 14 mutation command',
+            'effective-access evaluation',
+        ] as $promise) {
+            $this->assertStringContainsString($promise, $documentation);
+        }
+    }
+
+    /**
+     * @return iterable<string, array{\Closure(): mixed}>
+     */
+    public static function standardArgumentFailures(): iterable
+    {
+        foreach ([
+            AssignmentReference::class,
+            RoleReference::class,
+            PermissionReference::class,
+        ] as $reference) {
+            yield $reference.' rejects an empty string' => [
+                static fn (): mixed => $reference::id(''),
+            ];
+            yield $reference.' rejects more than 191 characters' => [
+                static fn (): mixed => $reference::id(str_repeat('a', 192)),
+            ];
+        }
+
+        yield 'RoleChanges rejects non-UTF-8' => [
+            static fn (): RoleChanges => RoleChanges::description("\xB1\x31"),
+        ];
+        yield 'PermissionChanges rejects non-UTF-8' => [
+            static fn (): PermissionChanges => PermissionChanges::description("\xB1\x31"),
+        ];
+        yield 'MutationResult rejects an unchanged audited result' => [
+            static fn (): MutationResult => new MutationResult(
+                new Role,
+                MutationOutcome::Unchanged,
+                1,
+            ),
+        ];
+    }
+
+    /** @param \Closure(): mixed $operation */
+    #[DataProvider('standardArgumentFailures')]
+    public function test_standard_argument_validation_remains_part_of_the_surface(
+        \Closure $operation,
+    ): void {
+        $this->expectException(InvalidArgumentException::class);
+
+        $operation();
+    }
+
     /** @return list<class-string> */
     private function sourceSymbols(): array
     {
@@ -248,6 +320,36 @@ final class PublicApiSurfaceTest extends TestCase
         sort($symbols);
 
         return $symbols;
+    }
+
+    /** @return list<class-string> */
+    private function documentedSymbols(string $tier): array
+    {
+        $documentation = file_get_contents(
+            dirname(__DIR__, 2).'/docs/PUBLIC_API.md',
+        );
+
+        $this->assertIsString($documentation);
+        $matched = preg_match(
+            sprintf(
+                '/<!-- gatetrail-tier-%1$s:start -->(.*?)<!-- gatetrail-tier-%1$s:end -->/s',
+                $tier,
+            ),
+            $documentation,
+            $section,
+        );
+
+        $this->assertSame(1, $matched, sprintf('Tier %s manifest markers are required.', $tier));
+        preg_match_all(
+            '/<code>(HangTuah\\\\GateTrail\\\\[^<]+)<\/code>/',
+            $section[1],
+            $symbols,
+        );
+
+        /** @var list<class-string> $documented */
+        $documented = $symbols[1];
+
+        return $documented;
     }
 
     /**
