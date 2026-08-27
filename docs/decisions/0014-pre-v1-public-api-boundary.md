@@ -8,11 +8,12 @@
   promise before `1.0.0`, and which do not.** It freezes nothing, changes no
   source, and accepts no documentation promise.
 - Public API freeze status: **not frozen**
-- Implementation status: **Increments 1–7 of 10 complete** — public signature,
+- Implementation status: **Increments 1–8 of 10 complete** — public signature,
   event-contract, package-controlled-construction, configurable-audit-model,
   inherited-surface, internal-annotation, reflection-boundary, container,
-  event-listener, package-specification and authoritative-public-API corrections
-  landed on 2026-08-26; the public API remains unfrozen
+  event-listener, package-specification, authoritative-public-API and
+  consumer-documentation corrections landed between 2026-08-26 and 2026-08-27;
+  the public API remains unfrozen
 - Open questions O-1 to O-5: **resolved by maintainer decision, 2026-08-20**
   (section 21). Resolving them removed the last stated blocker to acceptance
   review and changed no source file.
@@ -1043,7 +1044,7 @@ section 22.
 | 11 | Apply `@internal` consistently across `Default*` classes, handlers, input resolvers, query components and infrastructure — completed by Increment 3 | E-1 | **Yes** |
 | 12 | Build a reflection-based public surface test — completed by Increment 4 | §18 | **Yes** |
 | 13 | Add contract container-resolution tests where missing, including scoped-lifecycle assertions — completed by Increment 5 | §11 | No |
-| 14 | Write `README.md` and the consumer guide **only after** the corrected surface exists | E-5 | **Yes** — for Phase 4, not for this ADR |
+| 14 | Write `README.md` and the consumer guide **only after** the corrected surface exists — completed by Increment 8 | E-5 | **Yes** — for Phase 4, not for this ADR |
 | 15 | Document the exact `InvalidArgumentException` throw behavior of the six Tier 1 validation sites and assert it in the surface test — completed by Increment 7 | O-5, §14.5 | No |
 
 **Nine of the fifteen block the freeze.** Corrections 1–7 and 11–12 change what
@@ -1418,7 +1419,17 @@ Acceptance itself implemented nothing; delivery progress is recorded below.
   `ClockInterface` testing seam, and the exact behavior of the six standard
   `InvalidArgumentException` sites. Machine-readable tier markers are compared
   with the reflection manifest, and nine behavioral cases pin those six sites.
-- [ ] Increments 8–10 remain outstanding.
+- [x] **Increment 8 — README and consumer guide.** Completed on 2026-08-27.
+  `README.md` is a navigational entry point, and the new
+  `docs/CONSUMER_GUIDE.md` walks a consumer from installation through both
+  provisioning modes, model and guard setup, every implemented mutation, the
+  effective-access checks, half-open assignment periods, human and system
+  actors, the three audit modes, `MutationResult` interpretation, generic
+  `GateTrailEvent` listening and the public exception boundary. Every example
+  uses Tier 1 contracts with reflected named arguments, and both documents
+  confine the Phase 6 to Phase 10 surfaces to an explicit unimplemented
+  section. Correction 14 is complete. The freeze is untouched.
+- [ ] Increments 9–10 remain outstanding.
 
 Targeted reflection tests pin the corrected annotations, event contract,
 constructor visibility and factory boundary. The full SQLite suite, PHPStan at
@@ -1437,6 +1448,13 @@ Increment 6 changes specification and source commentary only; no executable
 statement changes.
 Increment 7 adds consumer documentation and test safeguards only; no runtime
 source changes.
+Increment 8 adds `README.md`, `docs/CONSUMER_GUIDE.md` and
+`tests/Documentation/ConsumerGuideTest.php` only. Its 15 tests execute the
+documented first mutation-and-check flow against the SQLite environment and
+reject an example that parses badly, names a `Default*` concrete, reaches for
+an `@internal` symbol, passes a named argument no reflected signature accepts,
+or presents an unavailable API outside its unimplemented section. No runtime
+source, migration, configuration, workflow or dependency changes.
 
 Increments 1 and 2 change runtime behavior and must not be combined. Increment 3
 is mechanical and touches no logic. Increment 8 depends on increments 1–7 because

@@ -40,6 +40,22 @@ All notable changes to GateTrail will be documented in this file.
   event and exception fields, the supported clock seam, and standard argument
   validation behavior. Automated tests require its 52-symbol manifest to match
   the reflected source boundary.
+- `README.md` now introduces the package, its pre-alpha and unfrozen status,
+  the supported runtimes and database evidence, installation and
+  auto-discovery, the `gatetrail-config` publish tag, both provisioning modes,
+  a first mutation, a first effective-permission check, and the warning that
+  `@internal` symbols are not consumer API.
+- The new `docs/CONSUMER_GUIDE.md` documents installation, configuration
+  publishing, package-managed and DBA-managed provisioning, subject and model
+  setup, every implemented mutation and check, half-open assignment periods,
+  human and `SystemActor` examples, the strict, non-strict and disabled audit
+  modes, `MutationResult` interpretation, generic `GateTrailEvent` listening
+  and the public exception boundary. Both documents keep every unimplemented
+  Phase 6 to Phase 10 surface labelled as future work.
+- Documentation tests execute the documented first mutation-and-check flow and
+  reject an example that fails to parse, names a `Default*` concrete, reaches
+  for an `@internal` symbol, passes a named argument no reflected signature
+  accepts, or presents an unavailable API as implemented.
 
 ### Migration guidance
 

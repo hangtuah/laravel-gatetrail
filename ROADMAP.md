@@ -242,6 +242,24 @@ requires the document's 52-symbol manifest to equal the source manifest and
 behaviorally pins all six validation sites. Correction 15 is complete. This
 documentation increment changes no roadmap deliverable or global percentage.
 
+ADR 0014 **Increment 8 of 10** was completed on 2026-08-27. `README.md` now
+states GateTrail's purpose, its pre-alpha and unfrozen status, the supported
+runtime and database evidence, installation and auto-discovery, the
+`gatetrail-config` publish tag, both provisioning modes, a first mutation and a
+first effective-permission check, and the `@internal` warning. The new
+`docs/CONSUMER_GUIDE.md` covers the same ground in depth through model and guard
+setup, every implemented mutation, the resolvers, half-open assignment periods,
+human and system actors, the three audit modes, `MutationResult` interpretation,
+generic `GateTrailEvent` listening and the public exception boundary. Both
+documents confine every Phase 6 to Phase 10 surface to an explicit unimplemented
+section, and `tests/Documentation/ConsumerGuideTest.php` executes the documented
+first flow and rejects unsupported examples. Correction 14 is complete. **The
+public API is still not frozen**: Increment 9's independent review and
+Increment 10's Phase 4 acceptance remain outstanding, so Phase 4 stays at
+**19 of 20 = 95%**, Phase 5 at **100%**, overall equal-phase progress at
+**approximately 41%**, and the deliverable tracker at **12 of 32,
+approximately 38%**.
+
 [ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md) was accepted
 on 2026-08-19; it decides the *sequencing* of cross-request caching and
 implements none of it, leaving the cache store, TTL, fan-out, generation scheme
