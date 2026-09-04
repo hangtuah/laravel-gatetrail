@@ -21,7 +21,7 @@ What that does and does not mean:
 | Will it change silently? | No |
 | What ships with a deliberate breaking change? | An ADR, a `CHANGELOG.md` entry, and migration guidance when consumer code or configuration must change |
 | What happens to accidental drift? | It is a defect. `PublicApiSurfaceTest` rejects it in CI |
-| What may change in any release, including a patch? | Anything marked `@internal` — currently 167 of the package's 228 classes |
+| What may change in any release, including a patch? | Anything marked `@internal` — currently 168 of the package's 229 classes |
 
 The boundary itself is decided in
 [ADR 0014](decisions/0014-pre-v1-public-api-boundary.md), which classifies
@@ -49,7 +49,7 @@ add newly classified API without breaking this boundary.
 | MySQL 8.0.16 and 8.0.45 | Live four-lane CI matrix across both Laravel majors, in both provisioning modes, including the resolver acceptance matrix |
 | Oracle Free 23.26.1 | Live targeted matrix on both dependency lanes, covering both generated-key strategies in both provisioning modes. The declared 12c Release 2 minimum has **not** been exercised live |
 | PostgreSQL 14+ | Release `0001` install and rollback DDL, and read-only schema inspection, exercised on a live local PostgreSQL 14 endpoint in both provisioning modes. **No application behavioral suite has run**; runtime compatibility is not claimed |
-| SQL Server 2017+ | Query compilation and schema-adapter inspection only. **No live endpoint has been executed**, and no runtime compatibility is claimed |
+| SQL Server 2017+ | Query compilation and schema-adapter support, plus release `0001` install and rollback DDL executed on a live disposable SQL Server 2022 database. **Schema-level evidence only**: no schema inspector exists, no application behavioral suite has run, and no runtime compatibility is claimed |
 
 Compiling a statement is not evidence that it runs, and neither is inspecting a
 schema. PostgreSQL now has live schema evidence, but no mutation, resolver,
@@ -216,6 +216,8 @@ database/ddl/oracle/0001/sequence-trigger/install.sql
 database/ddl/oracle/0001/sequence-trigger/rollback.sql
 database/ddl/postgresql/0001/install.sql
 database/ddl/postgresql/0001/rollback.sql
+database/ddl/sqlserver/0001/install.sql
+database/ddl/sqlserver/0001/rollback.sql
 ```
 
 Each engine directory carries its own README with the installation, rollback
@@ -232,8 +234,14 @@ PostgreSQL release `0001` artifacts are available and reproducible. Their
 install and rollback shape has passed a local live PostgreSQL 14 smoke test,
 including generated and explicit IDs, and read-only schema inspection now runs
 live against both the artifacts and the package migrations on PostgreSQL 14. The
-application behavioral harness remains future work. **SQL Server artifacts do
-not exist yet.**
+application behavioral harness remains future work.
+
+SQL Server release `0001` artifacts are also available and reproducible. Their
+install and rollback shape has passed a live SQL Server 2022 smoke test covering
+the seven tables, fifteen explicit indexes, every constraint, identity-generated
+keys and case-sensitive comparison on a case-insensitive database. That is
+**schema-level evidence only**: SQL Server has no read-only schema inspector
+yet, and no application behavioral harness has run against it.
 
 ### 4.5 Oracle is an example, not GateTrail's identity
 
@@ -1093,9 +1101,10 @@ Additional limitations of what *is* implemented:
 - **PostgreSQL and SQL Server runtimes are unverified.** PostgreSQL has
   reproducible DBA artifacts and live PostgreSQL 14 schema-inspection evidence
   for both provisioning modes, but no live behavioural suite: nothing has
-  mutated, resolved, audited or coordinated against it. For SQL Server only
-  query compilation exists — no live endpoint has been executed, and no DBA
-  artifacts are published.
+  mutated, resolved, audited or coordinated against it. SQL Server has query
+  compilation, schema-adapter support, reproducible DBA artifacts and live
+  SQL Server 2022 schema-level DDL evidence, but **no schema inspector** and no
+  behavioural suite either.
 - **Oracle's declared 12c Release 2 minimum has not been exercised live.**
   Current evidence comes from Oracle Free 23.26.1.
 - **Schema inspection has no supported entry point.** The read-only inspectors

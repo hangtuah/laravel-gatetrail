@@ -6,6 +6,23 @@ All notable changes to GateTrail will be documented in this file.
 
 ### Added
 
+- SQL Server release `0001` DBA-managed DDL artifacts, which completes versioned
+  artifacts for every Tier 1 database. An internal `SqlServerDdlCompiler`
+  compiles the canonical manifest for the `sqlsrv` driver and
+  `composer ddl:generate` writes
+  `database/ddl/sqlserver/0001/{install,rollback}.sql` reproducibly. The mapping
+  is `BIGINT IDENTITY(1,1)` generated keys, `DATETIME2(0)` timestamps, Unicode
+  `NVARCHAR`/`NCHAR`/`NVARCHAR(MAX)` character storage,
+  `Latin1_General_100_BIN2` pinned on exact-comparison columns rather than left
+  to a commonly case-insensitive database default, explicitly named primary,
+  unique, foreign-key and check constraints, and `ON DELETE NO ACTION ON UPDATE
+  NO ACTION`. Identifiers are bracketed one component at a time, so a configured
+  schema yields `[schema].[table]`. No `CASCADE`, `SET NULL`, `SET DEFAULT`,
+  existence guard, trigger, dynamic SQL or `GO` batch separator is emitted, so
+  the files execute through any ordinary client. The artifacts have passed a
+  live install-and-rollback smoke test on SQL Server 2022. This is schema-level
+  evidence only: SQL Server still has **no schema inspector**, and no mutation,
+  resolver, audit or concurrency path has run against it.
 - Read-only PostgreSQL schema inspection. `SchemaInspectorFactory` now resolves
   the `pgsql` driver to a strict inspector that compares an installed schema
   with the canonical manifest and **reports** differences without creating,
@@ -62,7 +79,9 @@ All notable changes to GateTrail will be documented in this file.
   local PostgreSQL 14 smoke test covers installation, generated and explicit
   IDs, and rollback; runtime compatibility is not yet claimed.
 - The MySQL catalog-reader test now uses `sqlsrv` as its unsupported-driver
-  example, because `pgsql` is no longer unsupported.
+  example, because `pgsql` is no longer unsupported. The MySQL DDL-compiler test
+  likewise moved its no-compiler example to `sqlite`, because `sqlsrv` now has
+  one. Neither change alters MySQL behaviour.
 - The documented pre-v1 API boundary is now frozen: 39 Tier 1 symbols and 13
   Tier 2 extension points. Accidental drift is rejected by the reflection
   safeguard; deliberate breaking change before `1.0.0` requires an ADR,

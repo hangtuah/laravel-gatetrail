@@ -32,7 +32,7 @@ requires an ADR, a changelog entry and migration guidance. Track
 | Oracle Database | 12c Release 2 or later — verified against live Oracle Free 23.26.1 |
 | SQLite | Used by the package's own test suite |
 | PostgreSQL | 14 or later — release `0001` DDL and read-only schema inspection verified on live 14 for both provisioning modes; application runtime remains unverified |
-| SQL Server | Query compilation and schema inspection only; no live endpoint has been executed |
+| SQL Server | 2017 or later — query compilation and schema-adapter support, plus release `0001` DBA DDL smoke-tested on live SQL Server 2022; no schema inspector and no application runtime evidence |
 
 The behavioural suite runs on SQLite and live MySQL for both Laravel majors.
 Oracle runs a targeted live matrix for both generated-key strategies and both
@@ -40,8 +40,11 @@ provisioning modes. PostgreSQL release `0001` install and rollback DDL and the
 read-only schema inspector have been exercised on a live local PostgreSQL 14
 endpoint for both package-managed and DBA-managed provisioning, but no
 application behavioral suite has run there: no mutation, resolver, audit or
-concurrency path has executed against PostgreSQL. PostgreSQL and SQL Server are
-**not** verified runtimes yet.
+concurrency path has executed against PostgreSQL. SQL Server release `0001`
+install and rollback DDL has been executed against a live disposable SQL Server
+2022 database, which is schema-level artifact evidence only: SQL Server has no
+schema inspector yet, and no mutation, resolver, audit or concurrency path has
+run there either. PostgreSQL and SQL Server are **not** verified runtimes yet.
 
 ## Installation
 
@@ -94,13 +97,15 @@ database/ddl/mysql/0001/{install,rollback}.sql
 database/ddl/oracle/0001/identity/{install,rollback}.sql
 database/ddl/oracle/0001/sequence-trigger/{install,rollback}.sql
 database/ddl/postgresql/0001/{install,rollback}.sql
+database/ddl/sqlserver/0001/{install,rollback}.sql
 ```
 
 Both modes produce the same schema from the same canonical manifest, and
 package behaviour does not depend on which one created it. See
 [`database/ddl/mysql/README.md`](database/ddl/mysql/README.md),
-[`database/ddl/oracle/README.md`](database/ddl/oracle/README.md), and
-[`database/ddl/postgresql/README.md`](database/ddl/postgresql/README.md) for
+[`database/ddl/oracle/README.md`](database/ddl/oracle/README.md),
+[`database/ddl/postgresql/README.md`](database/ddl/postgresql/README.md) and
+[`database/ddl/sqlserver/README.md`](database/ddl/sqlserver/README.md) for
 installation and rollback procedures, and the consumer guide for the full
 comparison.
 
@@ -211,8 +216,8 @@ final readonly class DocumentApprovalCheck
 Depend on the contracts, value types, events and exceptions listed in
 [`docs/PUBLIC_API.md`](docs/PUBLIC_API.md), and nothing else.
 
-> **A class marked `@internal` is not consumer API.** PSR-4 makes all 228
-> package classes loadable and the container can build most of them, but 167 of
+> **A class marked `@internal` is not consumer API.** PSR-4 makes all 229
+> package classes loadable and the container can build most of them, but 168 of
 > them carry a class-level `@internal` annotation and may be renamed, recomposed
 > or deleted in any release, including a patch. That includes the `Default*`
 > manager and resolver implementations behind the contracts — inject

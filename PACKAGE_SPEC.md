@@ -266,8 +266,8 @@ SQL Server integration tests must cover:
 ### 3.7 Versioned DBA artifacts
 
 Each Tier 1 database receives install and rollback artifacts grouped by schema
-release. Release `0001` currently publishes MySQL, both Oracle generated-key
-strategies and PostgreSQL:
+release. Release `0001` publishes every Tier 1 database — MySQL, both Oracle
+generated-key strategies, PostgreSQL and SQL Server:
 
 ```text
 database/ddl/mysql/0001/install.sql
@@ -278,7 +278,17 @@ database/ddl/oracle/0001/sequence-trigger/install.sql
 database/ddl/oracle/0001/sequence-trigger/rollback.sql
 database/ddl/postgresql/0001/install.sql
 database/ddl/postgresql/0001/rollback.sql
+database/ddl/sqlserver/0001/install.sql
+database/ddl/sqlserver/0001/rollback.sql
 ```
+
+The SQL Server set maps the manifest to `BIGINT IDENTITY(1,1)` generated keys,
+`DATETIME2(0)` timestamps, Unicode `NVARCHAR`/`NCHAR`/`NVARCHAR(MAX)` character
+storage, `Latin1_General_100_BIN2` on exact-comparison columns, explicitly named
+primary, unique, foreign-key and check constraints, and `ON DELETE NO ACTION
+ON UPDATE NO ACTION` — SQL Server's spelling of the restrictive action the other
+drivers write as `RESTRICT`. It emits no `GO` batch separator, so the files
+execute through any ordinary client rather than only through a SQLCMD parser.
 
 Committed artifacts use canonical table names without a schema qualifier or
 custom prefix. They are generated from the same manifest as package migrations
@@ -1171,11 +1181,12 @@ portability claim rather than five separate smoke tests.
 **PostgreSQL and SQL Server are not verified at runtime.** No resolver,
 mutation, audit or concurrency path has executed against either. PostgreSQL's
 live PostgreSQL 14 endpoint covers release `0001` DDL and read-only schema
-inspection only, and no live endpoint of any kind has been executed for SQL
-Server. Compilation proves the emitted SQL is well-formed for those grammars
-and that no driver-specific branch was needed to produce it; inspection proves
-the installed schema matches the manifest. Neither proves how an engine plans or
-executes a statement, and this specification does not claim otherwise. Live
+inspection only; SQL Server's live SQL Server 2022 endpoint covers release
+`0001` DDL only, and SQL Server has no schema inspector yet. Compilation proves
+the emitted SQL is well-formed for those grammars and that no driver-specific
+branch was needed to produce it; schema evidence proves the installed objects
+match the manifest. Neither proves how an engine plans or executes an
+application statement, and this specification does not claim otherwise. Live
 behavioural harnesses for both remain future work.
 
 ### 11.1 Responsibility
@@ -2541,8 +2552,20 @@ artifacts each inspect clean, seeded drift is reported without repair, a
 connection-level query listener proves only `SELECT` statements are executed,
 and a configured non-default schema and table prefix are both covered. This is
 schema evidence only: no PostgreSQL application behavioral suite has run, so
-runtime compatibility is not claimed. SQL Server remains query-compilation and
-schema-adapter inspection only, with no live endpoint.
+runtime compatibility is not claimed.
+
+SQL Server release `0001` DBA DDL has passed a live install and rollback smoke
+test on SQL Server 2022, verifying the seven tables, fifteen explicit indexes,
+seven primary keys, two unique constraints, four foreign keys and seven check
+constraints; that every foreign key is `NO ACTION` and every foreign-key and
+check constraint is enabled and trusted; that all timestamp columns are
+`DATETIME2` with scale 0; that every character column is Unicode and only
+exact-comparison columns carry `Latin1_General_100_BIN2`; that identity
+generation returns a server-generated key; and that case-sensitive comparison
+holds on a database whose default collation is case-insensitive. This is
+schema-level artifact evidence only. SQL Server has **no schema inspector** —
+`SchemaInspectorFactory` still refuses the `sqlsrv` driver — and no mutation,
+resolver, audit or concurrency path has executed against it.
 
 ## 21. Performance requirements
 
@@ -2579,7 +2602,7 @@ No performance claim may be published without a reproducible benchmark.
 
 The accepted and frozen pre-v1 boundary in
 [ADR 0014](docs/decisions/0014-pre-v1-public-api-boundary.md) was established
-from its 218-symbol evidence base. The current 228 source symbols classify as:
+from its 218-symbol evidence base. The current 229 source symbols classify as:
 
 - Tier 1 contains 39 supported public symbols that consumers call, receive,
   catch or listen to;
@@ -2589,7 +2612,7 @@ from its 218-symbol evidence base. The current 228 source symbols classify as:
   than class APIs, are the supported surface;
 - the operational tier contains the 5 exception types in section 15.2, while
   its primary promises remain artifacts and provisioning behavior; and
-- Tier 4 contains 167 implementation symbols with no compatibility promise,
+- Tier 4 contains 168 implementation symbols with no compatibility promise,
   all marked with class-level `@internal` annotations.
 
 The exact current Tier 1 and Tier 2 names, signatures and readable surface are
@@ -2658,7 +2681,7 @@ subject identity, the portable lifecycle and query architecture, request-local
 memoization, and connection-level query instrumentation. Section 20.5 records
 the evidence, including the boundary that neither PostgreSQL nor SQL Server
 contributes live resolver evidence — PostgreSQL's live endpoint covers schema
-DDL and inspection only, and SQL Server remains query-compilation only.
+DDL and inspection only, and SQL Server's covers schema DDL only.
 
 The cross-request cache **sequencing** is accepted in
 [ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md): benchmark the

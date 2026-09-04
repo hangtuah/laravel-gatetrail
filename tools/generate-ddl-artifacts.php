@@ -55,6 +55,16 @@ $artifactSets = [
         'config' => $config,
         'strategy' => null,
     ],
+    [
+        'driver' => 'sqlsrv',
+        'directory' => sprintf(
+            '%s/database/ddl/sqlserver/%s',
+            $root,
+            DdlArtifactGenerator::SCHEMA_RELEASE,
+        ),
+        'config' => $config,
+        'strategy' => null,
+    ],
 ];
 
 foreach ($artifactSets as $artifactSet) {

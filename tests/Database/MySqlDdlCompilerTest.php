@@ -114,11 +114,11 @@ final class MySqlDdlCompilerTest extends TestCase
     {
         $this->expectException(DdlCompilerUnavailable::class);
         $this->expectExceptionMessage(
-            'GateTrail does not yet provide a DBA DDL compiler for [sqlsrv].',
+            'GateTrail does not yet provide a DBA DDL compiler for [sqlite].',
         );
 
         $this->app->make(DdlCompilerFactory::class)
-            ->forDriver('sqlsrv');
+            ->forDriver('sqlite');
     }
 
     private function compiler(): DdlCompiler

@@ -57,8 +57,8 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | approximately 41% | Equal-phase progress across Phases 0–13 |
-| Deliverable tracker | 13 of 32, approximately 41% | Completed concrete package deliverables |
+| Overall roadmap by primary phases | approximately 42% | Equal-phase progress across Phases 0–13 |
+| Deliverable tracker | 14 of 32, approximately 44% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
 
@@ -98,7 +98,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 0 | Ownership and product decisions | 100% | Complete |
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
-| 3 | Database and assignment lifecycle | 80% | In progress |
+| 3 | Database and assignment lifecycle | 90% | In progress |
 | 4 | Mutation services | 100% | Complete |
 | 5 | Effective permission resolver | 100% | Complete |
 | 6 | Laravel integration | 0% | Not started |
@@ -297,7 +297,7 @@ compatibility run #11 for both live Oracle lanes. PostgreSQL and SQL Server
 contribute no row to that matrix: PostgreSQL now has a live PostgreSQL 14
 endpoint for release `0001` DDL and read-only schema inspection, but no
 resolver, mutation, audit or concurrency path has executed against it, and SQL
-Server remains query-compilation only with no live endpoint of any kind.
+Server's live endpoint covers release `0001` DDL only.
 
 ## 5. Roadmap adherence
 
@@ -599,7 +599,7 @@ Implement the portable schema and history-preserving assignment lifecycle.
 - [x] ERD.
 - [x] Database-neutral schema manifest.
 - [x] Versioned package migrations.
-- [ ] Versioned DBA-managed DDL artifacts for every Tier 1 database.
+- [x] Versioned DBA-managed DDL artifacts for every Tier 1 database.
 - [x] Models and relationships.
 - [x] Explicit indexes, foreign keys, and constraints in the SQLite reference schema.
 - [x] `acl_assignment_locks` coordination model or query component.
@@ -805,6 +805,33 @@ acl_access_audits
 - This is schema evidence only. **No PostgreSQL application runtime
   compatibility is claimed**: no mutation service, resolver, audit writer or
   concurrency path has executed against PostgreSQL.
+- The SQL Server compiler maps release `0001` to `BIGINT IDENTITY(1,1)`
+  generated keys, `DATETIME2(0)` timestamps, Unicode `NVARCHAR`/`NCHAR`/
+  `NVARCHAR(MAX)` character storage, `Latin1_General_100_BIN2` on
+  exact-comparison columns, explicitly named primary, unique, foreign-key and
+  check constraints, and `ON DELETE NO ACTION ON UPDATE NO ACTION` — SQL
+  Server's spelling of the restrictive action the other drivers write as
+  `RESTRICT`. Install and rollback artifacts are generated reproducibly from the
+  canonical manifest with parent-first creation and child-first removal, and
+  carry no `GO` batch separator, so they execute through any ordinary client.
+- A disposable local SQL Server 2022 database, whose default collation was the
+  common case-insensitive `SQL_Latin1_General_CP1_CI_AS`, accepts the complete
+  release `0001` install in a single batch. Catalog verification confirms seven
+  tables, fifteen explicit indexes with their canonical ordered columns, seven
+  primary keys, two unique constraints, four foreign keys and seven check
+  constraints; every foreign key `NO ACTION` and every foreign-key and check
+  constraint enabled and trusted; all timestamp columns `DATETIME2` scale 0;
+  every character column Unicode with only exact-comparison columns carrying the
+  binary collation; six identity columns; and no object name over 30 characters.
+  An insert without an identifier returns a server-generated key, case-sensitive
+  comparison holds despite the case-insensitive database default, an orphan
+  foreign key is refused, and rollback removes all seven tables.
+- SQL Server evidence stops at the schema. **There is no SQL Server schema
+  inspector** — `SchemaInspectorFactory` still refuses `sqlsrv` — and no
+  mutation, resolver, audit or concurrency path has executed against it. That
+  remaining inspection work is why this phase holds at 90% rather than 100%
+  even though every deliverable is now checked; its exit criteria require
+  consistent automated tests for every supported adapter.
 
 Production database adapters are not marked verified until their integration
 suites pass. The MySQL minimum and current 8.0 endpoints are verified locally
@@ -812,9 +839,10 @@ and in the remote CI matrix. All four Oracle provisioning and generated-key
 combinations now have current-version local evidence across both supported
 Laravel majors, but the minimum Oracle version remains open. PostgreSQL now has
 a compiler, versioned artifacts and a live-verified read-only inspector, but no
-application behavioral runtime evidence. The SQL Server compiler, artifacts and
-inspector all remain open, which is why the DBA-artifact deliverable for every
-Tier 1 database stays unchecked and this phase stays at 80%.
+application behavioral runtime evidence. SQL Server now has a schema adapter, a
+compiler and versioned artifacts with live schema-level evidence, which
+completes the DBA-artifact deliverable for every Tier 1 database; its schema
+inspector and all of its application behavioral evidence remain open.
 
 ADR 0006 fixes the Oracle generated-key contract before adapter implementation:
 one selected strategy per schema, `sequence_trigger` as the initial default,
@@ -1627,9 +1655,9 @@ resolver matrix on both dependency lanes. **Neither PostgreSQL nor SQL Server
 carries any live behavioural evidence.** PostgreSQL's live PostgreSQL 14
 endpoint proves release `0001` DDL and read-only schema inspection and nothing
 more — no resolver, mutation, audit or concurrency path has executed there — and
-SQL Server remains query compilation only, with no live endpoint of any kind.
-No runtime compatibility is claimed for either from compiling a statement or
-inspecting a schema. Their live behavioural harnesses remain future work,
+SQL Server's live SQL Server 2022 endpoint proves release `0001` DDL only, with
+no schema inspector yet. No runtime compatibility is claimed for either from
+compiling a statement, executing DDL or inspecting a schema. Their live behavioural harnesses remain future work,
 exactly as ADR 0012 section 12.1 requires.
 
 Both CI runs surfaced a non-blocking GitHub Actions notice that Node.js 20 is
