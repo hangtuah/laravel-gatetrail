@@ -7,10 +7,10 @@ implemented pre-v1 API. It covers the Tier 1 supported API and Tier 2 extension
 surface accepted in
 [ADR 0014](decisions/0014-pre-v1-public-api-boundary.md).
 
-The API is **not frozen**. Before <code>1.0.0</code>, a deliberate breaking
-change still requires an ADR, a changelog entry and migration guidance.
-Accidental drift is a defect and is rejected by
-<code>PublicApiSurfaceTest</code>.
+This documented pre-v1 API is **frozen**. Before <code>1.0.0</code>, a deliberate
+breaking change still requires an ADR, a changelog entry and migration guidance.
+Future phases may add newly classified API. Accidental drift is a defect and is
+rejected by <code>PublicApiSurfaceTest</code>.
 
 PHP visibility does not define this boundary. A technically callable symbol is
 supported only when it appears here. Constructors and factories marked

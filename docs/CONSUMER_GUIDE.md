@@ -10,14 +10,14 @@ verified against source by an automated reflection test.
 
 ## 1. Package status and compatibility promise
 
-GateTrail is **pre-alpha and pre-`1.0.0`**, and its **public API is not
-frozen**. No release has been tagged.
+GateTrail is **pre-alpha and pre-`1.0.0`**, and its documented **pre-v1 public
+API is frozen**. No release has been tagged.
 
 What that does and does not mean:
 
 | Question | Answer |
 |---|---|
-| Can the supported surface still change? | Yes, before `1.0.0` |
+| Can the supported surface still change? | Yes, deliberately before `1.0.0`, under the change policy below |
 | Will it change silently? | No |
 | What ships with a deliberate breaking change? | An ADR, a `CHANGELOG.md` entry, and migration guidance when consumer code or configuration must change |
 | What happens to accidental drift? | It is a defect. `PublicApiSurfaceTest` rejects it in CI |
@@ -27,7 +27,10 @@ The boundary itself is decided in
 [ADR 0014](decisions/0014-pre-v1-public-api-boundary.md), which classifies
 every package symbol into one of five tiers. Only Tier 1 (39 symbols you call,
 receive, catch or listen to) and Tier 2 (13 symbols you implement, extend or
-configure) carry a promise.
+configure) carry a promise. Their freeze rejects accidental drift; a deliberate
+breaking change before `1.0.0` requires an ADR, a changelog entry and migration
+guidance whenever consumer code or configuration must change. Future phases may
+add newly classified API without breaking this boundary.
 
 ### Supported runtimes
 

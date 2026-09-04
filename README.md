@@ -9,7 +9,7 @@ an actor and a reason, rather than through direct relationship writes.
 
 ## Status
 
-**Pre-alpha, pre-`1.0.0`. The public API is not frozen.**
+**Pre-alpha, pre-`1.0.0`. The documented pre-v1 public API is frozen.**
 
 No release has been tagged. Implementation is still in progress: mutation
 services and the effective-access resolvers are complete, and Laravel
@@ -17,9 +17,10 @@ integration, caching, hardening and release validation are not.
 
 The supported surface is defined by
 [ADR 0014](docs/decisions/0014-pre-v1-public-api-boundary.md) and listed in
-[`docs/PUBLIC_API.md`](docs/PUBLIC_API.md). Before `1.0.0`, a deliberate
-breaking change to that surface still ships with an ADR, a changelog entry and
-migration guidance. Track [`CHANGELOG.md`](CHANGELOG.md) when upgrading.
+[`docs/PUBLIC_API.md`](docs/PUBLIC_API.md). The freeze prevents accidental
+drift; before `1.0.0`, a deliberate breaking change to that surface still
+requires an ADR, a changelog entry and migration guidance. Track
+[`CHANGELOG.md`](CHANGELOG.md) when upgrading.
 
 ## Requirements
 

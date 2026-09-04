@@ -2507,9 +2507,9 @@ No performance claim may be published without a reproducible benchmark.
   services are not public API.
 - Breaking changes require changelog entries and an upgrade guide.
 
-The accepted pre-v1 boundary in
+The accepted and frozen pre-v1 boundary in
 [ADR 0014](docs/decisions/0014-pre-v1-public-api-boundary.md) classifies all 218
-source symbols without freezing them:
+source symbols:
 
 - Tier 1 contains 39 supported public symbols that consumers call, receive,
   catch or listen to;
@@ -2530,8 +2530,10 @@ against the reflection boundary in the automated suite.
 the Gate hook, middleware, Blade directives, console commands and cross-request
 cache APIs remain unimplemented and are excluded from the available public
 surface. Each future phase must classify new consumer-facing symbols before it
-can complete. The public API remains **unfrozen** until ADR 0014's ordered
-corrections, consumer documentation and final freeze review are complete.
+can complete. The 52-symbol Tier 1 and Tier 2 boundary was frozen on 2026-09-04
+after ADR 0014's ordered corrections, consumer documentation and independent
+freeze review completed. Before `1.0.0`, deliberate breaking change remains
+subject to the ADR, changelog and migration-guidance policy above.
 
 ## 23. Explicit non-goals
 

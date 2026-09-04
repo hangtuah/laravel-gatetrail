@@ -44,6 +44,8 @@ final class ConsumerGuideTest extends TestCase
 
     private const GUIDE = 'docs/CONSUMER_GUIDE.md';
 
+    private const PUBLIC_API = 'docs/PUBLIC_API.md';
+
     /**
      * Tokens for surfaces ADR 0014 section 16 requires to stay labelled as
      * future work. Each may appear only inside the document's own
@@ -289,15 +291,15 @@ final class ConsumerGuideTest extends TestCase
         );
     }
 
-    public function test_both_documents_state_the_unfrozen_pre_v1_status(): void
+    public function test_consumer_documents_state_the_frozen_pre_v1_status(): void
     {
-        foreach ([self::README, self::GUIDE] as $document) {
+        foreach ([self::README, self::GUIDE, self::PUBLIC_API] as $document) {
             $contents = $this->read($document);
 
             $this->assertMatchesRegularExpression(
-                '/public API is \*\*not\*\* frozen|\*\*public API is not\s+frozen\*\*|public API is not frozen/i',
+                '/pre-v1 (?:public\s+)?API is (?:\*\*)?frozen/i',
                 $contents,
-                $document.' must state that the public API is not frozen.',
+                $document.' must state that the documented pre-v1 public API is frozen.',
             );
             $this->assertStringContainsString(
                 '@internal',

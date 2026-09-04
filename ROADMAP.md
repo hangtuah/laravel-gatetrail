@@ -42,7 +42,7 @@ Phase 0 — Complete
 Phase 1 — Complete
 Phase 2 — Complete
 Phase 3 — In progress
-Phase 4 — In progress
+Phase 4 — Complete
 Phase 5 — Complete
 Phase 6 onward — Not started
 ```
@@ -58,7 +58,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 | Measurement | Current value | Interpretation |
 |---|---:|---|
 | Overall roadmap by primary phases | approximately 41% | Equal-phase progress across Phases 0–13 |
-| Deliverable tracker | 12 of 32, approximately 38% | Completed concrete package deliverables |
+| Deliverable tracker | 13 of 32, approximately 41% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
 
@@ -99,7 +99,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
 | 3 | Database and assignment lifecycle | 80% | In progress |
-| 4 | Mutation services | 95% | In progress |
+| 4 | Mutation services | 100% | Complete |
 | 5 | Effective permission resolver | 100% | Complete |
 | 6 | Laravel integration | 0% | Not started |
 | 7 | Audit trail | 0% | Not started |
@@ -179,12 +179,11 @@ validation keeps PHP's `InvalidArgumentException` with its behavior documented
 instead of gaining new exception types. **No open question remains.** The tier
 counts are unchanged by these decisions.
 
-**No API is frozen.** Accepting ADR 0014 settles the boundary and authorises its
-ordered correction increments; it does not itself change a source file,
-annotation or signature, accept a documentation promise, or complete Phase 4.
-Phase 4 therefore remains **19 of 20 = 95%**, Phase 5 remains **100%**, overall
-equal-phase progress remains **approximately 41%**, and the deliverable tracker
-remains **12 of 32, approximately 38%**.
+**Initial ADR acceptance froze no API.** It settled the boundary and authorised
+the ordered correction increments without itself changing source or completing
+Phase 4. The corrections, documentation and independent review later completed,
+and final maintainer acceptance froze that boundary on 2026-09-04 as recorded
+under Increment 10 below.
 
 ADR 0014 **Increment 1 of 10** was completed on 2026-08-26. It corrects the
 configurable-model result generics, makes `GateTrailEvent::context()` a typed
@@ -243,7 +242,7 @@ behaviorally pins all six validation sites. Correction 15 is complete. This
 documentation increment changes no roadmap deliverable or global percentage.
 
 ADR 0014 **Increment 8 of 10** was completed on 2026-08-27. `README.md` now
-states GateTrail's purpose, its pre-alpha and unfrozen status, the supported
+states GateTrail's purpose, its pre-alpha and pre-v1 status, the supported
 runtime and database evidence, installation and auto-discovery, the
 `gatetrail-config` publish tag, both provisioning modes, a first mutation and a
 first effective-permission check, and the `@internal` warning. The new
@@ -253,9 +252,9 @@ human and system actors, the three audit modes, `MutationResult` interpretation,
 generic `GateTrailEvent` listening and the public exception boundary. Both
 documents confine every Phase 6 to Phase 10 surface to an explicit unimplemented
 section, and `tests/Documentation/ConsumerGuideTest.php` executes the documented
-first flow and rejects unsupported examples. Correction 14 is complete. **The
-public API is still not frozen**: Increment 9's independent review and
-Increment 10's Phase 4 acceptance remain outstanding, so Phase 4 stays at
+first flow and rejects unsupported examples. Correction 14 is complete. **At
+that point the public API was not frozen**: Increment 9's independent review and
+Increment 10's Phase 4 acceptance were outstanding, so Phase 4 stayed at
 **19 of 20 = 95%**, Phase 5 at **100%**, overall equal-phase progress at
 **approximately 41%**, and the deliverable tracker at **12 of 32,
 approximately 38%**.
@@ -267,9 +266,20 @@ source/document manifest, and that planned Phase 6 through Phase 13 surfaces
 are never presented as available. It found no documentation leak or runtime
 defect. One safeguard gap was corrected so the consumer-documentation test
 detects both multiline and one-line class-level `@internal` PHPDoc and asserts
-coverage of all 157 Tier 4 symbols. **The API remains unfrozen and Phase 4
-remains 19 of 20 = 95% until Increment 10 acceptance.** Overall and deliverable
-percentages are unchanged.
+coverage of all 157 Tier 4 symbols. **At that point the API remained unfrozen
+and Phase 4 remained 19 of 20 = 95% pending Increment 10 acceptance.** Overall
+and deliverable percentages were unchanged.
+
+ADR 0014 **Increment 10 of 10** was completed on 2026-09-04. The maintainer
+accepted Review 0003 and froze the documented 39-symbol Tier 1 plus 13-symbol
+Tier 2 boundary under the pre-v1 change policy. Phase 4 is now **20 of 20 =
+100%** and `Mutation services` becomes the thirteenth completed global
+deliverable. Overall equal-phase progress is (100 + 100 + 100 + 80 + 100 + 100
++ 0×8) / 14 = 41.429%, still reported as **approximately 41%**. The global
+deliverable tracker is **13 of 32 = 40.625%, approximately 41%**. Tier 4 remains
+unsupported; future phases may add classified API, while a deliberate pre-v1
+breaking change to the frozen boundary requires an ADR, changelog entry and
+migration guidance when applicable.
 
 [ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md) was accepted
 on 2026-08-19; it decides the *sequencing* of cross-request caching and
@@ -775,12 +785,12 @@ additional progress items.
       implementation is complete, and the acceptance evidence ADR 0011 requires
       — a live parallel MySQL run on both supported versions — has been observed
       passing in `CI #82` for commit `c5822a0`.
-- [ ] Consumer documentation and pre-v1 API freeze.
+- [x] Consumer documentation and pre-v1 API freeze.
 
 ```text
-Completed: 19
+Completed: 20
 Total:     20
-Progress:  95%
+Progress:  100%
 ```
 
 ### Required strict-audit flow
@@ -1087,8 +1097,8 @@ a real single-use-case handler and no stub exists. Every definition mutation
 accepted by ADR 0002 is therefore implemented, bound, and tested. Both
 contracts remain pre-v1. All three accepted audit modes, the accepted
 after-commit mutation event, and bounded concurrency retry are now implemented
-and accepted. Phase 4 stays open for **one** remaining item, the consumer
-documentation and pre-v1 API freeze.
+and accepted. The consumer documentation and pre-v1 API freeze are also
+accepted, so every Phase 4 atomic item is complete.
 
 **`After-commit cache invalidation` was moved to Phase 8.**
 [ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md) is
@@ -1256,22 +1266,22 @@ six retry a classified deadlock or serialization rollback.
 
 ### Pre-v1 assignment-manager contract gate
 
-The current source contract is intentionally incremental while GateTrail
-remains unreleased:
+The source contract remains pre-v1 while GateTrail is unreleased:
 
 - all six assignment mutations accepted by ADR 0002 are now implemented,
   bound, and tested;
-- the contract may still change before the public API freeze;
-- custom `AssignmentManager` implementations are therefore not stable yet;
-- the API freeze and `v1.0.0` release remain blocked until the accepted
-  methods are documented for consumers.
+- the contract is part of the frozen pre-v1 Tier 1 boundary;
+- custom `AssignmentManager` implementations may rely on its documented
+  signature under ADR 0014's pre-v1 change policy;
+- this freeze does not imply `v1.0.0`; later phases and release validation
+  remain outstanding.
 
 ### Exit criteria
 
 Every supported mutation uses one managed path and produces deterministic,
 audited, transactional behavior.
 
-Status: **In progress**
+Status: **Complete**
 
 ## 12. Phase 5 — Effective permission resolver
 
@@ -1939,14 +1949,14 @@ Progress: **8 of 8**
 - [x] Models
 - [ ] Contracts
 - [ ] Assignment lifecycle
-- [ ] Mutation services
+- [x] Mutation services
 - [x] Effective permission resolver
 - [ ] Gate integration
 - [ ] Middleware
 - [ ] Audit trail
 - [ ] Cache invalidation
 
-Progress: **3 of 10**
+Progress: **4 of 10**
 
 ### Quality
 
@@ -1975,9 +1985,9 @@ Progress: **0 of 8**
 ### Total
 
 ```text
-Completed: 12
+Completed: 13
 Total:     32
-Progress:  37.5%, reported as approximately 38%
+Progress:  40.625%, reported as approximately 41%
 ```
 
 ## 25. Progress update rules

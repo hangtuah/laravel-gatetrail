@@ -6,6 +6,11 @@ All notable changes to GateTrail will be documented in this file.
 
 ### Changed
 
+- The documented pre-v1 API boundary is now frozen: 39 Tier 1 symbols and 13
+  Tier 2 extension points. Accidental drift is rejected by the reflection
+  safeguard; deliberate breaking change before `1.0.0` requires an ADR,
+  changelog entry and migration guidance when applicable. Tier 4 internals
+  remain unsupported, and future phases may add newly classified API.
 - `RoleManager::create()` and `PermissionManager::create()` now describe their
   result as the configured Eloquent model implementing the corresponding marker
   contract, instead of incorrectly promising the package's default model.
@@ -40,7 +45,7 @@ All notable changes to GateTrail will be documented in this file.
   event and exception fields, the supported clock seam, and standard argument
   validation behavior. Automated tests require its 52-symbol manifest to match
   the reflected source boundary.
-- `README.md` now introduces the package, its pre-alpha and unfrozen status,
+- `README.md` now introduces the package, its pre-alpha and pre-v1 status,
   the supported runtimes and database evidence, installation and
   auto-discovery, the `gatetrail-config` publish tag, both provisioning modes,
   a first mutation, a first effective-permission check, and the warning that

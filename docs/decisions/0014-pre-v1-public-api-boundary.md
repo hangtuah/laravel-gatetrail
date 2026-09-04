@@ -3,17 +3,20 @@
 - Status: **Accepted**
 - Proposed: 2026-08-19
 - Accepted: 2026-08-26
+- Pre-v1 boundary frozen: 2026-09-04
 - Decision owners: GateTrail maintainers
 - **What this ADR decides: which implemented symbols receive a compatibility
-  promise before `1.0.0`, and which do not.** It freezes nothing, changes no
-  source, and accepts no documentation promise.
-- Public API freeze status: **not frozen**
-- Implementation status: **Increments 1–9 of 10 complete** — public signature,
+  promise before `1.0.0`, and which do not.** Initial ADR acceptance froze
+  nothing; the ordered implementation and final acceptance below freeze the
+  resulting documented boundary.
+- Public API freeze status: **frozen on 2026-09-04 under the pre-v1 policy of
+  section 15**
+- Implementation status: **Complete — 10 of 10 increments** — public signature,
   event-contract, package-controlled-construction, configurable-audit-model,
   inherited-surface, internal-annotation, reflection-boundary, container,
   event-listener, package-specification, authoritative-public-API and
-  consumer-documentation and independent-freeze-review corrections landed
-  between 2026-08-26 and 2026-09-04; the public API remains unfrozen
+  consumer-documentation, independent-freeze-review and final-acceptance work
+  landed between 2026-08-26 and 2026-09-04
 - Open questions O-1 to O-5: **resolved by maintainer decision, 2026-08-20**
   (section 21). Resolving them removed the last stated blocker to acceptance
   review and changed no source file.
@@ -1436,8 +1439,14 @@ Acceptance itself implemented nothing; delivery progress is recorded below.
   It found and corrected one documentation-test gap: one-line
   `/** @internal */` PHPDoc is now detected, and the guard asserts coverage of
   all 157 Tier 4 symbols. No documentation leak or runtime defect was found.
-  The public API remains unfrozen.
-- [ ] Increment 10 remains outstanding.
+  At that point the public API remained unfrozen.
+- [x] **Increment 10 — Phase 4 acceptance and completion.** Completed on
+  2026-09-04. The maintainer accepted Review 0003's clean conclusion and froze
+  the documented 39-symbol Tier 1 and 13-symbol Tier 2 boundary under section
+  15's pre-v1 policy. Accidental drift is now a tested defect; deliberate
+  breaking change before `1.0.0` still requires an ADR, changelog entry and
+  migration guidance when applicable. Future phases may add newly classified
+  API. Phase 4 is complete at 20 of 20.
 
 Targeted reflection tests pin the corrected annotations, event contract,
 constructor visibility and factory boundary. The full SQLite suite, PHPStan at
@@ -1466,6 +1475,8 @@ source, migration, configuration, workflow or dependency changes.
 Increment 9 records the independent review and strengthens one documentation
 test; it changes no runtime source, configuration, migration, workflow or
 dependency.
+Increment 10 changes acceptance and documentation status only. It freezes no
+Tier 4 implementation symbol and adds no runtime behavior.
 
 Increments 1 and 2 change runtime behavior and must not be combined. Increment 3
 is mechanical and touches no logic. Increment 8 depends on increments 1–7 because
@@ -1506,19 +1517,20 @@ This ADR was accepted on 2026-08-26 after maintainers confirmed that:
     decision on 2026-08-20 and are recorded with their reasoning and accepted
     consequences in section 21. No open question remains.
 
-### What acceptance would and would not do
+### What initial ADR acceptance would and would not do
 
-**Acceptance would:** settle the boundary; authorise the increment sequence of
+**Initial acceptance would:** settle the boundary; authorise the increment sequence of
 section 22; make the correction backlog binding.
 
-**Acceptance would not:** freeze any API; change any source file, annotation or
+**Initial acceptance would not:** freeze any API; change any source file, annotation or
 signature; accept any documentation promise; complete Phase 4; or alter any
 progress figure. Phase 4 remains **19 of 20 = 95%** until increment 10.
 
-All twelve acceptance criteria above are satisfied. Acceptance settles the
-boundary and makes the correction backlog binding; implementation evidence will
-be recorded increment by increment. The public API remains explicitly unfrozen
-until increment 10 completes the independent review and Phase 4 acceptance.
+All twelve acceptance criteria above are satisfied. The ordered correction and
+documentation work is complete, Review 0003 found no remaining blocker, and the
+maintainer accepted the final freeze on 2026-09-04. The documented Tier 1 and
+Tier 2 boundary is now frozen under section 15; Tier 4 remains unsupported and
+future phases retain the additive rule in section 16.
 
 ## References
 
