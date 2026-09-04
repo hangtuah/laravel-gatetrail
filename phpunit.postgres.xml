@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/11.5/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         cacheDirectory=".phpunit.cache/postgres"
+         beStrictAboutOutputDuringTests="true">
+    <testsuites>
+        <testsuite name="GateTrail PostgreSQL Integration">
+            <directory suffix="Test.php">tests/Integration/PostgreSql</directory>
+        </testsuite>
+    </testsuites>
+
+    <source>
+        <include>
+            <directory suffix=".php">src</directory>
+        </include>
+    </source>
+
+    <php>
+        <env name="APP_ENV" value="testing" force="true"/>
+        <env name="GATETRAIL_POSTGRES_HOST" value="127.0.0.1"/>
+        <env name="GATETRAIL_POSTGRES_PORT" value="54329"/>
+        <env name="GATETRAIL_POSTGRES_DATABASE" value="gatetrail_test"/>
+        <env name="GATETRAIL_POSTGRES_USERNAME" value="gatetrail"/>
+        <env name="GATETRAIL_POSTGRES_PASSWORD" value="gatetrail_test"/>
+    </php>
+</phpunit>

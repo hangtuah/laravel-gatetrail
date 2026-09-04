@@ -21,7 +21,7 @@ What that does and does not mean:
 | Will it change silently? | No |
 | What ships with a deliberate breaking change? | An ADR, a `CHANGELOG.md` entry, and migration guidance when consumer code or configuration must change |
 | What happens to accidental drift? | It is a defect. `PublicApiSurfaceTest` rejects it in CI |
-| What may change in any release, including a patch? | Anything marked `@internal` — currently 158 of the package's 219 classes |
+| What may change in any release, including a patch? | Anything marked `@internal` — currently 167 of the package's 228 classes |
 
 The boundary itself is decided in
 [ADR 0014](decisions/0014-pre-v1-public-api-boundary.md), which classifies
@@ -48,11 +48,13 @@ add newly classified API without breaking this boundary.
 | SQLite | The full behavioural suite, on both Laravel majors. Test database, not a reference production database |
 | MySQL 8.0.16 and 8.0.45 | Live four-lane CI matrix across both Laravel majors, in both provisioning modes, including the resolver acceptance matrix |
 | Oracle Free 23.26.1 | Live targeted matrix on both dependency lanes, covering both generated-key strategies in both provisioning modes. The declared 12c Release 2 minimum has **not** been exercised live |
-| PostgreSQL 14+ | Release `0001` DBA install and rollback DDL smoke-tested on a live local PostgreSQL 14 endpoint. No application behavioral suite or schema inspector has run; runtime compatibility is not claimed |
+| PostgreSQL 14+ | Release `0001` install and rollback DDL, and read-only schema inspection, exercised on a live local PostgreSQL 14 endpoint in both provisioning modes. **No application behavioral suite has run**; runtime compatibility is not claimed |
 | SQL Server 2017+ | Query compilation and schema-adapter inspection only. **No live endpoint has been executed**, and no runtime compatibility is claimed |
 
-Compiling a statement is not evidence that it runs. Treat PostgreSQL and SQL
-Server as unverified until a live suite exists for them.
+Compiling a statement is not evidence that it runs, and neither is inspecting a
+schema. PostgreSQL now has live schema evidence, but no mutation, resolver,
+audit or concurrency path has executed against it. Treat PostgreSQL and SQL
+Server as unverified runtimes until a live behavioural suite exists for them.
 
 ## 2. Installation
 
@@ -228,8 +230,9 @@ a committed file drifts from compiler output.
 
 PostgreSQL release `0001` artifacts are available and reproducible. Their
 install and rollback shape has passed a local live PostgreSQL 14 smoke test,
-including generated and explicit IDs, but the read-only inspector and
-application behavioral harness remain future work. **SQL Server artifacts do
+including generated and explicit IDs, and read-only schema inspection now runs
+live against both the artifacts and the package migrations on PostgreSQL 14. The
+application behavioral harness remains future work. **SQL Server artifacts do
 not exist yet.**
 
 ### 4.5 Oracle is an example, not GateTrail's identity
@@ -1087,9 +1090,12 @@ available because a specification section describes it.
 
 Additional limitations of what *is* implemented:
 
-- **PostgreSQL and SQL Server are unverified.** Query compilation and schema
-  inspection exist; no live endpoint has been executed and no DBA artifacts are
-  published for them.
+- **PostgreSQL and SQL Server runtimes are unverified.** PostgreSQL has
+  reproducible DBA artifacts and live PostgreSQL 14 schema-inspection evidence
+  for both provisioning modes, but no live behavioural suite: nothing has
+  mutated, resolved, audited or coordinated against it. For SQL Server only
+  query compilation exists — no live endpoint has been executed, and no DBA
+  artifacts are published.
 - **Oracle's declared 12c Release 2 minimum has not been exercised live.**
   Current evidence comes from Oracle Free 23.26.1.
 - **Schema inspection has no supported entry point.** The read-only inspectors

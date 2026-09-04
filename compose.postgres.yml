@@ -1,0 +1,23 @@
+name: gatetrail
+
+services:
+  postgres:
+    image: postgres:${GATETRAIL_POSTGRES_VERSION:-14}
+    container_name: gatetrail-postgres
+    environment:
+      POSTGRES_DB: ${GATETRAIL_POSTGRES_DATABASE:-gatetrail_test}
+      POSTGRES_USER: ${GATETRAIL_POSTGRES_USERNAME:-gatetrail}
+      POSTGRES_PASSWORD: ${GATETRAIL_POSTGRES_PASSWORD:-gatetrail_test}
+    ports:
+      - "127.0.0.1:${GATETRAIL_POSTGRES_PORT:-54329}:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready --username=$$POSTGRES_USER --dbname=$$POSTGRES_DB
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    restart: "no"

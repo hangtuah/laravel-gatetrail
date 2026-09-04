@@ -31,15 +31,17 @@ requires an ADR, a changelog entry and migration guidance. Track
 | MySQL | 8.0.16 or later — verified against live 8.0.16 and 8.0.45 |
 | Oracle Database | 12c Release 2 or later — verified against live Oracle Free 23.26.1 |
 | SQLite | Used by the package's own test suite |
-| PostgreSQL | 14 or later — release `0001` DBA DDL smoke-tested locally on 14; application runtime remains unverified |
+| PostgreSQL | 14 or later — release `0001` DDL and read-only schema inspection verified on live 14 for both provisioning modes; application runtime remains unverified |
 | SQL Server | Query compilation and schema inspection only; no live endpoint has been executed |
 
 The behavioural suite runs on SQLite and live MySQL for both Laravel majors.
 Oracle runs a targeted live matrix for both generated-key strategies and both
-provisioning modes. PostgreSQL release `0001` install and rollback DDL has been
-exercised on a live local PostgreSQL 14 endpoint, but no application behavioral
-suite or inspector has run there. PostgreSQL and SQL Server are **not** verified
-runtimes yet.
+provisioning modes. PostgreSQL release `0001` install and rollback DDL and the
+read-only schema inspector have been exercised on a live local PostgreSQL 14
+endpoint for both package-managed and DBA-managed provisioning, but no
+application behavioral suite has run there: no mutation, resolver, audit or
+concurrency path has executed against PostgreSQL. PostgreSQL and SQL Server are
+**not** verified runtimes yet.
 
 ## Installation
 
@@ -209,8 +211,8 @@ final readonly class DocumentApprovalCheck
 Depend on the contracts, value types, events and exceptions listed in
 [`docs/PUBLIC_API.md`](docs/PUBLIC_API.md), and nothing else.
 
-> **A class marked `@internal` is not consumer API.** PSR-4 makes all 219
-> package classes loadable and the container can build most of them, but 158 of
+> **A class marked `@internal` is not consumer API.** PSR-4 makes all 228
+> package classes loadable and the container can build most of them, but 167 of
 > them carry a class-level `@internal` annotation and may be renamed, recomposed
 > or deleted in any release, including a patch. That includes the `Default*`
 > manager and resolver implementations behind the contracts — inject

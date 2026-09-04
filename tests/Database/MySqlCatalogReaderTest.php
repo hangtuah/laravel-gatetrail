@@ -159,11 +159,11 @@ final class MySqlCatalogReaderTest extends TestCase
     {
         $this->expectException(SchemaInspectorUnavailable::class);
         $this->expectExceptionMessage(
-            'GateTrail does not yet provide a schema inspector for [pgsql].',
+            'GateTrail does not yet provide a schema inspector for [sqlsrv].',
         );
 
         $this->app->make(SchemaInspectorFactory::class)->forDriver(
-            'pgsql',
+            'sqlsrv',
             $this->createMock(ConnectionInterface::class),
         );
     }
