@@ -6,6 +6,7 @@ namespace HangTuah\GateTrail\Database\Schema\Ddl;
 
 use HangTuah\GateTrail\Database\Schema\Ddl\MySql\MySqlDdlCompiler;
 use HangTuah\GateTrail\Database\Schema\Ddl\Oracle\OracleDdlCompiler;
+use HangTuah\GateTrail\Database\Schema\Ddl\PostgreSql\PostgreSqlDdlCompiler;
 use HangTuah\GateTrail\Exceptions\DdlCompilerUnavailable;
 
 /**
@@ -18,6 +19,7 @@ final class DdlCompilerFactory
         return match ($driver) {
             'mysql' => new MySqlDdlCompiler,
             'oracle' => new OracleDdlCompiler,
+            'pgsql' => new PostgreSqlDdlCompiler,
             default => throw DdlCompilerUnavailable::forDriver($driver),
         };
     }

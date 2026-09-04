@@ -266,11 +266,18 @@ SQL Server integration tests must cover:
 ### 3.7 Versioned DBA artifacts
 
 Each Tier 1 database receives install and rollback artifacts grouped by schema
-release. Release `0001` begins with MySQL:
+release. Release `0001` currently publishes MySQL, both Oracle generated-key
+strategies and PostgreSQL:
 
 ```text
 database/ddl/mysql/0001/install.sql
 database/ddl/mysql/0001/rollback.sql
+database/ddl/oracle/0001/identity/install.sql
+database/ddl/oracle/0001/identity/rollback.sql
+database/ddl/oracle/0001/sequence-trigger/install.sql
+database/ddl/oracle/0001/sequence-trigger/rollback.sql
+database/ddl/postgresql/0001/install.sql
+database/ddl/postgresql/0001/rollback.sql
 ```
 
 Committed artifacts use canonical table names without a schema qualifier or
@@ -2470,9 +2477,11 @@ against real engine timestamp types, a configured non-empty table prefix on
 MySQL, the configured schema context on Oracle, and exact `allows()` /
 `effectivePermissions()` and `has()` / `effectiveRoles()` parity.
 
-PostgreSQL and SQL Server remain **query-compilation and schema-adapter
-inspection only**. No live endpoint of either kind has been executed, and
-compilation evidence is never reported as live-database evidence.
+PostgreSQL release `0001` DBA DDL has passed a local live PostgreSQL 14 install
+and rollback smoke test, including generated and explicit identifiers. This is
+artifact evidence only: no PostgreSQL application behavioral suite or schema
+inspector has run, so runtime compatibility is not claimed. SQL Server remains
+query-compilation and schema-adapter inspection only, with no live endpoint.
 
 ## 21. Performance requirements
 
@@ -2508,8 +2517,8 @@ No performance claim may be published without a reproducible benchmark.
 - Breaking changes require changelog entries and an upgrade guide.
 
 The accepted and frozen pre-v1 boundary in
-[ADR 0014](docs/decisions/0014-pre-v1-public-api-boundary.md) classifies all 218
-source symbols:
+[ADR 0014](docs/decisions/0014-pre-v1-public-api-boundary.md) was established
+from its 218-symbol evidence base. The current 219 source symbols classify as:
 
 - Tier 1 contains 39 supported public symbols that consumers call, receive,
   catch or listen to;
@@ -2519,7 +2528,7 @@ source symbols:
   than class APIs, are the supported surface;
 - the operational tier contains the 5 exception types in section 15.2, while
   its primary promises remain artifacts and provisioning behavior; and
-- Tier 4 contains 157 implementation symbols with no compatibility promise,
+- Tier 4 contains 158 implementation symbols with no compatibility promise,
   all marked with class-level `@internal` annotations.
 
 The exact current Tier 1 and Tier 2 names, signatures and readable surface are

@@ -45,6 +45,16 @@ $artifactSets = [
         'config' => oracleConfig($config, 'sequence_trigger'),
         'strategy' => 'sequence_trigger',
     ],
+    [
+        'driver' => 'pgsql',
+        'directory' => sprintf(
+            '%s/database/ddl/postgresql/%s',
+            $root,
+            DdlArtifactGenerator::SCHEMA_RELEASE,
+        ),
+        'config' => $config,
+        'strategy' => null,
+    ],
 ];
 
 foreach ($artifactSets as $artifactSet) {

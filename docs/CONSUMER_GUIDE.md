@@ -21,7 +21,7 @@ What that does and does not mean:
 | Will it change silently? | No |
 | What ships with a deliberate breaking change? | An ADR, a `CHANGELOG.md` entry, and migration guidance when consumer code or configuration must change |
 | What happens to accidental drift? | It is a defect. `PublicApiSurfaceTest` rejects it in CI |
-| What may change in any release, including a patch? | Anything marked `@internal` — 157 of the package's 218 classes |
+| What may change in any release, including a patch? | Anything marked `@internal` — currently 158 of the package's 219 classes |
 
 The boundary itself is decided in
 [ADR 0014](decisions/0014-pre-v1-public-api-boundary.md), which classifies
@@ -48,7 +48,8 @@ add newly classified API without breaking this boundary.
 | SQLite | The full behavioural suite, on both Laravel majors. Test database, not a reference production database |
 | MySQL 8.0.16 and 8.0.45 | Live four-lane CI matrix across both Laravel majors, in both provisioning modes, including the resolver acceptance matrix |
 | Oracle Free 23.26.1 | Live targeted matrix on both dependency lanes, covering both generated-key strategies in both provisioning modes. The declared 12c Release 2 minimum has **not** been exercised live |
-| PostgreSQL 14+, SQL Server 2017+ | Query compilation and schema-adapter inspection only. **No live endpoint of either kind has ever been executed**, and no runtime compatibility is claimed |
+| PostgreSQL 14+ | Release `0001` DBA install and rollback DDL smoke-tested on a live local PostgreSQL 14 endpoint. No application behavioral suite or schema inspector has run; runtime compatibility is not claimed |
+| SQL Server 2017+ | Query compilation and schema-adapter inspection only. **No live endpoint has been executed**, and no runtime compatibility is claimed |
 
 Compiling a statement is not evidence that it runs. Treat PostgreSQL and SQL
 Server as unverified until a live suite exists for them.
@@ -211,6 +212,8 @@ database/ddl/oracle/0001/identity/install.sql
 database/ddl/oracle/0001/identity/rollback.sql
 database/ddl/oracle/0001/sequence-trigger/install.sql
 database/ddl/oracle/0001/sequence-trigger/rollback.sql
+database/ddl/postgresql/0001/install.sql
+database/ddl/postgresql/0001/rollback.sql
 ```
 
 Each engine directory carries its own README with the installation, rollback
@@ -223,8 +226,11 @@ committed artifact.
 Artifacts are reproducible byte-for-byte, and the package's own tests fail when
 a committed file drifts from compiler output.
 
-**PostgreSQL and SQL Server artifacts do not exist yet.** DBA-managed
-provisioning is available today for MySQL and Oracle only.
+PostgreSQL release `0001` artifacts are available and reproducible. Their
+install and rollback shape has passed a local live PostgreSQL 14 smoke test,
+including generated and explicit IDs, but the read-only inspector and
+application behavioral harness remain future work. **SQL Server artifacts do
+not exist yet.**
 
 ### 4.5 Oracle is an example, not GateTrail's identity
 
@@ -1009,13 +1015,13 @@ stability clock rather than Tier 1's.
 
 ## 19. Public versus internal API
 
-The package contains 218 classes. **157 of them carry a class-level
+The package contains 219 classes. **158 of them carry a class-level
 `@internal` annotation and are not consumer API**, whatever PHP visibility or
 the container allows.
 
 | Reachable how? | Supported? |
 |---|---|
-| PSR-4 can autoload it | No — true of all 218 |
+| PSR-4 can autoload it | No — true of all 219 |
 | The container can build it | No — 73 of the 80 bindings target internal classes |
 | Listed in `docs/PUBLIC_API.md` | **Yes** — this is the only level that carries a promise |
 

@@ -31,12 +31,15 @@ requires an ADR, a changelog entry and migration guidance. Track
 | MySQL | 8.0.16 or later — verified against live 8.0.16 and 8.0.45 |
 | Oracle Database | 12c Release 2 or later — verified against live Oracle Free 23.26.1 |
 | SQLite | Used by the package's own test suite |
-| PostgreSQL, SQL Server | Query compilation and schema inspection only; no live endpoint has been executed |
+| PostgreSQL | 14 or later — release `0001` DBA DDL smoke-tested locally on 14; application runtime remains unverified |
+| SQL Server | Query compilation and schema inspection only; no live endpoint has been executed |
 
 The behavioural suite runs on SQLite and live MySQL for both Laravel majors.
 Oracle runs a targeted live matrix for both generated-key strategies and both
-provisioning modes. PostgreSQL and SQL Server are **not** verified runtimes
-yet.
+provisioning modes. PostgreSQL release `0001` install and rollback DDL has been
+exercised on a live local PostgreSQL 14 endpoint, but no application behavioral
+suite or inspector has run there. PostgreSQL and SQL Server are **not** verified
+runtimes yet.
 
 ## Installation
 
@@ -88,12 +91,14 @@ artifacts are committed for the engines that have them:
 database/ddl/mysql/0001/{install,rollback}.sql
 database/ddl/oracle/0001/identity/{install,rollback}.sql
 database/ddl/oracle/0001/sequence-trigger/{install,rollback}.sql
+database/ddl/postgresql/0001/{install,rollback}.sql
 ```
 
 Both modes produce the same schema from the same canonical manifest, and
 package behaviour does not depend on which one created it. See
-[`database/ddl/mysql/README.md`](database/ddl/mysql/README.md) and
-[`database/ddl/oracle/README.md`](database/ddl/oracle/README.md) for the
+[`database/ddl/mysql/README.md`](database/ddl/mysql/README.md),
+[`database/ddl/oracle/README.md`](database/ddl/oracle/README.md), and
+[`database/ddl/postgresql/README.md`](database/ddl/postgresql/README.md) for
 installation and rollback procedures, and the consumer guide for the full
 comparison.
 
@@ -204,8 +209,8 @@ final readonly class DocumentApprovalCheck
 Depend on the contracts, value types, events and exceptions listed in
 [`docs/PUBLIC_API.md`](docs/PUBLIC_API.md), and nothing else.
 
-> **A class marked `@internal` is not consumer API.** PSR-4 makes all 218
-> package classes loadable and the container can build most of them, but 157 of
+> **A class marked `@internal` is not consumer API.** PSR-4 makes all 219
+> package classes loadable and the container can build most of them, but 158 of
 > them carry a class-level `@internal` annotation and may be renamed, recomposed
 > or deleted in any release, including a patch. That includes the `Default*`
 > manager and resolver implementations behind the contracts — inject
