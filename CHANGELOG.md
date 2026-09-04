@@ -56,6 +56,10 @@ All notable changes to GateTrail will be documented in this file.
   reject an example that fails to parse, names a `Default*` concrete, reaches
   for an `@internal` symbol, passes a named argument no reflected signature
   accepts, or presents an unavailable API as implemented.
+- The documentation guard now recognizes both multiline and one-line
+  class-level `@internal` PHPDoc and asserts that all 157 Tier 4 symbols are
+  covered. The independent pre-v1 freeze review found no unsupported API in
+  consumer examples; this review does not itself freeze the API.
 
 ### Migration guidance
 

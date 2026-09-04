@@ -1,6 +1,6 @@
 # GateTrail Roadmap and Implementation Guide
 
-Last updated: 2026-08-27
+Last updated: 2026-09-04
 
 ## 1. Purpose
 
@@ -259,6 +259,17 @@ Increment 10's Phase 4 acceptance remain outstanding, so Phase 4 stays at
 **19 of 20 = 95%**, Phase 5 at **100%**, overall equal-phase progress at
 **approximately 41%**, and the deliverable tracker at **12 of 32,
 approximately 38%**.
+
+ADR 0014 **Increment 9 of 10** was completed on 2026-09-04. The independent
+[pre-v1 freeze review](docs/reviews/0003-pre-v1-public-api-freeze-review.md)
+verified every blocking correction, the exact 39 Tier 1 plus 13 Tier 2
+source/document manifest, and that planned Phase 6 through Phase 13 surfaces
+are never presented as available. It found no documentation leak or runtime
+defect. One safeguard gap was corrected so the consumer-documentation test
+detects both multiline and one-line class-level `@internal` PHPDoc and asserts
+coverage of all 157 Tier 4 symbols. **The API remains unfrozen and Phase 4
+remains 19 of 20 = 95% until Increment 10 acceptance.** Overall and deliverable
+percentages are unchanged.
 
 [ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md) was accepted
 on 2026-08-19; it decides the *sequencing* of cross-request caching and

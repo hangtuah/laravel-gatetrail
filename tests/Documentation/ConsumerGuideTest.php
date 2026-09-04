@@ -186,7 +186,7 @@ final class ConsumerGuideTest extends TestCase
     {
         $examples = implode("\n", $this->phpExamples($this->read($document)));
 
-        foreach ($this->internalShortNames() as $short => $symbol) {
+        foreach ($this->internalShortNames() as $symbol => $short) {
             $this->assertSame(
                 0,
                 preg_match('/\b'.preg_quote($short, '/').'\b/', $examples),
@@ -197,6 +197,11 @@ final class ConsumerGuideTest extends TestCase
                 ),
             );
         }
+    }
+
+    public function test_internal_example_guard_covers_every_tier_four_symbol(): void
+    {
+        $this->assertCount(157, $this->internalShortNames());
     }
 
     #[DataProvider('documents')]
@@ -644,7 +649,7 @@ final class ConsumerGuideTest extends TestCase
      * Short names of every Tier 4 symbol, so an example that reaches for one
      * fails here rather than teaching consumers to depend on it.
      *
-     * @return array<string, class-string>
+     * @return array<class-string, string>
      */
     private function internalShortNames(): array
     {
@@ -652,7 +657,7 @@ final class ConsumerGuideTest extends TestCase
             ...PublicApiSurfaceTest::TIER_ONE,
             ...PublicApiSurfaceTest::TIER_TWO,
         ];
-        $short = [];
+        $internal = [];
 
         foreach ($this->sourceSymbols() as $symbol) {
             if (in_array($symbol, $supported, true)) {
@@ -661,14 +666,14 @@ final class ConsumerGuideTest extends TestCase
 
             $documentation = (string) (new ReflectionClass($symbol))->getDocComment();
 
-            if (preg_match('/^\s*\*\s*@internal\b/m', $documentation) !== 1) {
+            if (preg_match('/(?:\/\*\*|\*)\s+@internal\b/', $documentation) !== 1) {
                 continue;
             }
 
-            $short[substr((string) strrchr($symbol, '\\'), 1)] = $symbol;
+            $internal[$symbol] = substr((string) strrchr($symbol, '\\'), 1);
         }
 
-        return $short;
+        return $internal;
     }
 
     /**

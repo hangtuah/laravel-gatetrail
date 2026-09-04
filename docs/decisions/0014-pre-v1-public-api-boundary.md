@@ -8,12 +8,12 @@
   promise before `1.0.0`, and which do not.** It freezes nothing, changes no
   source, and accepts no documentation promise.
 - Public API freeze status: **not frozen**
-- Implementation status: **Increments 1–8 of 10 complete** — public signature,
+- Implementation status: **Increments 1–9 of 10 complete** — public signature,
   event-contract, package-controlled-construction, configurable-audit-model,
   inherited-surface, internal-annotation, reflection-boundary, container,
   event-listener, package-specification, authoritative-public-API and
-  consumer-documentation corrections landed between 2026-08-26 and 2026-08-27;
-  the public API remains unfrozen
+  consumer-documentation and independent-freeze-review corrections landed
+  between 2026-08-26 and 2026-09-04; the public API remains unfrozen
 - Open questions O-1 to O-5: **resolved by maintainer decision, 2026-08-20**
   (section 21). Resolving them removed the last stated blocker to acceptance
   review and changed no source file.
@@ -1429,7 +1429,15 @@ Acceptance itself implemented nothing; delivery progress is recorded below.
   uses Tier 1 contracts with reflected named arguments, and both documents
   confine the Phase 6 to Phase 10 surfaces to an explicit unimplemented
   section. Correction 14 is complete. The freeze is untouched.
-- [ ] Increments 9–10 remain outstanding.
+- [x] **Increment 9 — Final independent freeze review.** Completed on
+  2026-09-04. [Review 0003](../reviews/0003-pre-v1-public-api-freeze-review.md)
+  verified all blocking corrections, the 52-symbol source/document manifest
+  and the explicit unavailable status of Phase 6 through Phase 13 surfaces.
+  It found and corrected one documentation-test gap: one-line
+  `/** @internal */` PHPDoc is now detected, and the guard asserts coverage of
+  all 157 Tier 4 symbols. No documentation leak or runtime defect was found.
+  The public API remains unfrozen.
+- [ ] Increment 10 remains outstanding.
 
 Targeted reflection tests pin the corrected annotations, event contract,
 constructor visibility and factory boundary. The full SQLite suite, PHPStan at
@@ -1455,6 +1463,9 @@ reject an example that parses badly, names a `Default*` concrete, reaches for
 an `@internal` symbol, passes a named argument no reflected signature accepts,
 or presents an unavailable API outside its unimplemented section. No runtime
 source, migration, configuration, workflow or dependency changes.
+Increment 9 records the independent review and strengthens one documentation
+test; it changes no runtime source, configuration, migration, workflow or
+dependency.
 
 Increments 1 and 2 change runtime behavior and must not be combined. Increment 3
 is mechanical and touches no logic. Increment 8 depends on increments 1–7 because
