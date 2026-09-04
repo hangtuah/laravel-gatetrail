@@ -67,7 +67,15 @@ explicit identifiers GateTrail's own insert paths supply. Unique, foreign-key
 and check constraints are explicitly named by both modes and must match the
 manifest exactly.
 
-Foreign keys are checked on three points DBAs most often change by hand:
+Every primary-key, unique and foreign-key constraint must be `NOT DEFERRABLE`.
+A deferrable constraint is enforced only when PostgreSQL chooses to check it,
+which for `INITIALLY DEFERRED` is transaction commit. GateTrail requires
+immediate enforcement — a duplicate must be rejected at the write rather than
+tolerated until commit — so `DEFERRABLE INITIALLY IMMEDIATE` and `DEFERRABLE
+INITIALLY DEFERRED` are both reported as `constraint_state_mismatch`. Check
+constraints are exempt only because PostgreSQL cannot make them deferrable.
+
+Foreign keys are checked on three further points DBAs most often change by hand:
 
 - **Referenced object.** A foreign key's identity is its referenced schema,
   table **and** ordered columns. A key that resolves to an identically named
@@ -77,12 +85,11 @@ Foreign keys are checked on three points DBAs most often change by hand:
 - **Referential action.** `ON DELETE`/`ON UPDATE` must be `RESTRICT` or
   `NO ACTION`. `CASCADE`, `SET NULL` and `SET DEFAULT` are reported as
   `foreign_rule_mismatch`, because each destroys assignment history.
-- **Deferrability.** Every GateTrail foreign key must be `NOT DEFERRABLE`.
-  `RESTRICT` and `NO ACTION` are only interchangeable at that setting:
-  PostgreSQL can postpone a `NO ACTION` check to commit time, which `RESTRICT`
-  cannot be postponed the same way, so `DEFERRABLE INITIALLY IMMEDIATE` and
-  `DEFERRABLE INITIALLY DEFERRED` are both reported as
-  `constraint_state_mismatch`.
+- **Deferrability.** `RESTRICT` and `NO ACTION` are only interchangeable while
+  the key is `NOT DEFERRABLE`, because PostgreSQL can postpone a `NO ACTION`
+  check to commit time and `RESTRICT` cannot be postponed the same way. The
+  `NOT DEFERRABLE` requirement itself applies to every constraint type, as
+  above.
 
 PostgreSQL creates one index per primary-key and unique constraint, so a
 correctly installed release `0001` schema carries **24** indexes: the manifest's

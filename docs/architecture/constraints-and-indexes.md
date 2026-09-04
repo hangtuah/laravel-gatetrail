@@ -133,11 +133,19 @@ The three assignment tables share these rules:
 Foreign keys use `RESTRICT` or the database-equivalent `NO ACTION` for delete
 and update behavior. No assignment foreign key uses `CASCADE`.
 
-The two actions are equivalent only while the constraint is `NOT DEFERRABLE`.
-An engine that can postpone a `NO ACTION` check to commit time — PostgreSQL
-does — makes a deferrable foreign key a weaker constraint than `RESTRICT`, so
-every GateTrail foreign key is `NOT DEFERRABLE` and a deferrable one is schema
-drift.
+Every GateTrail primary-key, unique and foreign-key constraint is
+`NOT DEFERRABLE`. A deferrable constraint is enforced only when the engine
+chooses to check it, which for `INITIALLY DEFERRED` is transaction commit. A
+deferrable unique constraint would therefore permit two equivalent active
+assignments to coexist for the length of a transaction and reject them only at
+commit — exactly the race the ADR 0001 coordination rows exist to prevent — so
+immediate enforcement is part of the schema contract, not a preference. A
+deferrable constraint is schema drift.
+
+The two referential actions above are likewise equivalent only while the
+foreign key is `NOT DEFERRABLE`: an engine that can postpone a `NO ACTION`
+check to commit time — PostgreSQL does — makes a deferrable foreign key a
+weaker constraint than `RESTRICT`.
 
 ## 6. `acl_role_assignments`
 

@@ -29,6 +29,17 @@ All notable changes to GateTrail will be documented in this file.
 
 ### Fixed
 
+- Deferrable PostgreSQL constraints are now rejected for every canonical
+  constraint type, not only foreign keys. The `NOT DEFERRABLE` requirement moved
+  into the shared constraint-inspection path, so a `DEFERRABLE` primary-key,
+  unique or foreign-key constraint reports `constraint_state_mismatch` in both
+  the `INITIALLY IMMEDIATE` and `INITIALLY DEFERRED` states, and the diagnostic
+  says which. Immediate enforcement is required because a deferrable unique
+  constraint would let two equivalent active assignments coexist until commit,
+  which is the race GateTrail's assignment coordination exists to prevent. A
+  `condeferred` flag reported without `condeferrable` — a state PostgreSQL
+  cannot produce — fails closed instead of passing. Check constraints are
+  untouched, because PostgreSQL cannot make them deferrable.
 - Two fail-open gaps in PostgreSQL foreign-key inspection, found reviewing the
   increment above and closed before either shipped. A foreign key's identity now
   includes the schema it references, so a key resolving to an identically named

@@ -747,11 +747,15 @@ acl_access_audits
   metadata it cannot compare — an expression or partial index, an unresolvable
   index key, an unnamed referential action, and a check constraint outside
   PostgreSQL's `CHECK (...)` form — and repairs nothing.
-- Its normalization is deliberate and bounded. `RESTRICT` and `NO ACTION` are
-  equivalent restrictive actions only while the foreign key is `NOT DEFERRABLE`,
-  because PostgreSQL can postpone a `NO ACTION` check to commit time and
-  `RESTRICT` cannot be postponed the same way; a deferrable foreign key is drift
-  regardless of its action. `CASCADE`, `SET NULL` and `SET DEFAULT` are drift on
+- Its normalization is deliberate and bounded. Every canonical primary-key,
+  unique and foreign-key constraint must be `NOT DEFERRABLE`, because a
+  deferrable constraint is enforced only when PostgreSQL chooses to check it —
+  transaction commit, for `INITIALLY DEFERRED` — and the mutation and
+  concurrency contract requires a duplicate to be rejected at the write rather
+  than tolerated until commit. `RESTRICT` and `NO ACTION` are equivalent
+  restrictive actions only at that setting, because PostgreSQL can postpone a
+  `NO ACTION` check to commit time and `RESTRICT` cannot be postponed the same
+  way. `CASCADE`, `SET NULL` and `SET DEFAULT` are drift on
   their own. A foreign key's identity is its referenced schema, table and
   ordered columns together, compared against the schema actually being
   inspected, so a key pointing at an identically named table in another schema
@@ -792,6 +796,12 @@ acl_access_audits
   named table in another schema, and a `DEFERRABLE` key. Both were accepted as
   canonical before the correction, and the regressions were confirmed to fail
   against the pre-correction comparison.
+- The `NOT DEFERRABLE` requirement is now enforced once, in the shared
+  constraint path, so it covers primary-key and unique constraints as well as
+  foreign keys; an inconsistent `condeferred` without `condeferrable` fails
+  closed. Live PostgreSQL 14 regressions cover a deferrable unique constraint
+  and a deferrable primary key in both initial states, each confirmed to fail
+  against the previous foreign-key-only check.
 - This is schema evidence only. **No PostgreSQL application runtime
   compatibility is claimed**: no mutation service, resolver, audit writer or
   concurrency path has executed against PostgreSQL.

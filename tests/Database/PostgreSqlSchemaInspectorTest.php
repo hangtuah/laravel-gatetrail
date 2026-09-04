@@ -723,6 +723,219 @@ final class PostgreSqlSchemaInspectorTest extends TestCase
     }
 
     /**
+     * @return array<string, array{string, bool, bool, ?string}>
+     */
+    public static function constraintDeferrability(): array
+    {
+        $cases = [];
+
+        foreach ([
+            'primary key' => 'acl_audit_pk',
+            'unique' => 'acl_role_name_guard_uq',
+            'foreign key' => 'acl_ra_role_fk',
+        ] as $kind => $constraint) {
+            $cases[$kind.', NOT DEFERRABLE'] = [
+                $constraint, false, false, null,
+            ];
+            $cases[$kind.', DEFERRABLE INITIALLY IMMEDIATE'] = [
+                $constraint, true, false, 'INITIALLY IMMEDIATE',
+            ];
+            $cases[$kind.', DEFERRABLE INITIALLY DEFERRED'] = [
+                $constraint, true, true, 'INITIALLY DEFERRED',
+            ];
+        }
+
+        return $cases;
+    }
+
+    /**
+     * The rule is one rule, applied to every manifest constraint type that
+     * PostgreSQL can make deferrable.
+     */
+    #[DataProvider('constraintDeferrability')]
+    public function test_every_constraint_type_must_be_not_deferrable(
+        string $constraintName,
+        bool $deferrable,
+        bool $deferred,
+        ?string $expectedState,
+    ): void {
+        $snapshot = $this->matchingSnapshot(self::DBA);
+        $object = null;
+        $constraints = [];
+
+        foreach ($snapshot->constraints as $constraint) {
+            if ($constraint->name !== $constraintName) {
+                $constraints[] = $constraint;
+
+                continue;
+            }
+
+            $object = $constraint->table.'.'.$constraint->name;
+            $constraints[] = $this->constraint(
+                $constraint,
+                deferrable: $deferrable,
+                deferred: $deferred,
+            );
+        }
+
+        $this->assertNotNull($object, $constraintName);
+
+        $inspection = $this->inspect(
+            $this->replaceConstraints($snapshot, $constraints),
+        );
+
+        if ($expectedState === null) {
+            $this->assertSame([], $this->codes($inspection));
+
+            return;
+        }
+
+        $this->assertSame(
+            ['constraint_state_mismatch'],
+            $this->codes($inspection),
+            'A deferrable constraint must raise exactly one issue.',
+        );
+        $this->assertSame($object, $inspection->issues[0]->object);
+        $this->assertFalse($inspection->passes());
+
+        $message = $inspection->issues[0]->message;
+        $this->assertStringContainsString('NOT DEFERRABLE', $message);
+        $this->assertStringContainsString($expectedState, $message);
+        $this->assertStringNotContainsString(
+            $expectedState === 'INITIALLY DEFERRED'
+                ? 'INITIALLY IMMEDIATE'
+                : 'INITIALLY DEFERRED',
+            $message,
+        );
+    }
+
+    /**
+     * A deferrable foreign key is reported once, by the shared rule, not once
+     * per code path that happens to look at the constraint.
+     */
+    public function test_a_deferrable_foreign_key_reports_exactly_one_state_issue(): void
+    {
+        $snapshot = $this->matchingSnapshot(self::DBA);
+        $constraints = array_map(
+            fn (PostgreSqlConstraintMetadata $constraint): PostgreSqlConstraintMetadata => (
+                $constraint->name === 'acl_ra_role_fk'
+            ) ? $this->constraint($constraint, deferrable: true, deferred: true)
+                : $constraint,
+            $snapshot->constraints,
+        );
+
+        $issues = array_values(array_filter(
+            $this->inspect(
+                $this->replaceConstraints($snapshot, $constraints),
+            )->issues,
+            static fn ($issue): bool => (
+                $issue->code === 'constraint_state_mismatch'
+            ),
+        ));
+
+        $this->assertCount(1, $issues);
+        $this->assertSame(
+            'acl_role_assignments.acl_ra_role_fk',
+            $issues[0]->object,
+        );
+    }
+
+    /**
+     * Check constraints cannot be made deferrable in PostgreSQL, so the rule
+     * does not speculate about them and their expression handling is untouched.
+     */
+    public function test_check_constraints_are_left_out_of_the_deferrability_rule(): void
+    {
+        $snapshot = $this->matchingSnapshot(self::DBA);
+        $constraints = array_map(
+            fn (PostgreSqlConstraintMetadata $constraint): PostgreSqlConstraintMetadata => (
+                $constraint->type === 'c'
+            ) ? $this->constraint($constraint, deferrable: true, deferred: true)
+                : $constraint,
+            $snapshot->constraints,
+        );
+
+        $this->assertSame(
+            [],
+            $this->codes($this->inspect(
+                $this->replaceConstraints($snapshot, $constraints),
+            )),
+        );
+    }
+
+    /**
+     * `condeferred` without `condeferrable` is a state PostgreSQL cannot
+     * report, so it is failed closed rather than read as "not deferrable".
+     */
+    public function test_an_impossible_deferrability_state_fails_closed(): void
+    {
+        $snapshot = $this->matchingSnapshot(self::DBA);
+        $constraints = array_map(
+            fn (PostgreSqlConstraintMetadata $constraint): PostgreSqlConstraintMetadata => (
+                $constraint->name === 'acl_role_name_guard_uq'
+            ) ? $this->constraint($constraint, deferrable: false, deferred: true)
+                : $constraint,
+            $snapshot->constraints,
+        );
+
+        $inspection = $this->inspect(
+            $this->replaceConstraints($snapshot, $constraints),
+        );
+
+        $this->assertSame(
+            'constraint_state_mismatch',
+            $this->codeFor($inspection->issues, 'acl_roles.acl_role_name_guard_uq'),
+        );
+        $this->assertFalse($inspection->passes());
+        $this->assertStringContainsString(
+            'not a state it can hold',
+            $this->messageFor(
+                $inspection->issues,
+                'acl_roles.acl_role_name_guard_uq',
+            ),
+        );
+    }
+
+    /**
+     * Deferrability and validity are separate defects on the same constraint,
+     * so a key that is both reports both.
+     */
+    public function test_deferrability_and_validity_drift_are_reported_independently(): void
+    {
+        $snapshot = $this->matchingSnapshot(self::DBA);
+        $constraints = array_map(
+            fn (PostgreSqlConstraintMetadata $constraint): PostgreSqlConstraintMetadata => (
+                $constraint->name === 'acl_perm_name_guard_uq'
+            ) ? $this->constraint(
+                $constraint,
+                validated: false,
+                deferrable: true,
+                deferred: false,
+            ) : $constraint,
+            $snapshot->constraints,
+        );
+
+        $messages = array_map(
+            static fn ($issue): string => $issue->message,
+            array_values(array_filter(
+                $this->inspect(
+                    $this->replaceConstraints($snapshot, $constraints),
+                )->issues,
+                static fn ($issue): bool => (
+                    $issue->object === 'acl_permissions.acl_perm_name_guard_uq'
+                ),
+            )),
+        );
+
+        $this->assertCount(2, $messages);
+        $this->assertStringContainsString('not validated', $messages[0]);
+        $this->assertStringContainsString(
+            'DEFERRABLE INITIALLY IMMEDIATE',
+            $messages[1],
+        );
+    }
+
+    /**
      * Deferrability and the referential action are independent failures, so a
      * deferrable cascading key reports both rather than masking one.
      */

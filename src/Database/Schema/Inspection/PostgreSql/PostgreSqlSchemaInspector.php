@@ -29,16 +29,20 @@ use HangTuah\GateTrail\Database\Schema\SchemaContext;
  * inspector accepts both representations only where they are semantically
  * identical, and reports everything else:
  *
+ * - **Every constraint must be `NOT DEFERRABLE`** — primary key, unique and
+ *   foreign key alike. A deferrable constraint is enforced when PostgreSQL
+ *   chooses to check it, which for `INITIALLY DEFERRED` is transaction commit,
+ *   so it permits a window in which the schema's own invariant does not hold.
+ *   Both deferrable states are drift, reported as `constraint_state_mismatch`.
+ *   See {@see self::inspectDeferrability()}.
  * - **`RESTRICT` and `NO ACTION`** are both accepted for `ON DELETE` and
- *   `ON UPDATE`, but only while the constraint is `NOT DEFERRABLE`. Neither
+ *   `ON UPDATE`, but only while the foreign key is `NOT DEFERRABLE`. Neither
  *   permits a referencing row to be orphaned; they differ in when the check
  *   fires. That difference stops being cosmetic once the constraint is
  *   deferrable, because PostgreSQL can postpone a `NO ACTION` check to commit
- *   time while `RESTRICT` cannot be postponed the same way — so a deferrable
- *   foreign key is drift regardless of its action, reported as
- *   `constraint_state_mismatch`. `CASCADE`, `SET NULL` and `SET DEFAULT` are
- *   drift on their own, because each destroys assignment history the package
- *   promises to keep.
+ *   time while `RESTRICT` cannot be postponed the same way. `CASCADE`,
+ *   `SET NULL` and `SET DEFAULT` are drift on their own, because each destroys
+ *   assignment history the package promises to keep.
  * - **A foreign key's identity includes the schema it references.** Two schemas
  *   can each hold a table of the canonical name, so the referenced namespace,
  *   table and ordered columns must all match. The expected namespace is the
@@ -60,6 +64,16 @@ use HangTuah\GateTrail\Database\Schema\SchemaContext;
  *   and unique constraint. Those are not counted against the manifest's 15
  *   explicit indexes and are not reported as unexpected, provided they back a
  *   constraint the manifest declares.
+ * - **`timestamp without time zone`** is compared with its declared precision,
+ *   so the canonical second-precision column is distinguished from a
+ *   sub-second one.
+ * - **Check expressions** are compared after PostgreSQL's own rewrite is
+ *   normalized: case, whitespace and redundant outer parentheses are removed
+ *   from both sides before comparison.
+ * - **Collation.** A column the manifest marks for exact comparison must
+ *   declare the deterministic `C` collation explicitly. Inheriting a database
+ *   default that happens to be deterministic is not accepted, because the
+ *   default can be changed underneath the package.
  *
  * # Unexpected indexes, and why severity differs
  *
@@ -71,16 +85,6 @@ use HangTuah\GateTrail\Database\Schema\SchemaContext;
  * declare, is an error on the same reasoning the specification applies to an
  * unexpected column — it can reject an insert GateTrail expects to succeed, so
  * it changes the data contract rather than just the query plan.
- * - **`timestamp without time zone`** is compared with its declared precision,
- *   so the canonical second-precision column is distinguished from a
- *   sub-second one.
- * - **Check expressions** are compared after PostgreSQL's own rewrite is
- *   normalized: case, whitespace and redundant outer parentheses are removed
- *   from both sides before comparison.
- * - **Collation.** A column the manifest marks for exact comparison must
- *   declare the deterministic `C` collation explicitly. Inheriting a database
- *   default that happens to be deterministic is not accepted, because the
- *   default can be changed underneath the package.
  *
  * # Fail-closed
  *
@@ -438,6 +442,11 @@ final readonly class PostgreSqlSchemaInspector implements SchemaInspector
                 );
             }
 
+            $issues = [
+                ...$issues,
+                ...$this->inspectDeferrability($expected, $actual, $object),
+            ];
+
             if (
                 $expected->type !== ConstraintType::Check
                 && $actual->columns !== $expected->columns
@@ -477,6 +486,66 @@ final readonly class PostgreSqlSchemaInspector implements SchemaInspector
     }
 
     /**
+     * Every canonical primary-key, unique and foreign-key constraint must be
+     * `NOT DEFERRABLE`, and this is the one place that is decided.
+     *
+     * A deferrable constraint is only enforced when PostgreSQL chooses to check
+     * it, which for `INITIALLY DEFERRED` is transaction commit. GateTrail's
+     * assignment coordination depends on a unique constraint rejecting a
+     * duplicate at the moment of the write, not at commit: a window in which
+     * two equivalent active assignments can both exist is exactly the race the
+     * coordination rows are there to prevent. The same reasoning makes a
+     * deferrable foreign key drift, and is why `RESTRICT` and `NO ACTION` are
+     * interchangeable only while the key is `NOT DEFERRABLE`.
+     *
+     * Check constraints are excluded because PostgreSQL does not make them
+     * deferrable, so there is no state here to inspect for them.
+     *
+     * @return list<SchemaIssue>
+     */
+    private function inspectDeferrability(
+        ConstraintDefinition $expected,
+        PostgreSqlConstraintMetadata $actual,
+        string $object,
+    ): array {
+        if ($expected->type === ConstraintType::Check) {
+            return [];
+        }
+
+        if (! $actual->deferrable && ! $actual->deferred) {
+            return [];
+        }
+
+        // `condeferred` without `condeferrable` is a state PostgreSQL cannot
+        // report. Rather than read it as "not deferrable, therefore fine", the
+        // inspector fails closed on it.
+        if (! $actual->deferrable) {
+            return [
+                new SchemaIssue(
+                    code: 'constraint_state_mismatch',
+                    object: $object,
+                    message: sprintf(
+                        'Constraint [%s] must be NOT DEFERRABLE; PostgreSQL reports it as INITIALLY DEFERRED while not marked deferrable, which is not a state it can hold.',
+                        $object,
+                    ),
+                ),
+            ];
+        }
+
+        return [
+            new SchemaIssue(
+                code: 'constraint_state_mismatch',
+                object: $object,
+                message: sprintf(
+                    'Constraint [%s] must be NOT DEFERRABLE; found DEFERRABLE INITIALLY %s.',
+                    $object,
+                    $actual->deferred ? 'DEFERRED' : 'IMMEDIATE',
+                ),
+            ),
+        ];
+    }
+
+    /**
      * @return list<SchemaIssue>
      */
     private function inspectForeign(
@@ -510,18 +579,6 @@ final readonly class PostgreSqlSchemaInspector implements SchemaInspector
                         $actual->referencedTable,
                     ),
                     $this->columnList($actual->referencedColumns),
-                ),
-            );
-        }
-
-        if ($actual->deferrable) {
-            $issues[] = new SchemaIssue(
-                code: 'constraint_state_mismatch',
-                object: $object,
-                message: sprintf(
-                    'Foreign key [%s] must be NOT DEFERRABLE; found DEFERRABLE INITIALLY %s.',
-                    $object,
-                    $actual->deferred ? 'DEFERRED' : 'IMMEDIATE',
                 ),
             );
         }

@@ -317,12 +317,19 @@ the configured schema and the seven configured table names, and validates the
 same list. Because PostgreSQL represents parts of the canonical contract in two
 equally valid ways, it normalizes only where the two are semantically identical:
 
+- Every canonical **primary-key, unique and foreign-key constraint must be
+  `NOT DEFERRABLE`**. A deferrable constraint is enforced only when PostgreSQL
+  chooses to check it, which for `INITIALLY DEFERRED` is transaction commit, so
+  it opens a window in which the schema's own invariant does not hold. Immediate
+  unique enforcement in particular is required by the mutation and concurrency
+  contract: a duplicate active assignment must be rejected at the write, not
+  tolerated until commit. `DEFERRABLE INITIALLY IMMEDIATE` and `DEFERRABLE
+  INITIALLY DEFERRED` are both reported as `constraint_state_mismatch`. Check
+  constraints are excluded because PostgreSQL cannot make them deferrable.
 - `RESTRICT` and `NO ACTION` are equivalent restrictive actions **only while
   the foreign key is `NOT DEFERRABLE`**. PostgreSQL can postpone a `NO ACTION`
-  check to commit time, which `RESTRICT` cannot be postponed the same way, so a
-  deferrable foreign key is schema drift regardless of its action and is
-  reported as `constraint_state_mismatch`. `CASCADE`, `SET NULL` and
-  `SET DEFAULT` are drift on their own.
+  check to commit time, which `RESTRICT` cannot be postponed the same way.
+  `CASCADE`, `SET NULL` and `SET DEFAULT` are drift on their own.
 - A foreign key's identity is its referenced **schema, table and ordered
   columns**, all three. Two schemas can each hold a table of the canonical name,
   so comparing the table name alone would accept a key that silently left the
