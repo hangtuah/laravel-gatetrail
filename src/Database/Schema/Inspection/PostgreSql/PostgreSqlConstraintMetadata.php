@@ -20,6 +20,18 @@ namespace HangTuah\GateTrail\Database\Schema\Inspection\PostgreSql;
  * foreign-key constraints. PostgreSQL stores a check constraint's `conkey` in
  * its own order, so that order is not compared against the manifest.
  *
+ * `$referencedSchema` completes a foreign key's identity. Two schemas may each
+ * hold a table of the same name, so a reference is only canonical when its
+ * namespace, table and ordered columns all match. It is null for every
+ * non-foreign constraint.
+ *
+ * `$deferrable` and `$deferred` carry `condeferrable` and `condeferred`. They
+ * matter because PostgreSQL lets a `NO ACTION` check be postponed to commit
+ * time, which `RESTRICT` cannot be — so the two actions are only interchangeable
+ * while the constraint is `NOT DEFERRABLE`. Both default to false, which is the
+ * canonical state and what PostgreSQL reports for every constraint the release
+ * `0001` artifacts and the package migrations create.
+ *
  * @internal
  */
 final readonly class PostgreSqlConstraintMetadata
@@ -34,6 +46,9 @@ final readonly class PostgreSqlConstraintMetadata
         public string $type,
         public array $columns,
         public bool $validated,
+        public bool $deferrable = false,
+        public bool $deferred = false,
+        public ?string $referencedSchema = null,
         public ?string $referencedTable = null,
         public array $referencedColumns = [],
         public ?string $deleteRule = null,

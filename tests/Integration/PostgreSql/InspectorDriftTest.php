@@ -168,61 +168,6 @@ final class InspectorDriftTest extends PostgreSqlIntegrationTestCase
         return 'dba';
     }
 
-    /**
-     * A stable digest of every GateTrail table, column, index and constraint in
-     * the schema, used to prove inspection changed nothing.
-     */
-    private function catalogFingerprint(): string
-    {
-        $parts = [];
-
-        foreach ([
-            <<<'SQL'
-                SELECT c.relname AS value
-                FROM pg_catalog.pg_class c
-                INNER JOIN pg_catalog.pg_namespace n
-                    ON n.oid = c.relnamespace
-                WHERE n.nspname = ? AND c.relkind IN ('r', 'i')
-                ORDER BY c.relname
-                SQL,
-            <<<'SQL'
-                SELECT
-                    c.relname || '.' || a.attname || ':'
-                        || pg_catalog.format_type(a.atttypid, a.atttypmod)
-                        || ':' || a.attnotnull::text
-                        || ':' || COALESCE(a.attidentity, '-') AS value
-                FROM pg_catalog.pg_attribute a
-                INNER JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
-                INNER JOIN pg_catalog.pg_namespace n
-                    ON n.oid = c.relnamespace
-                WHERE n.nspname = ?
-                  AND c.relkind = 'r'
-                  AND a.attnum > 0
-                  AND NOT a.attisdropped
-                ORDER BY c.relname, a.attnum
-                SQL,
-            <<<'SQL'
-                SELECT
-                    c.relname || '.' || con.conname || ':'
-                        || pg_catalog.pg_get_constraintdef(con.oid) AS value
-                FROM pg_catalog.pg_constraint con
-                INNER JOIN pg_catalog.pg_class c ON c.oid = con.conrelid
-                INNER JOIN pg_catalog.pg_namespace n
-                    ON n.oid = c.relnamespace
-                WHERE n.nspname = ?
-                ORDER BY c.relname, con.conname
-                SQL,
-        ] as $query) {
-            foreach (
-                $this->connection()->select($query, [$this->activeSchema()]) as $row
-            ) {
-                $parts[] = (string) $this->rowValue($row, 'value');
-            }
-        }
-
-        return hash('sha256', implode("\n", $parts));
-    }
-
     private function deleteRule(string $constraint): ?string
     {
         $row = $this->connection()->selectOne(

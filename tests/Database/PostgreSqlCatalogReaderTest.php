@@ -13,6 +13,7 @@ use HangTuah\GateTrail\Database\Schema\SchemaContext;
 use HangTuah\GateTrail\Tests\Concerns\AssertsReadOnlySql;
 use HangTuah\GateTrail\Tests\TestCase;
 use Illuminate\Database\ConnectionInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 
 final class PostgreSqlCatalogReaderTest extends TestCase
@@ -397,6 +398,7 @@ final class PostgreSqlCatalogReaderTest extends TestCase
                 $this->constraintRow('acl_ra_role_fk', 'f', [
                     'table_name' => 'acl_role_assignments',
                     'column_name' => 'role_id',
+                    'referenced_schema' => 'public',
                     'referenced_table' => 'acl_roles',
                     'referenced_column' => 'id',
                     'delete_action' => 'r',
@@ -416,6 +418,7 @@ final class PostgreSqlCatalogReaderTest extends TestCase
                 $this->constraintRow('acl_ra_odd_fk', 'f', [
                     'table_name' => 'acl_role_assignments',
                     'column_name' => 'role_id',
+                    'referenced_schema' => 'public',
                     'referenced_table' => 'acl_roles',
                     'referenced_column' => 'id',
                     'delete_action' => 'z',
@@ -436,9 +439,12 @@ final class PostgreSqlCatalogReaderTest extends TestCase
         $this->assertNotNull($foreign);
         $this->assertSame('RESTRICT', $foreign->deleteRule);
         $this->assertSame('NO ACTION', $foreign->updateRule);
+        $this->assertSame('public', $foreign->referencedSchema);
         $this->assertSame('acl_roles', $foreign->referencedTable);
         $this->assertSame(['id'], $foreign->referencedColumns);
         $this->assertNull($foreign->checkExpression);
+        $this->assertFalse($foreign->deferrable);
+        $this->assertFalse($foreign->deferred);
 
         $check = $snapshot->constraint(
             'acl_role_assignments',
@@ -557,6 +563,208 @@ final class PostgreSqlCatalogReaderTest extends TestCase
         }
     }
 
+    public function test_the_referenced_schema_is_read_and_mapped(): void
+    {
+        $connection = $this->createMock(ConnectionInterface::class);
+        $connection->method('select')->willReturnOnConsecutiveCalls(
+            [(object) ['schema_name' => 'security']],
+            [],
+            [],
+            [],
+            [
+                $this->constraintRow('acl_ra_role_fk', 'f', [
+                    'table_name' => 'acl_role_assignments',
+                    'column_name' => 'role_id',
+                    'referenced_schema' => 'security',
+                    'referenced_table' => 'acl_roles',
+                    'referenced_column' => 'id',
+                    'delete_action' => 'r',
+                    'update_action' => 'r',
+                ]),
+                $this->constraintRow('acl_ra_decoy_fk', 'f', [
+                    'table_name' => 'acl_role_assignments',
+                    'column_name' => 'role_id',
+                    'referenced_schema' => 'public',
+                    'referenced_table' => 'acl_roles',
+                    'referenced_column' => 'id',
+                    'delete_action' => 'r',
+                    'update_action' => 'r',
+                ]),
+            ],
+        );
+
+        $snapshot = $this->reader($connection)->read(
+            $this->manifest(),
+            $this->context(),
+        );
+
+        $canonical = $snapshot->constraint(
+            'acl_role_assignments',
+            'acl_ra_role_fk',
+        );
+        $this->assertNotNull($canonical);
+        $this->assertSame('security', $canonical->referencedSchema);
+
+        $decoy = $snapshot->constraint(
+            'acl_role_assignments',
+            'acl_ra_decoy_fk',
+        );
+        $this->assertNotNull($decoy);
+        $this->assertSame('public', $decoy->referencedSchema);
+
+        // Same table and columns; only the namespace separates them.
+        $this->assertSame(
+            $canonical->referencedTable,
+            $decoy->referencedTable,
+        );
+        $this->assertSame(
+            $canonical->referencedColumns,
+            $decoy->referencedColumns,
+        );
+    }
+
+    public function test_the_constraint_query_reads_the_referenced_namespace_and_deferrability(): void
+    {
+        $queries = [];
+        $connection = $this->createMock(ConnectionInterface::class);
+        $connection->method('select')->willReturnCallback(
+            static function (string $query) use (&$queries): array {
+                $queries[] = $query;
+
+                return str_contains($query, 'current_schema()')
+                    ? [(object) ['schema_name' => 'public']]
+                    : [];
+            },
+        );
+
+        $this->reader($connection)->read(
+            $this->manifest(),
+            $this->context(),
+        );
+
+        $constraintQuery = $queries[4];
+
+        $this->assertStringContainsString(
+            'rn.nspname AS referenced_schema',
+            $constraintQuery,
+        );
+        $this->assertStringContainsString(
+            'con.condeferrable AS is_deferrable',
+            $constraintQuery,
+        );
+        $this->assertStringContainsString(
+            'con.condeferred AS is_deferred',
+            $constraintQuery,
+        );
+        $this->assertStringContainsString(
+            'LEFT JOIN pg_catalog.pg_namespace rn',
+            $constraintQuery,
+            'The referenced namespace must join through LEFT JOIN so non-foreign constraints survive.',
+        );
+        $this->assertReadOnlyStatement($constraintQuery);
+    }
+
+    /**
+     * @return array<string, array{mixed, mixed, bool, bool}>
+     */
+    public static function deferrabilityRows(): array
+    {
+        return [
+            'NOT DEFERRABLE' => ['f', 'f', false, false],
+            'DEFERRABLE INITIALLY IMMEDIATE' => ['t', 'f', true, false],
+            'DEFERRABLE INITIALLY DEFERRED' => ['t', 't', true, true],
+            'native booleans, deferred' => [true, true, true, true],
+            'integer booleans, immediate' => [1, 0, true, false],
+        ];
+    }
+
+    #[DataProvider('deferrabilityRows')]
+    public function test_deferrability_flags_are_normalized_as_booleans(
+        mixed $deferrable,
+        mixed $deferred,
+        bool $expectedDeferrable,
+        bool $expectedDeferred,
+    ): void {
+        $connection = $this->createMock(ConnectionInterface::class);
+        $connection->method('select')->willReturnOnConsecutiveCalls(
+            [(object) ['schema_name' => 'public']],
+            [],
+            [],
+            [],
+            [
+                $this->constraintRow('acl_ra_role_fk', 'f', [
+                    'table_name' => 'acl_role_assignments',
+                    'column_name' => 'role_id',
+                    'referenced_schema' => 'public',
+                    'referenced_table' => 'acl_roles',
+                    'referenced_column' => 'id',
+                    'delete_action' => 'a',
+                    'update_action' => 'a',
+                    'is_deferrable' => $deferrable,
+                    'is_deferred' => $deferred,
+                ]),
+            ],
+        );
+
+        $constraint = $this->reader($connection)
+            ->read($this->manifest(), $this->context())
+            ->constraint('acl_role_assignments', 'acl_ra_role_fk');
+
+        $this->assertNotNull($constraint);
+        $this->assertSame($expectedDeferrable, $constraint->deferrable);
+        $this->assertSame($expectedDeferred, $constraint->deferred);
+        $this->assertSame('NO ACTION', $constraint->deleteRule);
+    }
+
+    /**
+     * A non-foreign constraint has no referenced namespace to report, and
+     * PostgreSQL reports it as neither deferrable nor deferred.
+     */
+    public function test_non_foreign_constraint_metadata_is_nullable_and_defaulted(): void
+    {
+        $connection = $this->createMock(ConnectionInterface::class);
+        $connection->method('select')->willReturnOnConsecutiveCalls(
+            [(object) ['schema_name' => 'public']],
+            [],
+            [],
+            [],
+            [
+                $this->constraintRow('acl_roles_pk', 'p', [
+                    'column_name' => 'id',
+                ]),
+                $this->constraintRow('acl_role_name_guard_uq', 'u', [
+                    'column_name' => 'name',
+                ]),
+                $this->constraintRow('acl_audit_subject_ck', 'c', [
+                    'column_name' => 'subject_type',
+                    'definition' => 'CHECK ((subject_type IS NOT NULL))',
+                ]),
+            ],
+        );
+
+        $snapshot = $this->reader($connection)->read(
+            $this->manifest(),
+            $this->context(),
+        );
+
+        foreach ([
+            'acl_roles_pk',
+            'acl_role_name_guard_uq',
+            'acl_audit_subject_ck',
+        ] as $name) {
+            $constraint = $snapshot->constraint('acl_roles', $name);
+
+            $this->assertNotNull($constraint, $name);
+            $this->assertNull($constraint->referencedSchema, $name);
+            $this->assertNull($constraint->referencedTable, $name);
+            $this->assertSame([], $constraint->referencedColumns, $name);
+            $this->assertNull($constraint->deleteRule, $name);
+            $this->assertNull($constraint->updateRule, $name);
+            $this->assertFalse($constraint->deferrable, $name);
+            $this->assertFalse($constraint->deferred, $name);
+        }
+    }
+
     public function test_factory_builds_the_postgresql_inspector(): void
     {
         $inspector = $this->app->make(SchemaInspectorFactory::class)
@@ -610,8 +818,11 @@ final class PostgreSqlCatalogReaderTest extends TestCase
             'constraint_name' => $name,
             'constraint_type' => $type,
             'is_validated' => true,
+            'is_deferrable' => false,
+            'is_deferred' => false,
             'delete_action' => null,
             'update_action' => null,
+            'referenced_schema' => null,
             'referenced_table' => null,
             'definition' => null,
             'column_name' => null,

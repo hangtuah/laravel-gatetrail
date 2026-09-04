@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace HangTuah\GateTrail\Tests\Integration\PostgreSql;
 
 use HangTuah\GateTrail\Tests\Concerns\AssertsReadOnlySql;
-use Illuminate\Database\Events\QueryExecuted;
 use PHPUnit\Framework\AssertionFailedError;
 
 /**
@@ -86,31 +85,6 @@ final class ReadOnlyInspectionTest extends PostgreSqlIntegrationTestCase
     protected function provisioningMode(): string
     {
         return 'dba';
-    }
-
-    /**
-     * Records the SQL text of every statement executed inside the callback.
-     * Bindings are never captured.
-     *
-     * @return list<string>
-     */
-    private function record(callable $operation): array
-    {
-        $queries = [];
-        $connection = $this->connection();
-        $connection->listen(
-            static function (QueryExecuted $event) use (&$queries): void {
-                $queries[] = $event->sql;
-            },
-        );
-
-        try {
-            $operation();
-        } finally {
-            $connection->unsetEventDispatcher();
-        }
-
-        return $queries;
     }
 
     /**

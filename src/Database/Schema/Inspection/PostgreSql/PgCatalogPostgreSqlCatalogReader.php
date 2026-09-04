@@ -36,7 +36,10 @@ use RuntimeException;
  *   `pg_constraint` so a constraint-backed index is distinguishable from an
  *   explicitly created one;
  * - constraints — `pg_constraint` with `conkey`/`confkey` expanded in declared
- *   order and `pg_get_constraintdef()` for the check expression;
+ *   order, `pg_namespace` joined through `confrelid` so a foreign key's
+ *   referenced schema is known and not merely assumed from its table name,
+ *   `condeferrable`/`condeferred` for its deferrability, and
+ *   `pg_get_constraintdef()` for the check expression;
  * - identities — projected from the same column rows, using their identity
  *   flags and, for the `bigserial` representation, their `nextval(...)`
  *   default, so no extra round trip is made and the two cannot disagree.
@@ -339,8 +342,11 @@ final readonly class PgCatalogPostgreSqlCatalogReader implements PostgreSqlCatal
                         con.conname AS constraint_name,
                         con.contype AS constraint_type,
                         con.convalidated AS is_validated,
+                        con.condeferrable AS is_deferrable,
+                        con.condeferred AS is_deferred,
                         con.confdeltype AS delete_action,
                         con.confupdtype AS update_action,
+                        rn.nspname AS referenced_schema,
                         rt.relname AS referenced_table,
                         pg_catalog.pg_get_constraintdef(con.oid) AS definition,
                         a.attname AS column_name,
@@ -352,6 +358,8 @@ final readonly class PgCatalogPostgreSqlCatalogReader implements PostgreSqlCatal
                         ON n.oid = t.relnamespace
                     LEFT JOIN pg_catalog.pg_class rt
                         ON rt.oid = con.confrelid
+                    LEFT JOIN pg_catalog.pg_namespace rn
+                        ON rn.oid = rt.relnamespace
                     LEFT JOIN LATERAL
                         unnest(con.conkey) WITH ORDINALITY AS k(attnum, ord)
                         ON TRUE
@@ -381,6 +389,9 @@ final readonly class PgCatalogPostgreSqlCatalogReader implements PostgreSqlCatal
          *     type: string,
          *     columns: list<string>,
          *     validated: bool,
+         *     deferrable: bool,
+         *     deferred: bool,
+         *     referenced_schema: ?string,
          *     referenced_table: ?string,
          *     referenced_columns: list<string>,
          *     delete_rule: ?string,
@@ -403,6 +414,15 @@ final readonly class PgCatalogPostgreSqlCatalogReader implements PostgreSqlCatal
                 'columns' => [],
                 'validated' => self::boolean(
                     self::value($row, 'is_validated'),
+                ),
+                'deferrable' => self::boolean(
+                    self::value($row, 'is_deferrable'),
+                ),
+                'deferred' => self::boolean(
+                    self::value($row, 'is_deferred'),
+                ),
+                'referenced_schema' => self::nullableString(
+                    self::value($row, 'referenced_schema'),
                 ),
                 'referenced_table' => self::nullableString(
                     self::value($row, 'referenced_table'),
@@ -445,6 +465,9 @@ final readonly class PgCatalogPostgreSqlCatalogReader implements PostgreSqlCatal
                 type: $constraint['type'],
                 columns: $constraint['columns'],
                 validated: $constraint['validated'],
+                deferrable: $constraint['deferrable'],
+                deferred: $constraint['deferred'],
+                referencedSchema: $constraint['referenced_schema'],
                 referencedTable: $constraint['referenced_table'],
                 referencedColumns: $constraint['referenced_columns'],
                 deleteRule: $constraint['delete_rule'],

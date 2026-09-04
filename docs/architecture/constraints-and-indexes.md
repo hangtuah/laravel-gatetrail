@@ -133,6 +133,12 @@ The three assignment tables share these rules:
 Foreign keys use `RESTRICT` or the database-equivalent `NO ACTION` for delete
 and update behavior. No assignment foreign key uses `CASCADE`.
 
+The two actions are equivalent only while the constraint is `NOT DEFERRABLE`.
+An engine that can postpone a `NO ACTION` check to commit time — PostgreSQL
+does — makes a deferrable foreign key a weaker constraint than `RESTRICT`, so
+every GateTrail foreign key is `NOT DEFERRABLE` and a deferrable one is schema
+drift.
+
 ## 6. `acl_role_assignments`
 
 ### Table-specific nullability

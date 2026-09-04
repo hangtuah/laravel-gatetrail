@@ -30,10 +30,20 @@ use HangTuah\GateTrail\Database\Schema\SchemaContext;
  * identical, and reports everything else:
  *
  * - **`RESTRICT` and `NO ACTION`** are both accepted for `ON DELETE` and
- *   `ON UPDATE`. Neither permits a referencing row to be orphaned; they differ
- *   only in when the check fires. `CASCADE`, `SET NULL` and `SET DEFAULT` are
- *   drift, because each destroys assignment history the package promises to
- *   keep.
+ *   `ON UPDATE`, but only while the constraint is `NOT DEFERRABLE`. Neither
+ *   permits a referencing row to be orphaned; they differ in when the check
+ *   fires. That difference stops being cosmetic once the constraint is
+ *   deferrable, because PostgreSQL can postpone a `NO ACTION` check to commit
+ *   time while `RESTRICT` cannot be postponed the same way — so a deferrable
+ *   foreign key is drift regardless of its action, reported as
+ *   `constraint_state_mismatch`. `CASCADE`, `SET NULL` and `SET DEFAULT` are
+ *   drift on their own, because each destroys assignment history the package
+ *   promises to keep.
+ * - **A foreign key's identity includes the schema it references.** Two schemas
+ *   can each hold a table of the canonical name, so the referenced namespace,
+ *   table and ordered columns must all match. The expected namespace is the
+ *   schema actually being inspected — the configured one when supplied, and the
+ *   resolved `current_schema()` otherwise — never a hardcoded `public`.
  * - **Primary-key names.** The release `0001` artifacts name every primary key
  *   from the manifest. Laravel's PostgreSQL grammar cannot name one — it emits
  *   `bigserial ... primary key` and `add primary key (...)`, so PostgreSQL
@@ -450,6 +460,7 @@ final readonly class PostgreSqlSchemaInspector implements SchemaInspector
                         $actual,
                         $object,
                         $context,
+                        $snapshot->schema,
                     ),
                 ];
             }
@@ -473,22 +484,44 @@ final readonly class PostgreSqlSchemaInspector implements SchemaInspector
         PostgreSqlConstraintMetadata $actual,
         string $object,
         SchemaContext $context,
+        string $schema,
     ): array {
         $referencedTable = $expected->referencedTable === null
             ? null
             : $context->tableName($expected->referencedTable);
+        $referencedSchema = $referencedTable === null ? null : $schema;
         $issues = [];
 
         if (
-            $actual->referencedTable !== $referencedTable
+            $actual->referencedSchema !== $referencedSchema
+            || $actual->referencedTable !== $referencedTable
             || $actual->referencedColumns !== $expected->referencedColumns
         ) {
             $issues[] = new SchemaIssue(
                 code: 'foreign_reference_mismatch',
                 object: $object,
                 message: sprintf(
-                    'Foreign key [%s] does not reference the canonical table and columns.',
+                    'Foreign key [%s] must reference [%s] (%s); found [%s] (%s).',
                     $object,
+                    $this->qualify($referencedSchema, $referencedTable),
+                    $this->columnList($expected->referencedColumns),
+                    $this->qualify(
+                        $actual->referencedSchema,
+                        $actual->referencedTable,
+                    ),
+                    $this->columnList($actual->referencedColumns),
+                ),
+            );
+        }
+
+        if ($actual->deferrable) {
+            $issues[] = new SchemaIssue(
+                code: 'constraint_state_mismatch',
+                object: $object,
+                message: sprintf(
+                    'Foreign key [%s] must be NOT DEFERRABLE; found DEFERRABLE INITIALLY %s.',
+                    $object,
+                    $actual->deferred ? 'DEFERRED' : 'IMMEDIATE',
                 ),
             );
         }
@@ -757,12 +790,40 @@ final readonly class PostgreSqlSchemaInspector implements SchemaInspector
         );
     }
 
+    /**
+     * `RESTRICT` and `NO ACTION` are interchangeable **only** while the
+     * constraint is `NOT DEFERRABLE`, which {@see self::inspectForeign()}
+     * checks separately. Neither lets a referencing row be orphaned; they
+     * differ in when the check fires, and only `NO ACTION` can be postponed to
+     * commit time.
+     */
     private function isRestrictiveRule(string $rule): bool
     {
         return in_array(strtoupper($rule), [
             'RESTRICT',
             'NO ACTION',
         ], true);
+    }
+
+    /**
+     * Renders a schema-qualified object name for a diagnostic. Only catalog
+     * object names reach it — never a binding, credential or row value.
+     */
+    private function qualify(?string $schema, ?string $table): string
+    {
+        if ($table === null) {
+            return 'nothing';
+        }
+
+        return $schema === null ? $table : $schema.'.'.$table;
+    }
+
+    /**
+     * @param  list<string>  $columns
+     */
+    private function columnList(array $columns): string
+    {
+        return $columns === [] ? 'no columns' : implode(', ', $columns);
     }
 
     private function normalizeCheck(?string $expression): string

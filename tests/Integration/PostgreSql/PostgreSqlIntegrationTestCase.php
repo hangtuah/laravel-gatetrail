@@ -10,6 +10,7 @@ use HangTuah\GateTrail\Database\Schema\Manifest\SchemaManifest;
 use HangTuah\GateTrail\Database\Schema\SchemaContext;
 use HangTuah\GateTrail\Tests\TestCase;
 use Illuminate\Database\Connection;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Database\Schema\Builder;
 use RuntimeException;
 
@@ -96,8 +97,8 @@ abstract class PostgreSqlIntegrationTestCase extends TestCase
         parent::setUp();
 
         $this->assertSafeTarget();
-        $this->prepareSchema();
         $this->resetGateTrailSchema();
+        $this->prepareSchema();
     }
 
     protected function tearDown(): void
@@ -126,6 +127,18 @@ abstract class PostgreSqlIntegrationTestCase extends TestCase
     protected function configuredPrefix(): ?string
     {
         return null;
+    }
+
+    /**
+     * Extra disposable schemas this test needs alongside the configured one.
+     * They are created before each test and dropped with it, so a decoy object
+     * planted for a cross-schema assertion can never outlive the test.
+     *
+     * @return list<string>
+     */
+    protected function auxiliarySchemas(): array
+    {
+        return [];
     }
 
     private function searchPath(): string
@@ -278,6 +291,87 @@ abstract class PostgreSqlIntegrationTestCase extends TestCase
         );
     }
 
+    /**
+     * Records the SQL text of every statement executed inside the callback.
+     * Bindings are never captured.
+     *
+     * @return list<string>
+     */
+    protected function record(callable $operation): array
+    {
+        $queries = [];
+        $connection = $this->connection();
+        $connection->listen(
+            static function (QueryExecuted $event) use (&$queries): void {
+                $queries[] = $event->sql;
+            },
+        );
+
+        try {
+            $operation();
+        } finally {
+            $connection->unsetEventDispatcher();
+        }
+
+        return $queries;
+    }
+
+    /**
+     * A stable digest of every GateTrail table, column, index and constraint in
+     * one schema, used to prove inspection changed nothing. Defaults to the
+     * schema under inspection; pass another to fingerprint it as well.
+     */
+    protected function catalogFingerprint(?string $schema = null): string
+    {
+        $parts = [];
+
+        foreach ([
+            <<<'SQL'
+                SELECT c.relname AS value
+                FROM pg_catalog.pg_class c
+                INNER JOIN pg_catalog.pg_namespace n
+                    ON n.oid = c.relnamespace
+                WHERE n.nspname = ? AND c.relkind IN ('r', 'i')
+                ORDER BY c.relname
+                SQL,
+            <<<'SQL'
+                SELECT
+                    c.relname || '.' || a.attname || ':'
+                        || pg_catalog.format_type(a.atttypid, a.atttypmod)
+                        || ':' || a.attnotnull::text
+                        || ':' || COALESCE(a.attidentity, '-') AS value
+                FROM pg_catalog.pg_attribute a
+                INNER JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
+                INNER JOIN pg_catalog.pg_namespace n
+                    ON n.oid = c.relnamespace
+                WHERE n.nspname = ?
+                  AND c.relkind = 'r'
+                  AND a.attnum > 0
+                  AND NOT a.attisdropped
+                ORDER BY c.relname, a.attnum
+                SQL,
+            <<<'SQL'
+                SELECT
+                    c.relname || '.' || con.conname || ':'
+                        || pg_catalog.pg_get_constraintdef(con.oid) AS value
+                FROM pg_catalog.pg_constraint con
+                INNER JOIN pg_catalog.pg_class c ON c.oid = con.conrelid
+                INNER JOIN pg_catalog.pg_namespace n
+                    ON n.oid = c.relnamespace
+                WHERE n.nspname = ?
+                ORDER BY c.relname, con.conname
+                SQL,
+        ] as $query) {
+            foreach (
+                $this->connection()->select($query, [$schema ?? $this->activeSchema()]) as $row
+            ) {
+                $parts[] = (string) $this->rowValue($row, 'value');
+            }
+        }
+
+        return hash('sha256', implode("\n", $parts));
+    }
+
     protected function rowValue(?object $row, string $key): int|string|null
     {
         if ($row === null) {
@@ -350,17 +444,21 @@ abstract class PostgreSqlIntegrationTestCase extends TestCase
         }
     }
 
+    /**
+     * Runs after {@see self::resetGateTrailSchema()}, so a schema the previous
+     * test dropped is recreated rather than left missing.
+     */
     private function prepareSchema(): void
     {
-        $schema = $this->configuredSchema();
+        $schemas = $this->configuredSchema() === null
+            ? $this->auxiliarySchemas()
+            : [$this->configuredSchema(), ...$this->auxiliarySchemas()];
 
-        if ($schema === null) {
-            return;
+        foreach ($schemas as $schema) {
+            $this->connection()->statement(
+                sprintf('CREATE SCHEMA IF NOT EXISTS "%s"', $schema),
+            );
         }
-
-        $this->connection()->statement(
-            sprintf('CREATE SCHEMA IF NOT EXISTS "%s"', $schema),
-        );
     }
 
     private function resetGateTrailSchema(): void
@@ -381,6 +479,12 @@ abstract class PostgreSqlIntegrationTestCase extends TestCase
                 $this->activeSchema(),
             ),
         );
+
+        foreach ($this->auxiliarySchemas() as $schema) {
+            $this->connection()->statement(
+                sprintf('DROP SCHEMA IF EXISTS "%s" CASCADE', $schema),
+            );
+        }
     }
 
     private function environment(string $name, string $default): string

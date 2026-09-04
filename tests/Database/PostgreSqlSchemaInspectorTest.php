@@ -515,6 +515,308 @@ final class PostgreSqlSchemaInspectorTest extends TestCase
     }
 
     /**
+     * A foreign key's identity includes the schema it references. Two schemas
+     * can each hold a table of the canonical name, so matching only the table
+     * name would accept `security.acl_role_assignments.role_id` pointing at
+     * `public.acl_roles.id`.
+     */
+    public function test_a_foreign_key_referencing_another_schema_is_reported(): void
+    {
+        $snapshot = $this->matchingSnapshot(self::DBA, schema: 'security');
+        $constraints = array_map(
+            fn (PostgreSqlConstraintMetadata $constraint): PostgreSqlConstraintMetadata => (
+                $constraint->name === 'acl_ra_role_fk'
+            ) ? $this->constraint($constraint, referencedSchema: 'public')
+                : $constraint,
+            $snapshot->constraints,
+        );
+
+        $inspection = $this->inspect(
+            $this->replaceConstraints($snapshot, $constraints),
+            schema: 'security',
+        );
+        $issues = $inspection->issues;
+
+        $this->assertSame(
+            'foreign_reference_mismatch',
+            $this->codeFor($issues, 'acl_role_assignments.acl_ra_role_fk'),
+        );
+        $this->assertFalse($inspection->passes());
+        $this->assertStringContainsString(
+            'public.acl_roles',
+            $this->messageFor($issues, 'acl_role_assignments.acl_ra_role_fk'),
+        );
+    }
+
+    /**
+     * The expected namespace is the schema actually being inspected, never a
+     * hardcoded `public`: the identical catalog passes under one resolved
+     * schema and is reported under another.
+     */
+    public function test_the_expected_referenced_schema_follows_the_resolved_schema(): void
+    {
+        foreach (['public', 'security', 'app_authz'] as $schema) {
+            $this->assertSame(
+                [],
+                $this->codes($this->inspect(
+                    $this->matchingSnapshot(self::DBA, schema: $schema),
+                    schema: $schema === 'public' ? null : $schema,
+                )),
+                sprintf('resolved schema [%s]', $schema),
+            );
+        }
+
+        $snapshot = $this->matchingSnapshot(self::DBA, schema: 'security');
+        $constraints = array_map(
+            fn (PostgreSqlConstraintMetadata $constraint): PostgreSqlConstraintMetadata => (
+                $constraint->type === 'f'
+            ) ? $this->constraint($constraint, referencedSchema: 'app_authz')
+                : $constraint,
+            $snapshot->constraints,
+        );
+
+        $this->assertContains(
+            'foreign_reference_mismatch',
+            $this->codes($this->inspect(
+                $this->replaceConstraints($snapshot, $constraints),
+                schema: 'security',
+            )),
+        );
+    }
+
+    /**
+     * @return array<string, array{?string, ?string, list<string>, bool}>
+     */
+    public static function foreignKeyReferences(): array
+    {
+        return [
+            'canonical schema, table and columns' => [
+                'security', 'acl_roles', ['id'], true,
+            ],
+            'same table and columns in another schema' => [
+                'public', 'acl_roles', ['id'], false,
+            ],
+            'canonical schema but another table' => [
+                'security', 'legacy_roles', ['id'], false,
+            ],
+            'canonical schema and table but another column' => [
+                'security', 'acl_roles', ['legacy_id'], false,
+            ],
+            'no referenced object at all' => [null, null, [], false],
+        ];
+    }
+
+    /**
+     * @param  list<string>  $columns
+     */
+    #[DataProvider('foreignKeyReferences')]
+    public function test_a_foreign_key_reference_matches_only_on_schema_table_and_columns(
+        ?string $referencedSchema,
+        ?string $referencedTable,
+        array $columns,
+        bool $accepted,
+    ): void {
+        $snapshot = $this->matchingSnapshot(self::DBA, schema: 'security');
+        $constraints = array_map(
+            fn (PostgreSqlConstraintMetadata $constraint): PostgreSqlConstraintMetadata => (
+                $constraint->name === 'acl_ra_role_fk'
+            ) ? $this->constraint(
+                $constraint,
+                referencedSchema: $referencedSchema,
+                referencedTable: $referencedTable,
+                referencedColumns: $columns,
+            ) : $constraint,
+            $snapshot->constraints,
+        );
+
+        $inspection = $this->inspect(
+            $this->replaceConstraints($snapshot, $constraints),
+            schema: 'security',
+        );
+
+        if ($accepted) {
+            $this->assertSame([], $this->codes($inspection));
+
+            return;
+        }
+
+        $this->assertSame(
+            'foreign_reference_mismatch',
+            $this->codeFor(
+                $inspection->issues,
+                'acl_role_assignments.acl_ra_role_fk',
+            ),
+        );
+        $this->assertFalse($inspection->passes());
+    }
+
+    /**
+     * @return array<string, array{bool, bool, bool}>
+     */
+    public static function deferrabilityStates(): array
+    {
+        return [
+            'NOT DEFERRABLE' => [false, false, true],
+            'DEFERRABLE INITIALLY IMMEDIATE' => [true, false, false],
+            'DEFERRABLE INITIALLY DEFERRED' => [true, true, false],
+        ];
+    }
+
+    /**
+     * PostgreSQL can postpone a `NO ACTION` check to commit time, which
+     * `RESTRICT` cannot be postponed the same way, so the two actions are only
+     * interchangeable while the constraint is `NOT DEFERRABLE`. Both restrictive
+     * actions are exercised here so the assertion isolates deferrability.
+     */
+    #[DataProvider('deferrabilityStates')]
+    public function test_only_a_not_deferrable_foreign_key_is_canonical(
+        bool $deferrable,
+        bool $deferred,
+        bool $accepted,
+    ): void {
+        foreach (['RESTRICT', 'NO ACTION'] as $action) {
+            $snapshot = $this->matchingSnapshot(self::DBA);
+            $constraints = array_map(
+                fn (PostgreSqlConstraintMetadata $constraint): PostgreSqlConstraintMetadata => (
+                    $constraint->type === 'f'
+                ) ? $this->constraint(
+                    $constraint,
+                    deferrable: $deferrable,
+                    deferred: $deferred,
+                    deleteRule: $action,
+                    updateRule: $action,
+                ) : $constraint,
+                $snapshot->constraints,
+            );
+
+            $inspection = $this->inspect(
+                $this->replaceConstraints($snapshot, $constraints),
+            );
+
+            if ($accepted) {
+                $this->assertSame(
+                    [],
+                    $this->codes($inspection),
+                    sprintf('NOT DEFERRABLE with ON DELETE %s', $action),
+                );
+
+                continue;
+            }
+
+            $this->assertSame(
+                'constraint_state_mismatch',
+                $this->codeFor(
+                    $inspection->issues,
+                    'acl_role_assignments.acl_ra_role_fk',
+                ),
+                sprintf('deferrable with ON DELETE %s', $action),
+            );
+            $this->assertFalse($inspection->passes());
+            $this->assertStringContainsString(
+                $deferred ? 'INITIALLY DEFERRED' : 'INITIALLY IMMEDIATE',
+                $this->messageFor(
+                    $inspection->issues,
+                    'acl_role_assignments.acl_ra_role_fk',
+                ),
+            );
+        }
+    }
+
+    /**
+     * Deferrability and the referential action are independent failures, so a
+     * deferrable cascading key reports both rather than masking one.
+     */
+    public function test_deferrability_and_action_drift_are_reported_independently(): void
+    {
+        $snapshot = $this->matchingSnapshot(self::DBA);
+        $constraints = array_map(
+            fn (PostgreSqlConstraintMetadata $constraint): PostgreSqlConstraintMetadata => (
+                $constraint->name === 'acl_ra_role_fk'
+            ) ? $this->constraint(
+                $constraint,
+                deferrable: true,
+                deferred: true,
+                deleteRule: 'CASCADE',
+            ) : $constraint,
+            $snapshot->constraints,
+        );
+
+        $codes = $this->codes(
+            $this->inspect($this->replaceConstraints($snapshot, $constraints)),
+        );
+
+        $this->assertContains('constraint_state_mismatch', $codes);
+        $this->assertContains('foreign_rule_mismatch', $codes);
+    }
+
+    /**
+     * A `NOT VALID` constraint reported `constraint_state_mismatch` before this
+     * hardening and must continue to.
+     */
+    public function test_an_unvalidated_constraint_still_reports_state_drift(): void
+    {
+        $snapshot = $this->matchingSnapshot(self::DBA);
+        $constraints = array_map(
+            fn (PostgreSqlConstraintMetadata $constraint): PostgreSqlConstraintMetadata => (
+                $constraint->name === 'acl_ra_role_fk'
+            ) ? $this->constraint($constraint, validated: false)
+                : $constraint,
+            $snapshot->constraints,
+        );
+
+        $inspection = $this->inspect(
+            $this->replaceConstraints($snapshot, $constraints),
+        );
+
+        $this->assertSame(
+            'constraint_state_mismatch',
+            $this->codeFor(
+                $inspection->issues,
+                'acl_role_assignments.acl_ra_role_fk',
+            ),
+        );
+        $this->assertStringContainsString(
+            'not validated',
+            $this->messageFor(
+                $inspection->issues,
+                'acl_role_assignments.acl_ra_role_fk',
+            ),
+        );
+    }
+
+    /**
+     * Non-foreign constraints carry no referenced namespace and are never
+     * deferrable in the canonical schema, so the widened metadata must default
+     * safely rather than invent a reference.
+     */
+    public function test_non_foreign_constraint_metadata_defaults_safely(): void
+    {
+        $snapshot = $this->matchingSnapshot(self::DBA, schema: 'security');
+        $checked = 0;
+
+        foreach ($snapshot->constraints as $constraint) {
+            if ($constraint->type === 'f') {
+                $this->assertSame('security', $constraint->referencedSchema);
+
+                continue;
+            }
+
+            $checked++;
+            $this->assertNull($constraint->referencedSchema);
+            $this->assertNull($constraint->referencedTable);
+            $this->assertSame([], $constraint->referencedColumns);
+            $this->assertFalse($constraint->deferrable);
+            $this->assertFalse($constraint->deferred);
+        }
+
+        $this->assertGreaterThan(0, $checked);
+        $this->assertSame(
+            [],
+            $this->codes($this->inspect($snapshot, schema: 'security')),
+        );
+    }
+
+    /**
      * @return array<string, array{string, string, bool}>
      */
     public static function referentialActions(): array
@@ -745,6 +1047,7 @@ final class PostgreSqlSchemaInspectorTest extends TestCase
         $snapshot = $this->matchingSnapshot(
             self::DBA,
             prefix: 'gt_',
+            schema: 'security',
         );
 
         $this->assertTrue($snapshot->hasTable('gt_acl_roles'));
@@ -825,6 +1128,7 @@ final class PostgreSqlSchemaInspectorTest extends TestCase
     private function matchingSnapshot(
         string $mode,
         string $prefix = '',
+        string $schema = 'public',
     ): PostgreSqlCatalogSnapshot {
         $tables = [];
         $columns = [];
@@ -880,6 +1184,7 @@ final class PostgreSqlSchemaInspectorTest extends TestCase
                     $name,
                     $constraint,
                     $context,
+                    $schema,
                 );
 
                 if (! in_array($constraint->type, [
@@ -904,7 +1209,7 @@ final class PostgreSqlSchemaInspectorTest extends TestCase
         }
 
         return new PostgreSqlCatalogSnapshot(
-            schema: 'public',
+            schema: $schema,
             tables: $tables,
             columns: $columns,
             indexes: $indexes,
@@ -962,6 +1267,7 @@ final class PostgreSqlSchemaInspectorTest extends TestCase
         string $name,
         ConstraintDefinition $constraint,
         SchemaContext $context,
+        string $schema,
     ): PostgreSqlConstraintMetadata {
         $foreign = $constraint->type === ConstraintType::Foreign;
 
@@ -976,6 +1282,7 @@ final class PostgreSqlSchemaInspectorTest extends TestCase
             },
             columns: $constraint->columns,
             validated: true,
+            referencedSchema: $foreign ? $schema : null,
             referencedTable: $constraint->referencedTable === null
                 ? null
                 : $context->tableName($constraint->referencedTable),
@@ -1137,6 +1444,9 @@ final class PostgreSqlSchemaInspectorTest extends TestCase
         ?string $type = null,
         ?array $columns = null,
         ?bool $validated = null,
+        ?bool $deferrable = null,
+        ?bool $deferred = null,
+        string|false|null $referencedSchema = false,
         string|false|null $referencedTable = false,
         ?array $referencedColumns = null,
         string|false|null $deleteRule = false,
@@ -1149,6 +1459,11 @@ final class PostgreSqlSchemaInspectorTest extends TestCase
             type: $type ?? $constraint->type,
             columns: $columns ?? $constraint->columns,
             validated: $validated ?? $constraint->validated,
+            deferrable: $deferrable ?? $constraint->deferrable,
+            deferred: $deferred ?? $constraint->deferred,
+            referencedSchema: $referencedSchema === false
+                ? $constraint->referencedSchema
+                : $referencedSchema,
             referencedTable: $referencedTable === false
                 ? $constraint->referencedTable
                 : $referencedTable,
@@ -1194,6 +1509,20 @@ final class PostgreSqlSchemaInspectorTest extends TestCase
         }
 
         return null;
+    }
+
+    /**
+     * @param  list<SchemaIssue>  $issues
+     */
+    private function messageFor(array $issues, string $object): string
+    {
+        foreach ($issues as $issue) {
+            if ($issue->object === $object) {
+                return $issue->message;
+            }
+        }
+
+        return '';
     }
 
     /**

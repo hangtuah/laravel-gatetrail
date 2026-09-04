@@ -67,6 +67,23 @@ explicit identifiers GateTrail's own insert paths supply. Unique, foreign-key
 and check constraints are explicitly named by both modes and must match the
 manifest exactly.
 
+Foreign keys are checked on three points DBAs most often change by hand:
+
+- **Referenced object.** A foreign key's identity is its referenced schema,
+  table **and** ordered columns. A key that resolves to an identically named
+  table in another schema is reported as `foreign_reference_mismatch`, not
+  accepted. The expected namespace is the schema being inspected — the
+  configured one, or `current_schema()` when none is configured.
+- **Referential action.** `ON DELETE`/`ON UPDATE` must be `RESTRICT` or
+  `NO ACTION`. `CASCADE`, `SET NULL` and `SET DEFAULT` are reported as
+  `foreign_rule_mismatch`, because each destroys assignment history.
+- **Deferrability.** Every GateTrail foreign key must be `NOT DEFERRABLE`.
+  `RESTRICT` and `NO ACTION` are only interchangeable at that setting:
+  PostgreSQL can postpone a `NO ACTION` check to commit time, which `RESTRICT`
+  cannot be postponed the same way, so `DEFERRABLE INITIALLY IMMEDIATE` and
+  `DEFERRABLE INITIALLY DEFERRED` are both reported as
+  `constraint_state_mismatch`.
+
 PostgreSQL creates one index per primary-key and unique constraint, so a
 correctly installed release `0001` schema carries **24** indexes: the manifest's
 15 explicit indexes plus seven primary keys and two unique constraints. The nine
