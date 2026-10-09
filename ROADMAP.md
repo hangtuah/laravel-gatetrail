@@ -58,8 +58,8 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | approximately 47% | Equal-phase progress across Phases 0–13 |
-| Deliverable tracker | 14 of 32, approximately 44% | Completed concrete package deliverables |
+| Overall roadmap by primary phases | approximately 48% | Equal-phase progress across Phases 0–13 |
+| Deliverable tracker | 15 of 32, approximately 47% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
 
@@ -102,7 +102,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 3 | Database and assignment lifecycle | 10 of 11, approximately 91% | In progress |
 | 4 | Mutation services | 100% | Complete |
 | 5 | Effective permission resolver | 100% | Complete |
-| 6 | Laravel integration | 5 of 8, approximately 63% | In progress |
+| 6 | Laravel integration | 6 of 8, 75% | In progress |
 | 7 | Audit trail | 0% | Not started |
 | 8 | Cache and performance | 0% | Not started |
 | 9 | Security hardening | 0% | Not started |
@@ -1724,7 +1724,7 @@ Expose the resolver through Laravel conventions without duplicating its logic.
 - [x] Central Laravel Gate hook.
 - [x] `Gate::forUser()` behavior.
 - [x] Native `@can` behavior.
-- [ ] Six route middleware aliases.
+- [x] Six route middleware aliases.
 - [x] Authentication and authorization exception behavior.
 - [x] Policy coexistence.
 
@@ -1745,9 +1745,9 @@ gatetrail.role.all
 GateTrail middleware all use the same underlying authorization result.
 
 ```text
-Completed: 5
+Completed: 6
 Total:     8
-Progress:  approximately 63%
+Progress:  75%
 ```
 
 The centralized Gate hook resolves lazily within the current container scope
@@ -1758,9 +1758,16 @@ deactivated-definition denial, application-Gate fall-through, resource-policy
 coexistence, and propagation of configuration and database failures. No
 individual database permission is registered as a Laravel ability.
 
-This completes the global `Gate integration` deliverable. The global tracker
-is now **14 of 32 = 43.75%, approximately 44%**. With Phase 6 at approximately
-63%, overall equal-phase progress is **approximately 47%**.
+The six stable route aliases are also implemented through thin Tier 1
+middleware classes. Their shared evaluators load one effective-access snapshot
+per evaluation, preserve exact-name semantics, reject invalid route parameters,
+and use Laravel's native authentication and authorization exceptions. Tests
+cover all six aliases, one/any/all behavior, real route execution, generic 403
+responses, alias collisions, constant query count and unrelated-Gate isolation.
+
+This completes the global `Gate integration` and `Middleware` deliverables.
+The global tracker is now **15 of 32 = 46.875%, approximately 47%**. With Phase
+6 at 75%, overall equal-phase progress is **approximately 48%**.
 
 Status: **In progress**
 
@@ -2125,11 +2132,11 @@ Progress: **8 of 8**
 - [x] Mutation services
 - [x] Effective permission resolver
 - [x] Gate integration
-- [ ] Middleware
+- [x] Middleware
 - [ ] Audit trail
 - [ ] Cache invalidation
 
-Progress: **5 of 10**
+Progress: **6 of 10**
 
 ### Quality
 

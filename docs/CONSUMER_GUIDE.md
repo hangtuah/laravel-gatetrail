@@ -21,7 +21,7 @@ What that does and does not mean:
 | Will it change silently? | No |
 | What ships with a deliberate breaking change? | An ADR, a `CHANGELOG.md` entry, and migration guidance when consumer code or configuration must change |
 | What happens to accidental drift? | It is a defect. `PublicApiSurfaceTest` rejects it in CI |
-| What may change in any release, including a patch? | Anything marked `@internal` — currently 169 of the package's 230 classes |
+| What may change in any release, including a patch? | Anything marked `@internal` — currently 175 of the package's 243 classes |
 
 The boundary itself is decided in
 [ADR 0014](decisions/0014-pre-v1-public-api-boundary.md), which classifies
@@ -674,6 +674,43 @@ GateTrail and continue to the application's gate or policy. A matching active
 definition is authoritative, a deactivated matching definition denies, and
 database or configuration failures remain visible.
 
+### Route middleware
+
+GateTrail automatically registers six aliases:
+
+```text
+gatetrail.permission
+gatetrail.permission.any
+gatetrail.permission.all
+gatetrail.role
+gatetrail.role.any
+gatetrail.role.all
+```
+
+The singular alias requires exactly one name. `.any` permits the request when
+at least one listed name is effective; `.all` requires every listed name:
+
+```php
+Route::post('/documents/{document}/publish', DocumentPublishController::class)
+    ->middleware([
+        'auth',
+        'gatetrail.permission.all:documents.review,documents.publish',
+        'gatetrail.role.any:publisher,administrator',
+    ]);
+```
+
+Put Laravel's authentication middleware first. An unauthenticated request uses
+Laravel's `AuthenticationException`; an authenticated denial uses Laravel's
+`AuthorizationException` and normally renders as HTTP 403. Invalid or empty
+route parameters raise `InvalidMiddlewareParameter`, which is a developer
+configuration error rather than an authorization denial.
+
+Names are trimmed, remain case-sensitive, and exact duplicates are removed.
+Names containing commas cannot be expressed through route middleware; use a
+resolver or Gate check for those definitions. Multiple middleware entries
+compose as AND. GateTrail does not parse parentheses, negation, pattern expansion or
+nested boolean expressions.
+
 ## 13. Assignment periods and lifecycle
 
 An assignment moves through a small, explicit lifecycle:
@@ -1111,10 +1148,9 @@ specification section describes it.
 |---|---|
 | GateTrail-supplied resource policies | Applications continue to own resource and state rules |
 | Subject convenience API — `hasRole()`, `hasAnyRole()`, `hasAllRoles()`, `hasPermissionTo()` and the rest of the proposed nine-method surface | Phase 6, not started. `HasGateTrail` declares one method today, and it is `@internal` |
-| Route middleware and middleware aliases | Phase 6, not started |
 | Custom GateTrail Blade directives | Not planned; native `@can` / `@cannot` use the implemented Gate integration |
 | Console commands, including `gatetrail:doctor` and `gatetrail:cache-clear` | Planned across pre-`1.0.0` releases; not started. **Zero command classes exist** |
-| `InvalidMiddlewareParameter` and `UnauthorizedMutation` | Named in the specification for Phase 6; **neither class exists** |
+| `UnauthorizedMutation` | Named in the specification for later Laravel-integration work; the class does not exist |
 | Cross-request cache and cross-request invalidation APIs | Deferred to Phase 8 by ADR 0013. The post-commit ordering slot is reserved and empty; there is no cache store, TTL, binding or configuration key |
 | Administration UI | Out of scope for `1.0.0` |
 | Wildcard permissions | Not in the initial release |

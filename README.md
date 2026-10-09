@@ -224,13 +224,31 @@ Native Blade `@can` / `@cannot` directives use that same decision. Checks with
 resource arguments, such as `$user->can('update', $document)`, continue to the
 application's normal gates and policies.
 
+Routes can enforce the same permission or role set through the six automatic
+aliases:
+
+```php
+Route::post('/documents/{document}/approve', DocumentApprovalController::class)
+    ->middleware([
+        'auth',
+        'gatetrail.permission:documents.approve',
+    ]);
+
+Route::get('/review', ReviewQueueController::class)
+    ->middleware('gatetrail.role.any:reviewer,publisher');
+```
+
+Use the `.any` alias when one listed name is sufficient and `.all` when every
+listed name is required. The same forms exist for `gatetrail.permission` and
+`gatetrail.role`.
+
 ## Public versus internal API
 
 Depend on the contracts, value types, events and exceptions listed in
 [`docs/PUBLIC_API.md`](docs/PUBLIC_API.md), and nothing else.
 
-> **A class marked `@internal` is not consumer API.** PSR-4 makes all 230
-> package classes loadable and the container can build most of them, but 169 of
+> **A class marked `@internal` is not consumer API.** PSR-4 makes all 243
+> package classes loadable and the container can build most of them, but 175 of
 > them carry a class-level `@internal` annotation and may be renamed, recomposed
 > or deleted in any release, including a patch. That includes the `Default*`
 > manager and resolver implementations behind the contracts — inject
@@ -243,11 +261,10 @@ against them:
 
 - GateTrail-supplied resource policies;
 - subject convenience methods such as `hasRole()` or `hasPermissionTo()`;
-- route middleware and middleware aliases;
 - custom GateTrail Blade directives—use Laravel's native `@can` / `@cannot`;
 - GateTrail console commands, including `gatetrail:doctor` and
   `gatetrail:cache-clear`;
-- the `InvalidMiddlewareParameter` and `UnauthorizedMutation` exception types;
+- the `UnauthorizedMutation` exception type;
 - cross-request cache and cross-request invalidation APIs;
 - an administration UI;
 - wildcard permissions, role hierarchy, and tenant- or team-scoped roles.

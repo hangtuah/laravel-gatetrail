@@ -51,6 +51,17 @@ use HangTuah\GateTrail\Events\MutationEventDispatcher;
 use HangTuah\GateTrail\Guards\DefaultGuardResolver;
 use HangTuah\GateTrail\Guards\SubjectGuardResolver;
 use HangTuah\GateTrail\Laravel\GateAuthorizationHook;
+use HangTuah\GateTrail\Laravel\Middleware\MiddlewareParameterNormalizer;
+use HangTuah\GateTrail\Laravel\Middleware\MiddlewareSetMatcher;
+use HangTuah\GateTrail\Laravel\Middleware\MiddlewareSubjectResolver;
+use HangTuah\GateTrail\Laravel\Middleware\PermissionMiddlewareEvaluator;
+use HangTuah\GateTrail\Laravel\Middleware\RequireAllPermissions;
+use HangTuah\GateTrail\Laravel\Middleware\RequireAllRoles;
+use HangTuah\GateTrail\Laravel\Middleware\RequireAnyPermission;
+use HangTuah\GateTrail\Laravel\Middleware\RequireAnyRole;
+use HangTuah\GateTrail\Laravel\Middleware\RequirePermission;
+use HangTuah\GateTrail\Laravel\Middleware\RequireRole;
+use HangTuah\GateTrail\Laravel\Middleware\RoleMiddlewareEvaluator;
 use HangTuah\GateTrail\Managers\DefaultAssignmentManager;
 use HangTuah\GateTrail\Managers\DefaultPermissionManager;
 use HangTuah\GateTrail\Managers\DefaultRoleManager;
@@ -91,7 +102,9 @@ use HangTuah\GateTrail\Support\ModelRegistry;
 use HangTuah\GateTrail\Time\SystemClock;
 use Illuminate\Contracts\Auth\Access\Gate as GateContract;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
+use LogicException;
 use Psr\Clock\ClockInterface;
 
 final class GateTrailServiceProvider extends ServiceProvider
@@ -213,6 +226,11 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(ClockInterface::class, SystemClock::class);
         $this->app->singleton(SubjectGuardResolver::class);
         $this->app->scoped(GateAuthorizationHook::class);
+        $this->app->singleton(MiddlewareParameterNormalizer::class);
+        $this->app->singleton(MiddlewareSetMatcher::class);
+        $this->app->singleton(MiddlewareSubjectResolver::class);
+        $this->app->scoped(PermissionMiddlewareEvaluator::class);
+        $this->app->scoped(RoleMiddlewareEvaluator::class);
         $this->app->singleton(DefaultGuardResolver::class);
         $this->app->singleton(RoleInputResolver::class);
         $this->app->singleton(RolePermissionDefinitionResolver::class);
@@ -330,6 +348,7 @@ final class GateTrailServiceProvider extends ServiceProvider
         };
 
         $this->app->make(GateContract::class)->before($authorize);
+        $this->registerMiddlewareAliases($this->app->make(Router::class));
 
         if (! $this->app->runningInConsole()) {
             return;
@@ -346,5 +365,32 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom(
             __DIR__.'/../database/migrations',
         );
+    }
+
+    private function registerMiddlewareAliases(Router $router): void
+    {
+        $aliases = [
+            'gatetrail.permission' => RequirePermission::class,
+            'gatetrail.permission.any' => RequireAnyPermission::class,
+            'gatetrail.permission.all' => RequireAllPermissions::class,
+            'gatetrail.role' => RequireRole::class,
+            'gatetrail.role.any' => RequireAnyRole::class,
+            'gatetrail.role.all' => RequireAllRoles::class,
+        ];
+
+        foreach ($aliases as $alias => $middleware) {
+            $existing = $router->getMiddleware()[$alias] ?? null;
+
+            if ($existing !== null && $existing !== $middleware) {
+                throw new LogicException(sprintf(
+                    'GateTrail middleware alias [%s] is already registered.',
+                    $alias,
+                ));
+            }
+
+            if ($existing === null) {
+                $router->aliasMiddleware($alias, $middleware);
+            }
+        }
     }
 }

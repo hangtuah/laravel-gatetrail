@@ -41,6 +41,7 @@ use HangTuah\GateTrail\Exceptions\InvalidAuditMetadata;
 use HangTuah\GateTrail\Exceptions\InvalidConcurrencyConfiguration;
 use HangTuah\GateTrail\Exceptions\InvalidDatabaseIdentifier;
 use HangTuah\GateTrail\Exceptions\InvalidGuard;
+use HangTuah\GateTrail\Exceptions\InvalidMiddlewareParameter;
 use HangTuah\GateTrail\Exceptions\InvalidModelConfiguration;
 use HangTuah\GateTrail\Exceptions\InvalidSubject;
 use HangTuah\GateTrail\Exceptions\MigrationDependencyError;
@@ -51,6 +52,12 @@ use HangTuah\GateTrail\Exceptions\SchemaInspectorUnavailable;
 use HangTuah\GateTrail\Exceptions\UnsupportedAfterCommitBoundary;
 use HangTuah\GateTrail\Exceptions\UnsupportedDatabaseDriver;
 use HangTuah\GateTrail\GateTrailServiceProvider;
+use HangTuah\GateTrail\Laravel\Middleware\RequireAllPermissions;
+use HangTuah\GateTrail\Laravel\Middleware\RequireAllRoles;
+use HangTuah\GateTrail\Laravel\Middleware\RequireAnyPermission;
+use HangTuah\GateTrail\Laravel\Middleware\RequireAnyRole;
+use HangTuah\GateTrail\Laravel\Middleware\RequirePermission;
+use HangTuah\GateTrail\Laravel\Middleware\RequireRole;
 use HangTuah\GateTrail\Models\AccessAudit;
 use HangTuah\GateTrail\Models\Concerns\HasAssignmentPeriodScopes;
 use HangTuah\GateTrail\Models\Permission;
@@ -129,10 +136,17 @@ final class PublicApiSurfaceTest extends TestCase
         InvalidGuard::class,
         InvalidModelConfiguration::class,
         InvalidSubject::class,
+        InvalidMiddlewareParameter::class,
         PermissionNotFound::class,
         ReasonRequired::class,
         RoleNotFound::class,
         UnsupportedAfterCommitBoundary::class,
+        RequirePermission::class,
+        RequireAnyPermission::class,
+        RequireAllPermissions::class,
+        RequireRole::class,
+        RequireAnyRole::class,
+        RequireAllRoles::class,
     ];
 
     /** @var list<class-string> */
@@ -169,7 +183,7 @@ final class PublicApiSurfaceTest extends TestCase
         MigrationDependencyError::class,
     ];
 
-    private const SURFACE_SHA256 = '93f7bfa869bd507a6d594532d65281bbc3c66c17a6892086a9ebe3f6e0a48013';
+    private const SURFACE_SHA256 = 'abad11d5350b77ef8054fcb8247e8cce1e3868115844bd9697ac8e4f8d9587e3';
 
     public function test_every_source_symbol_has_exactly_one_accepted_classification(): void
     {
@@ -177,14 +191,14 @@ final class PublicApiSurfaceTest extends TestCase
         $supported = [...self::TIER_ONE, ...self::TIER_TWO];
         $nonInternal = [...$supported, ...self::FRAMEWORK, ...self::OPERATIONAL];
 
-        $this->assertCount(230, $source);
-        $this->assertCount(39, self::TIER_ONE);
+        $this->assertCount(243, $source);
+        $this->assertCount(46, self::TIER_ONE);
         $this->assertCount(13, self::TIER_TWO);
-        $this->assertCount(61, $nonInternal);
+        $this->assertCount(68, $nonInternal);
         $this->assertSame($nonInternal, array_values(array_unique($nonInternal)));
 
         $unclassified = array_values(array_diff($source, $nonInternal));
-        $this->assertCount(169, $unclassified);
+        $this->assertCount(175, $unclassified);
 
         foreach ($source as $symbol) {
             $documentation = (string) (new ReflectionClass($symbol))->getDocComment();

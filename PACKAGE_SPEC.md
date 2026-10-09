@@ -1670,10 +1670,10 @@ public function approve(User $user, Document $document): bool
 
 ### 12.5 Middleware
 
-**Status: proposed for Phase 6; not implemented.** No middleware class or alias
-below is currently registered. The names, examples and failure rules in this
-section constrain the future implementation and must not be presented as
-available consumer API until Phase 6 delivers and classifies it.
+**Status: implemented.** All six aliases are registered automatically and the
+six thin middleware classes are classified Tier 1 API. They delegate to the
+shared effective-access resolvers and do not contain a second authorization
+algorithm.
 
 Initial permission middleware aliases:
 
@@ -2100,12 +2100,12 @@ The stable operational promise attaches primarily to generated SQL artifacts,
 provisioning modes, migration layout and publish tags—not to the internal
 compiler, inspector or adapter classes that raise these exceptions.
 
-### 15.3 Planned Phase 6 exceptions
+### 15.3 Phase 6 exceptions
 
-`InvalidMiddlewareParameter` and `UnauthorizedMutation` are **not implemented**.
-They are reserved names for the future middleware and Laravel-integration work
-in Phase 6 and must not be documented as currently catchable exceptions before
-that phase implements and classifies them.
+`InvalidMiddlewareParameter` is implemented and classified as Tier 1. It
+reports invalid route-middleware cardinality or empty parameters without
+including role or permission names. `UnauthorizedMutation` remains a reserved
+design name and is not implemented or currently catchable.
 
 ### 15.4 Detailed contracts
 
@@ -2606,9 +2606,9 @@ No performance claim may be published without a reproducible benchmark.
 
 The accepted and frozen pre-v1 boundary in
 [ADR 0014](docs/decisions/0014-pre-v1-public-api-boundary.md) was established
-from its 218-symbol evidence base. The current 230 source symbols classify as:
+from its 218-symbol evidence base. The current 243 source symbols classify as:
 
-- Tier 1 contains 39 supported public symbols that consumers call, receive,
+- Tier 1 contains 46 supported public symbols that consumers call, receive,
   catch or listen to;
 - Tier 2 contains 13 consumer extension points whose documented requirements
   are compatibility surface;
@@ -2616,20 +2616,20 @@ from its 218-symbol evidence base. The current 230 source symbols classify as:
   than class APIs, are the supported surface;
 - the operational tier contains the 5 exception types in section 15.2, while
   its primary promises remain artifacts and provisioning behavior; and
-- Tier 4 contains 169 implementation symbols with no compatibility promise,
+- Tier 4 contains 175 implementation symbols with no compatibility promise,
   all marked with class-level `@internal` annotations.
 
 The exact current Tier 1 and Tier 2 names, signatures and readable surface are
-maintained in [Public API](docs/PUBLIC_API.md). Its 52-symbol manifest is checked
+maintained in [Public API](docs/PUBLIC_API.md). Its 59-symbol manifest is checked
 against the reflection boundary in the automated suite.
 
-`InvalidMiddlewareParameter`, `UnauthorizedMutation`, the proposed subject API,
-middleware, custom Blade directives, console commands and cross-request cache
-APIs remain unimplemented and are excluded from the available public surface.
+`UnauthorizedMutation`, the proposed subject API, custom Blade directives,
+console commands and cross-request cache APIs remain unimplemented and are
+excluded from the available public surface.
 The centralized Gate hook is implemented as internal framework integration;
 its observable Laravel behavior is supported without exposing its class as
 consumer API. Each future phase must classify new consumer-facing symbols
-before it can complete. The 52-symbol Tier 1 and Tier 2 boundary was frozen on 2026-09-04
+before it can complete. The original 52-symbol Tier 1 and Tier 2 boundary was frozen on 2026-09-04
 after ADR 0014's ordered corrections, consumer documentation and independent
 freeze review completed. Before `1.0.0`, deliberate breaking change remains
 subject to the ADR, changelog and migration-guidance policy above.

@@ -24,7 +24,7 @@ examples only. The manifests below always use complete names.
 
 ### 2.1 Tier 1 — supported public API
 
-Consumers call, receive, catch or listen to these 39 symbols.
+Consumers call, receive, catch or listen to these 46 symbols.
 
 <!-- gatetrail-tier-1:start -->
 - <code>HangTuah\GateTrail\Contracts\AssignmentManager</code>
@@ -62,10 +62,17 @@ Consumers call, receive, catch or listen to these 39 symbols.
 - <code>HangTuah\GateTrail\Exceptions\InvalidGuard</code>
 - <code>HangTuah\GateTrail\Exceptions\InvalidModelConfiguration</code>
 - <code>HangTuah\GateTrail\Exceptions\InvalidSubject</code>
+- <code>HangTuah\GateTrail\Exceptions\InvalidMiddlewareParameter</code>
 - <code>HangTuah\GateTrail\Exceptions\PermissionNotFound</code>
 - <code>HangTuah\GateTrail\Exceptions\ReasonRequired</code>
 - <code>HangTuah\GateTrail\Exceptions\RoleNotFound</code>
 - <code>HangTuah\GateTrail\Exceptions\UnsupportedAfterCommitBoundary</code>
+- <code>HangTuah\GateTrail\Laravel\Middleware\RequirePermission</code>
+- <code>HangTuah\GateTrail\Laravel\Middleware\RequireAnyPermission</code>
+- <code>HangTuah\GateTrail\Laravel\Middleware\RequireAllPermissions</code>
+- <code>HangTuah\GateTrail\Laravel\Middleware\RequireRole</code>
+- <code>HangTuah\GateTrail\Laravel\Middleware\RequireAnyRole</code>
+- <code>HangTuah\GateTrail\Laravel\Middleware\RequireAllRoles</code>
 <!-- gatetrail-tier-1:end -->
 
 ### 2.2 Tier 2 — consumer extension points
@@ -258,7 +265,32 @@ RoleResolver::effectiveRoles(
 The singular check and collection method are projections of the same evaluated
 state. Output value objects are deliberately not accepted as check inputs.
 
-### 3.5 GateTrailEvent
+### 3.5 Route middleware
+
+GateTrail registers six stable aliases automatically. Their concrete classes
+are also supported for consumers that configure middleware by class name:
+
+| Alias | Class | Parameters |
+|---|---|---|
+| <code>gatetrail.permission</code> | <code>RequirePermission</code> | exactly one permission name |
+| <code>gatetrail.permission.any</code> | <code>RequireAnyPermission</code> | one or more permission names |
+| <code>gatetrail.permission.all</code> | <code>RequireAllPermissions</code> | one or more permission names |
+| <code>gatetrail.role</code> | <code>RequireRole</code> | exactly one role name |
+| <code>gatetrail.role.any</code> | <code>RequireAnyRole</code> | one or more role names |
+| <code>gatetrail.role.all</code> | <code>RequireAllRoles</code> | one or more role names |
+
+Each class exposes the standard Laravel middleware method:
+
+~~~php
+handle(Request $request, Closure $next, string ...$names): mixed
+~~~
+
+Names are trimmed, compared exactly and deduplicated. Invalid cardinality or
+empty values raise <code>InvalidMiddlewareParameter</code>. An unauthenticated
+request raises Laravel's <code>AuthenticationException</code>; a failed check
+raises Laravel's <code>AuthorizationException</code>.
+
+### 3.6 GateTrailEvent
 
 <code>GateTrailEvent</code> is not container-bound. Register listeners for the
 interface through Laravel's event dispatcher:
@@ -400,6 +432,7 @@ package-controlled and are not consumer construction API.
 | <code>InvalidGuard</code> | <code>InvalidArgumentException</code> | <code>string $contextType</code>, <code>string $source</code> |
 | <code>InvalidModelConfiguration</code> | <code>InvalidArgumentException</code> | None |
 | <code>InvalidSubject</code> | <code>InvalidArgumentException</code> | <code>string $subjectType</code>, <code>string $reason</code>; never the raw identifier |
+| <code>InvalidMiddlewareParameter</code> | <code>InvalidArgumentException</code> | <code>string $alias</code>, <code>string $reason</code>; never permission or role names |
 | <code>ReasonRequired</code> | <code>InvalidArgumentException</code> | None |
 
 The five operational exceptions in <code>PACKAGE_SPEC.md</code> section 15.2
@@ -506,10 +539,9 @@ The following are not currently available consumer APIs:
 - internal commands, handlers, query components, repositories, adapters,
   schema compilers, inspectors, diagnostics and <code>ModelRegistry</code>;
 - default manager and resolver concrete classes—depend on their contracts;
-- <code>InvalidMiddlewareParameter</code> and
-  <code>UnauthorizedMutation</code>;
+- <code>UnauthorizedMutation</code>;
 - the proposed nine-method subject convenience API;
-- GateTrail-supplied policies, middleware aliases and custom Blade directives;
+- GateTrail-supplied policies and custom Blade directives;
 - all proposed GateTrail console commands;
 - cross-request cache and invalidation APIs.
 

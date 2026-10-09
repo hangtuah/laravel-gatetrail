@@ -58,11 +58,9 @@ final class ConsumerGuideTest extends TestCase
         'hasAnyRole',
         'hasAllRoles',
         'hasPermissionTo',
-        'InvalidMiddlewareParameter',
         'UnauthorizedMutation',
         'gatetrail:doctor',
         'gatetrail:cache-clear',
-        'middleware',
         'wildcard',
         'Wildcard',
         'hierarchy',
@@ -201,7 +199,7 @@ final class ConsumerGuideTest extends TestCase
 
     public function test_internal_example_guard_covers_every_tier_four_symbol(): void
     {
-        $this->assertCount(169, $this->internalShortNames());
+        $this->assertCount(175, $this->internalShortNames());
     }
 
     #[DataProvider('documents')]

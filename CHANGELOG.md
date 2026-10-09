@@ -6,6 +6,14 @@ All notable changes to GateTrail will be documented in this file.
 
 ### Added
 
+- Central Laravel authorization integration for argument-free GateTrail
+  permission abilities, including `$user->can()`, `Gate::forUser()`,
+  `Gate::authorize()` and native Blade `@can` / `@cannot`. Six stable route
+  middleware aliases now provide singular, any and all permission and role
+  checks through the same effective-access snapshots. The six middleware
+  classes and `InvalidMiddlewareParameter` are additive Tier 1 API; invalid
+  route declarations fail visibly, authorization denials remain generic, and
+  alias collisions are never silently overwritten.
 - SQL Server release `0001` DBA-managed DDL artifacts, which completes versioned
   artifacts for every Tier 1 database. An internal `SqlServerDdlCompiler`
   compiles the canonical manifest for the `sqlsrv` driver and
