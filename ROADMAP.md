@@ -1,6 +1,6 @@
 # GateTrail Roadmap and Implementation Guide
 
-Last updated: 2026-09-04
+Last updated: 2026-10-10
 
 ## 1. Purpose
 
@@ -58,7 +58,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 | Measurement | Current value | Interpretation |
 |---|---:|---|
 | Overall roadmap by primary phases | approximately 42% | Equal-phase progress across Phases 0–13 |
-| Deliverable tracker | 14 of 32, approximately 44% | Completed concrete package deliverables |
+| Deliverable tracker | 13 of 32, approximately 41% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
 
@@ -98,7 +98,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 0 | Ownership and product decisions | 100% | Complete |
 | 1 | Package specification | 100% | Complete |
 | 2 | Repository and development tooling | 100% | Complete |
-| 3 | Database and assignment lifecycle | 90% | In progress |
+| 3 | Database and assignment lifecycle | 10 of 11, approximately 91% | In progress |
 | 4 | Mutation services | 100% | Complete |
 | 5 | Effective permission resolver | 100% | Complete |
 | 6 | Laravel integration | 0% | Not started |
@@ -110,6 +110,36 @@ automated testing, security hardening, a pilot, and release validation.
 | 12 | Existing-application integration | 0% | Not started |
 | 13 | Stable release | 0% | Not started |
 | 14 | Post-v1 optional features | — | Optional |
+
+### 3.4 Internal alpha fast track
+
+The immediate delivery target is `v0.1.0-alpha` for a controlled, Oracle-first
+internal pilot. The alpha is intended to make the package usable by the team;
+it is not a stable-release or full Tier 1 compatibility claim.
+
+The alpha critical path is deliberately limited to:
+
+1. complete Laravel authorization integration through the existing resolver;
+2. accept and harden the audit behavior already implemented by the mutation
+   layer, including append-only enforcement;
+3. pass one fresh-consumer Oracle vertical slice covering installation, role
+   and permission creation, assignment, authorization, revocation and audit;
+4. close release-blocking security findings for that supported slice;
+5. publish the minimum installation and usage guidance needed for the pilot;
+6. tag a reproducible `v0.1.0-alpha` release for internal Composer use.
+
+The following work does not block the internal alpha unless the pilot exposes a
+direct dependency on it:
+
+- the SQL Server schema inspector and SQL Server application-runtime evidence;
+- cross-request caching and performance optimization beyond the existing
+  request-local memoization;
+- the complete diagnostics command set;
+- existing-application migration tooling;
+- public package publication and the stable `1.0.0` release checklist.
+
+Deferred work remains part of the roadmap. The fast track changes sequencing,
+not the accepted compatibility or stable-release requirements.
 
 ## 4. Completed foundation
 
@@ -606,6 +636,8 @@ Implement the portable schema and history-preserving assignment lifecycle.
 - [x] Assignment period scopes.
 - [x] Soft deletion for roles and permissions.
 - [x] No normal hard deletion or cascading deletion of assignments.
+- [ ] Read-only schema inspection and automated schema-level integration
+      evidence for every Tier 1 database adapter.
 
 ### Default tables
 
@@ -828,10 +860,9 @@ acl_access_audits
   foreign key is refused, and rollback removes all seven tables.
 - SQL Server evidence stops at the schema. **There is no SQL Server schema
   inspector** — `SchemaInspectorFactory` still refuses `sqlsrv` — and no
-  mutation, resolver, audit or concurrency path has executed against it. That
-  remaining inspection work is why this phase holds at 90% rather than 100%
-  even though every deliverable is now checked; its exit criteria require
-  consistent automated tests for every supported adapter.
+  mutation, resolver, audit or concurrency path has executed against it. The
+  missing inspector is the one unchecked item in this phase's 11-item atomic
+  checklist, so Phase 3 is 10 of 11, approximately 91%.
 
 Production database adapters are not marked verified until their integration
 suites pass. The MySQL minimum and current 8.0 endpoints are verified locally
