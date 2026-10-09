@@ -648,6 +648,39 @@ Behaviour to rely on:
 - Evaluation is memoized for the life of one container scope, and a mutation
   committed in the same process clears that memo.
 
+### Subject convenience API
+
+An Eloquent subject using `HasGateTrail` can call the same resolvers through
+concise methods:
+
+```php
+$user->hasRole('reviewer');
+$user->hasAnyRole(['reviewer', 'publisher']);
+$user->hasAllRoles(['reviewer', RoleReference::id(7)]);
+$user->hasPermissionTo('documents.approve');
+$user->effectivePermissions();
+$user->roles();
+```
+
+`hasAnyRole()` and `hasAllRoles()` evaluate one snapshot. An empty list denies
+for both methods. `effectivePermissions()` returns `EffectivePermission`
+values, while `roles()` returns effective `EffectiveRole` values.
+
+Three read-only Eloquent relations expose stored state for administration and
+history views:
+
+```php
+$user->directPermissions();
+$user->roleAssignments();
+$user->permissionAssignments();
+```
+
+The two assignment relations contain full history. `directPermissions()` is a
+raw definition relation through all direct assignment rows, including rows
+that are scheduled, expired or revoked. These relations are **not authorization
+evidence**; use `hasPermissionTo()`, `effectivePermissions()` or Laravel Gate
+when deciding access. Assignment changes still go through `AssignmentManager`.
+
 ### Laravel Gate and Blade
 
 GateTrail registers one central Laravel Gate hook. An argument-free ability
@@ -1010,7 +1043,7 @@ the class that holds those constants is internal.
 
 ## 18. Error handling and the public exception boundary
 
-GateTrail raises typed exceptions as control flow. Twenty of them are Tier 1
+GateTrail raises typed exceptions as control flow. Twenty-one of them are Tier 1
 supported types you may catch:
 
 ```php
@@ -1046,6 +1079,7 @@ The ones you will meet most often:
 | `GuardMismatch` | A subject, role or permission crosses a guard boundary |
 | `InvalidGuard` | The authoritative guard source holds an empty or non-string value |
 | `InvalidSubject` | A subject cannot be resolved to a stable identity |
+| `InvalidMiddlewareParameter` | A GateTrail route alias has empty or invalid-cardinality parameters |
 | `ReasonRequired` | A required reason is missing or blank |
 | `AssignmentNotActive` | Revoking a missing, expired or already-revoked assignment |
 | `DuplicateActiveAssignment`, `AssignmentScopeCollision` | An equivalent active assignment already exists or races another writer |
@@ -1061,7 +1095,7 @@ The ones you will meet most often:
 What the boundary promises, and what it does not:
 
 - **The class name, its catchability and its parent class are stable.**
-  Fifteen extend `RuntimeException` and ten extend `InvalidArgumentException`;
+  Fifteen extend `RuntimeException` and eleven extend `InvalidArgumentException`;
   there is no shared GateTrail exception base, so you cannot catch GateTrail
   errors "by namespace".
 - **Only explicitly documented readable fields are promised.**
@@ -1147,7 +1181,6 @@ specification section describes it.
 | Not available | Status |
 |---|---|
 | GateTrail-supplied resource policies | Applications continue to own resource and state rules |
-| Subject convenience API — `hasRole()`, `hasAnyRole()`, `hasAllRoles()`, `hasPermissionTo()` and the rest of the proposed nine-method surface | Phase 6, not started. `HasGateTrail` declares one method today, and it is `@internal` |
 | Custom GateTrail Blade directives | Not planned; native `@can` / `@cannot` use the implemented Gate integration |
 | Console commands, including `gatetrail:doctor` and `gatetrail:cache-clear` | Planned across pre-`1.0.0` releases; not started. **Zero command classes exist** |
 | `UnauthorizedMutation` | Named in the specification for later Laravel-integration work; the class does not exist |

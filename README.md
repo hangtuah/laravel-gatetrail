@@ -242,6 +242,17 @@ Use the `.any` alias when one listed name is sufficient and `.all` when every
 listed name is required. The same forms exist for `gatetrail.permission` and
 `gatetrail.role`.
 
+Models using `HasGateTrail` also receive concise helpers backed by the same
+resolvers:
+
+```php
+$user->hasRole('reviewer');
+$user->hasAnyRole(['reviewer', 'publisher']);
+$user->hasPermissionTo('documents.approve');
+$user->effectivePermissions();
+$user->roles();
+```
+
 ## Public versus internal API
 
 Depend on the contracts, value types, events and exceptions listed in
@@ -260,7 +271,6 @@ These are designed or planned, and are **not** available today. Do not build
 against them:
 
 - GateTrail-supplied resource policies;
-- subject convenience methods such as `hasRole()` or `hasPermissionTo()`;
 - custom GateTrail Blade directives—use Laravel's native `@can` / `@cannot`;
 - GateTrail console commands, including `gatetrail:doctor` and
   `gatetrail:cache-clear`;

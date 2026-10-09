@@ -183,7 +183,7 @@ final class PublicApiSurfaceTest extends TestCase
         MigrationDependencyError::class,
     ];
 
-    private const SURFACE_SHA256 = 'abad11d5350b77ef8054fcb8247e8cce1e3868115844bd9697ac8e4f8d9587e3';
+    private const SURFACE_SHA256 = 'cd0ca5fdf14aaf698226d77e16061e69e7c5b8a0bf38d205fe4293c209b1290d';
 
     public function test_every_source_symbol_has_exactly_one_accepted_classification(): void
     {

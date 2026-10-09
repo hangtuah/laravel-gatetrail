@@ -54,10 +54,6 @@ final class ConsumerGuideTest extends TestCase
      * @var list<string>
      */
     private const UNAVAILABLE_TOKENS = [
-        'hasRole',
-        'hasAnyRole',
-        'hasAllRoles',
-        'hasPermissionTo',
         'UnauthorizedMutation',
         'gatetrail:doctor',
         'gatetrail:cache-clear',

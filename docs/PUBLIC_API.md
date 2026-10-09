@@ -495,8 +495,30 @@ it changes authorization semantics and may widen access.
 
 <code>Concerns\HasGateTrail</code> is a supported consumer trait that lets the
 subject guard resolver inspect a protected
-<code>string $gateTrailGuardName</code> property. Its helper method is final,
-public and <code>@internal</code>; consumers do not call it.
+<code>string $gateTrailGuardName</code> property. It exposes these supported
+methods:
+
+~~~php
+hasRole(RoleContract|RoleReference|string|int $role): bool
+hasAnyRole(array $roles): bool
+hasAllRoles(array $roles): bool
+hasPermissionTo(PermissionContract|PermissionReference|string|int $permission): bool
+effectivePermissions(): Collection
+roles(): Collection
+directPermissions(): MorphToMany
+roleAssignments(): MorphMany
+permissionAssignments(): MorphMany
+~~~
+
+The batch role arrays accept the same role-input union as `hasRole()`, evaluate
+one snapshot and deny when empty. `roles()` and `effectivePermissions()` return
+the effective resolver value objects. The three Eloquent relations are raw
+stored-state views: assignment relations include history and
+`directPermissions()` does not apply assignment lifecycle. They are not
+authorization evidence and expose no mutation method.
+
+The trait's guard-property inspection helper is final, public and
+<code>@internal</code>; consumers do not call it.
 
 A subject may instead expose <code>gateTrailGuardName(): string</code> directly
 without using the trait.
@@ -540,7 +562,6 @@ The following are not currently available consumer APIs:
   schema compilers, inspectors, diagnostics and <code>ModelRegistry</code>;
 - default manager and resolver concrete classes—depend on their contracts;
 - <code>UnauthorizedMutation</code>;
-- the proposed nine-method subject convenience API;
 - GateTrail-supplied policies and custom Blade directives;
 - all proposed GateTrail console commands;
 - cross-request cache and invalidation APIs.

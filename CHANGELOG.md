@@ -14,6 +14,12 @@ All notable changes to GateTrail will be documented in this file.
   classes and `InvalidMiddlewareParameter` are additive Tier 1 API; invalid
   route declarations fail visibly, authorization denials remain generic, and
   alias collisions are never silently overwritten.
+- The Tier 2 `HasGateTrail` concern now exposes its complete nine-method
+  subject API. Singular checks delegate to the public resolvers, batch role
+  checks evaluate one snapshot and fail closed for an empty list, effective
+  collections return the existing value objects, and three explicitly raw
+  Eloquent relations expose direct definitions and assignment history without
+  becoming authorization or mutation APIs.
 - SQL Server release `0001` DBA-managed DDL artifacts, which completes versioned
   artifacts for every Tier 1 database. An internal `SqlServerDdlCompiler`
   compiles the canonical manifest for the `sqlsrv` driver and

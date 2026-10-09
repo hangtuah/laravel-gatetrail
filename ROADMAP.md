@@ -44,7 +44,7 @@ Phase 2 — Complete
 Phase 3 — In progress
 Phase 4 — Complete
 Phase 5 — Complete
-Phase 6 — In progress
+Phase 6 — Complete
 Phase 7 onward — Not started
 ```
 
@@ -58,8 +58,8 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | approximately 48% | Equal-phase progress across Phases 0–13 |
-| Deliverable tracker | 15 of 32, approximately 47% | Completed concrete package deliverables |
+| Overall roadmap by primary phases | approximately 49% | Equal-phase progress across Phases 0–13 |
+| Deliverable tracker | 16 of 32, 50% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
 
@@ -102,7 +102,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 3 | Database and assignment lifecycle | 10 of 11, approximately 91% | In progress |
 | 4 | Mutation services | 100% | Complete |
 | 5 | Effective permission resolver | 100% | Complete |
-| 6 | Laravel integration | 6 of 8, 75% | In progress |
+| 6 | Laravel integration | 8 of 8, 100% | Complete |
 | 7 | Audit trail | 0% | Not started |
 | 8 | Cache and performance | 0% | Not started |
 | 9 | Security hardening | 0% | Not started |
@@ -1678,8 +1678,7 @@ deliverable covering the whole phase — is now satisfied.
 moved it to Phase 8, leaving Phase 4 at 19 of 20 = 95%. This memo is
 request-local: it uses no cache store, no TTL, no tag and no broadcast, and a
 mutation committed in another process does not reach it. Phase 6 has since
-started; its current evidence is recorded in the Phase 6 section. Subject
-convenience methods and middleware remain pending.
+started and is now complete; its evidence is recorded in the Phase 6 section.
 
 **The engine boundary, stated precisely.** SQLite carries the full behavioural
 matrix on both Laravel/Testbench lanes. Live MySQL 8.0.16 and 8.0.45 carry the
@@ -1719,8 +1718,8 @@ Expose the resolver through Laravel conventions without duplicating its logic.
 
 ### Deliverables
 
-- [ ] `HasGateTrail` concern.
-- [ ] Subject convenience methods.
+- [x] `HasGateTrail` concern.
+- [x] Subject convenience methods.
 - [x] Central Laravel Gate hook.
 - [x] `Gate::forUser()` behavior.
 - [x] Native `@can` behavior.
@@ -1745,9 +1744,9 @@ gatetrail.role.all
 GateTrail middleware all use the same underlying authorization result.
 
 ```text
-Completed: 6
+Completed: 8
 Total:     8
-Progress:  75%
+Progress:  100%
 ```
 
 The centralized Gate hook resolves lazily within the current container scope
@@ -1766,10 +1765,17 @@ cover all six aliases, one/any/all behavior, real route execution, generic 403
 responses, alias collisions, constant query count and unrelated-Gate isolation.
 
 This completes the global `Gate integration` and `Middleware` deliverables.
-The global tracker is now **15 of 32 = 46.875%, approximately 47%**. With Phase
-6 at 75%, overall equal-phase progress is **approximately 48%**.
+The completed `HasGateTrail` Tier 2 extension surface also closes the global
+`Contracts` deliverable. The global tracker is now **16 of 32 = 50%**. With
+Phase 6 complete, overall equal-phase progress is **approximately 49%**.
 
-Status: **In progress**
+The concern delegates singular permission and role checks to the public
+resolvers. Batch role checks normalize all inputs, read one effective snapshot
+and deny empty lists. Effective collections remain immutable value objects;
+the three raw Eloquent relations are documented as history/administration
+views and never authorization evidence.
+
+Status: **Complete**
 
 ## 14. Phase 7 — Audit trail
 
@@ -2127,7 +2133,7 @@ Progress: **8 of 8**
 
 - [x] Migrations
 - [x] Models
-- [ ] Contracts
+- [x] Contracts
 - [ ] Assignment lifecycle
 - [x] Mutation services
 - [x] Effective permission resolver
@@ -2136,7 +2142,7 @@ Progress: **8 of 8**
 - [ ] Audit trail
 - [ ] Cache invalidation
 
-Progress: **6 of 10**
+Progress: **7 of 10**
 
 ### Quality
 

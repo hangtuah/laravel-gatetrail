@@ -1583,7 +1583,7 @@ not an Eloquent attribute or database column.
 
 ### 12.2 Subject API
 
-Proposed methods:
+**Status: implemented.** Consumer Eloquent models using `HasGateTrail` receive:
 
 ```php
 $user->hasRole('administrator');
@@ -1603,6 +1603,14 @@ relationship methods.
 Role helper methods delegate to the shared `RoleResolver`. Permission helpers
 delegate to the shared `PermissionResolver`. The subject concern does not
 implement separate role, permission, lifecycle, or guard algorithms.
+
+`roles()` returns the effective `EffectiveRole` collection and
+`effectivePermissions()` returns the corresponding effective permission
+collection. `roleAssignments()` and `permissionAssignments()` are raw history
+relations. `directPermissions()` is a raw definition relation through every
+direct assignment row, including revoked, scheduled and expired rows; it is for
+inspection only and is never authorization evidence. Mutations still go
+through the managed services.
 
 ### 12.3 Gate integration
 
