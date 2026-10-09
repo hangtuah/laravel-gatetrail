@@ -50,6 +50,7 @@ use HangTuah\GateTrail\Events\MutationCommitted;
 use HangTuah\GateTrail\Events\MutationEventDispatcher;
 use HangTuah\GateTrail\Guards\DefaultGuardResolver;
 use HangTuah\GateTrail\Guards\SubjectGuardResolver;
+use HangTuah\GateTrail\Laravel\GateAuthorizationHook;
 use HangTuah\GateTrail\Managers\DefaultAssignmentManager;
 use HangTuah\GateTrail\Managers\DefaultPermissionManager;
 use HangTuah\GateTrail\Managers\DefaultRoleManager;
@@ -88,6 +89,7 @@ use HangTuah\GateTrail\Mutations\StrictMutationTransaction;
 use HangTuah\GateTrail\Subjects\SubjectIdentityResolver;
 use HangTuah\GateTrail\Support\ModelRegistry;
 use HangTuah\GateTrail\Time\SystemClock;
+use Illuminate\Contracts\Auth\Access\Gate as GateContract;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 use Psr\Clock\ClockInterface;
@@ -210,6 +212,7 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->app->singleton(RevokeRoleHandler::class);
         $this->app->singleton(ClockInterface::class, SystemClock::class);
         $this->app->singleton(SubjectGuardResolver::class);
+        $this->app->scoped(GateAuthorizationHook::class);
         $this->app->singleton(DefaultGuardResolver::class);
         $this->app->singleton(RoleInputResolver::class);
         $this->app->singleton(RolePermissionDefinitionResolver::class);
@@ -306,6 +309,27 @@ final class GateTrailServiceProvider extends ServiceProvider
             MutationCommitted::class,
             [FlushEffectiveAccessMemo::class, 'handle'],
         );
+
+        // The Gate itself is a singleton, so its callback must not capture a
+        // scoped resolver. Resolve the hook lazily for every check; Laravel's
+        // scoped container then reuses it only inside the current request or
+        // worker scope and replaces it when that scope is flushed.
+        $app = $this->app;
+
+        /** @param array<array-key, mixed> $arguments */
+        $authorize = static function (
+            mixed $subject,
+            string $ability,
+            array $arguments,
+        ) use ($app): ?bool {
+            return $app->make(GateAuthorizationHook::class)->authorize(
+                $subject,
+                $ability,
+                $arguments,
+            );
+        };
+
+        $this->app->make(GateContract::class)->before($authorize);
 
         if (! $this->app->runningInConsole()) {
             return;

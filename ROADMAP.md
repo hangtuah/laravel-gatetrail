@@ -44,7 +44,8 @@ Phase 2 — Complete
 Phase 3 — In progress
 Phase 4 — Complete
 Phase 5 — Complete
-Phase 6 onward — Not started
+Phase 6 — In progress
+Phase 7 onward — Not started
 ```
 
 The package specification is accepted for implementation. Repository tooling
@@ -57,8 +58,8 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | approximately 42% | Equal-phase progress across Phases 0–13 |
-| Deliverable tracker | 13 of 32, approximately 41% | Completed concrete package deliverables |
+| Overall roadmap by primary phases | approximately 47% | Equal-phase progress across Phases 0–13 |
+| Deliverable tracker | 14 of 32, approximately 44% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
 
@@ -101,7 +102,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 3 | Database and assignment lifecycle | 10 of 11, approximately 91% | In progress |
 | 4 | Mutation services | 100% | Complete |
 | 5 | Effective permission resolver | 100% | Complete |
-| 6 | Laravel integration | 0% | Not started |
+| 6 | Laravel integration | 5 of 8, approximately 63% | In progress |
 | 7 | Audit trail | 0% | Not started |
 | 8 | Cache and performance | 0% | Not started |
 | 9 | Security hardening | 0% | Not started |
@@ -1676,8 +1677,9 @@ deliverable covering the whole phase — is now satisfied.
 **Cross-request cache invalidation is still not touched.** ADR 0013 has since
 moved it to Phase 8, leaving Phase 4 at 19 of 20 = 95%. This memo is
 request-local: it uses no cache store, no TTL, no tag and no broadcast, and a
-mutation committed in another process does not reach it. **No Phase 6 work has
-started**: no Gate hook, no subject concern, no middleware.
+mutation committed in another process does not reach it. Phase 6 has since
+started; its current evidence is recorded in the Phase 6 section. Subject
+convenience methods and middleware remain pending.
 
 **The engine boundary, stated precisely.** SQLite carries the full behavioural
 matrix on both Laravel/Testbench lanes. Live MySQL 8.0.16 and 8.0.45 carry the
@@ -1719,12 +1721,12 @@ Expose the resolver through Laravel conventions without duplicating its logic.
 
 - [ ] `HasGateTrail` concern.
 - [ ] Subject convenience methods.
-- [ ] Central Laravel Gate hook.
-- [ ] `Gate::forUser()` behavior.
-- [ ] Native `@can` behavior.
+- [x] Central Laravel Gate hook.
+- [x] `Gate::forUser()` behavior.
+- [x] Native `@can` behavior.
 - [ ] Six route middleware aliases.
-- [ ] Authentication and authorization exception behavior.
-- [ ] Policy coexistence.
+- [x] Authentication and authorization exception behavior.
+- [x] Policy coexistence.
 
 ### Middleware aliases
 
@@ -1742,7 +1744,25 @@ gatetrail.role.all
 `$user->can()`, `Gate::authorize()`, `Gate::forUser()`, Blade, policies, and
 GateTrail middleware all use the same underlying authorization result.
 
-Status: **Not started**
+```text
+Completed: 5
+Total:     8
+Progress:  approximately 63%
+```
+
+The centralized Gate hook resolves lazily within the current container scope
+and delegates argument-free permission abilities to `PermissionResolver`.
+Tests cover `$user->can()`, `Gate::forUser()`, `Gate::authorize()`, native Blade
+`@can` / `@cannot`, unauthenticated denial, exact definition matching,
+deactivated-definition denial, application-Gate fall-through, resource-policy
+coexistence, and propagation of configuration and database failures. No
+individual database permission is registered as a Laravel ability.
+
+This completes the global `Gate integration` deliverable. The global tracker
+is now **14 of 32 = 43.75%, approximately 44%**. With Phase 6 at approximately
+63%, overall equal-phase progress is **approximately 47%**.
+
+Status: **In progress**
 
 ## 14. Phase 7 — Audit trail
 
@@ -2104,12 +2124,12 @@ Progress: **8 of 8**
 - [ ] Assignment lifecycle
 - [x] Mutation services
 - [x] Effective permission resolver
-- [ ] Gate integration
+- [x] Gate integration
 - [ ] Middleware
 - [ ] Audit trail
 - [ ] Cache invalidation
 
-Progress: **4 of 10**
+Progress: **5 of 10**
 
 ### Quality
 

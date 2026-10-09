@@ -21,7 +21,7 @@ What that does and does not mean:
 | Will it change silently? | No |
 | What ships with a deliberate breaking change? | An ADR, a `CHANGELOG.md` entry, and migration guidance when consumer code or configuration must change |
 | What happens to accidental drift? | It is a defect. `PublicApiSurfaceTest` rejects it in CI |
-| What may change in any release, including a patch? | Anything marked `@internal` — currently 168 of the package's 229 classes |
+| What may change in any release, including a patch? | Anything marked `@internal` — currently 169 of the package's 230 classes |
 
 The boundary itself is decided in
 [ADR 0014](decisions/0014-pre-v1-public-api-boundary.md), which classifies
@@ -648,6 +648,32 @@ Behaviour to rely on:
 - Evaluation is memoized for the life of one container scope, and a mutation
   committed in the same process clears that memo.
 
+### Laravel Gate and Blade
+
+GateTrail registers one central Laravel Gate hook. An argument-free ability
+whose exact name exists as a permission in the subject's guard is answered by
+`PermissionResolver`:
+
+```php
+$user->can('documents.approve');
+Gate::forUser($user)->allows('documents.approve');
+Gate::authorize('documents.approve');
+```
+
+Laravel's native Blade directives use the same result:
+
+```blade
+@can('documents.approve')
+    <button>Approve</button>
+@endcan
+```
+
+If no matching GateTrail definition exists, Laravel continues to the
+application's own Gate. Checks with one or more resource arguments bypass
+GateTrail and continue to the application's gate or policy. A matching active
+definition is authoritative, a deactivated matching definition denies, and
+database or configuration failures remain visible.
+
 ## 13. Assignment periods and lifecycle
 
 An assignment moves through a small, explicit lifecycle:
@@ -1077,17 +1103,16 @@ replaced.
 
 ## 20. Current limitations and unimplemented features
 
-Everything in this list is designed, planned or deferred — and **none of it
-exists today**. Do not build against any of it, and do not assume a symbol is
-available because a specification section describes it.
+Everything in this list is designed, planned or deferred. Do not build against
+an item in this table, and do not assume a symbol is available because a
+specification section describes it.
 
 | Not available | Status |
 |---|---|
-| Laravel `Gate::before` hook integration | Phase 6, not started |
-| GateTrail-supplied policies | Phase 6, not started |
+| GateTrail-supplied resource policies | Applications continue to own resource and state rules |
 | Subject convenience API — `hasRole()`, `hasAnyRole()`, `hasAllRoles()`, `hasPermissionTo()` and the rest of the proposed nine-method surface | Phase 6, not started. `HasGateTrail` declares one method today, and it is `@internal` |
 | Route middleware and middleware aliases | Phase 6, not started |
-| Blade directives | Phase 6, not started |
+| Custom GateTrail Blade directives | Not planned; native `@can` / `@cannot` use the implemented Gate integration |
 | Console commands, including `gatetrail:doctor` and `gatetrail:cache-clear` | Planned across pre-`1.0.0` releases; not started. **Zero command classes exist** |
 | `InvalidMiddlewareParameter` and `UnauthorizedMutation` | Named in the specification for Phase 6; **neither class exists** |
 | Cross-request cache and cross-request invalidation APIs | Deferred to Phase 8 by ADR 0013. The post-commit ordering slot is reserved and empty; there is no cache store, TTL, binding or configuration key |

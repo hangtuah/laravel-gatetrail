@@ -509,7 +509,7 @@ The following are not currently available consumer APIs:
 - <code>InvalidMiddlewareParameter</code> and
   <code>UnauthorizedMutation</code>;
 - the proposed nine-method subject convenience API;
-- Laravel Gate hooks, policies, middleware aliases and Blade directives;
+- GateTrail-supplied policies, middleware aliases and custom Blade directives;
 - all proposed GateTrail console commands;
 - cross-request cache and invalidation APIs.
 

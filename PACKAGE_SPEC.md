@@ -1606,6 +1606,10 @@ implement separate role, permission, lifecycle, or guard algorithms.
 
 ### 12.3 Gate integration
 
+**Status: implemented.** The hook is package-owned internal framework
+integration; consumers use Laravel's normal Gate API rather than resolving the
+hook class.
+
 GateTrail registers one centralized Laravel `Gate::before` hook. It does not
 register every database permission as an individual Gate ability.
 
@@ -2602,7 +2606,7 @@ No performance claim may be published without a reproducible benchmark.
 
 The accepted and frozen pre-v1 boundary in
 [ADR 0014](docs/decisions/0014-pre-v1-public-api-boundary.md) was established
-from its 218-symbol evidence base. The current 229 source symbols classify as:
+from its 218-symbol evidence base. The current 230 source symbols classify as:
 
 - Tier 1 contains 39 supported public symbols that consumers call, receive,
   catch or listen to;
@@ -2612,7 +2616,7 @@ from its 218-symbol evidence base. The current 229 source symbols classify as:
   than class APIs, are the supported surface;
 - the operational tier contains the 5 exception types in section 15.2, while
   its primary promises remain artifacts and provisioning behavior; and
-- Tier 4 contains 168 implementation symbols with no compatibility promise,
+- Tier 4 contains 169 implementation symbols with no compatibility promise,
   all marked with class-level `@internal` annotations.
 
 The exact current Tier 1 and Tier 2 names, signatures and readable surface are
@@ -2620,10 +2624,12 @@ maintained in [Public API](docs/PUBLIC_API.md). Its 52-symbol manifest is checke
 against the reflection boundary in the automated suite.
 
 `InvalidMiddlewareParameter`, `UnauthorizedMutation`, the proposed subject API,
-the Gate hook, middleware, Blade directives, console commands and cross-request
-cache APIs remain unimplemented and are excluded from the available public
-surface. Each future phase must classify new consumer-facing symbols before it
-can complete. The 52-symbol Tier 1 and Tier 2 boundary was frozen on 2026-09-04
+middleware, custom Blade directives, console commands and cross-request cache
+APIs remain unimplemented and are excluded from the available public surface.
+The centralized Gate hook is implemented as internal framework integration;
+its observable Laravel behavior is supported without exposing its class as
+consumer API. Each future phase must classify new consumer-facing symbols
+before it can complete. The 52-symbol Tier 1 and Tier 2 boundary was frozen on 2026-09-04
 after ADR 0014's ordered corrections, consumer documentation and independent
 freeze review completed. Before `1.0.0`, deliberate breaking change remains
 subject to the ADR, changelog and migration-guidance policy above.

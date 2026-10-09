@@ -211,13 +211,26 @@ final readonly class DocumentApprovalCheck
 
 `RoleResolver` answers the equivalent question for roles.
 
+Laravel's normal authorization API uses the same resolver automatically for
+argument-free permission abilities:
+
+```php
+$user->can('documents.approve');
+Gate::forUser($user)->allows('documents.approve');
+Gate::authorize('documents.approve');
+```
+
+Native Blade `@can` / `@cannot` directives use that same decision. Checks with
+resource arguments, such as `$user->can('update', $document)`, continue to the
+application's normal gates and policies.
+
 ## Public versus internal API
 
 Depend on the contracts, value types, events and exceptions listed in
 [`docs/PUBLIC_API.md`](docs/PUBLIC_API.md), and nothing else.
 
-> **A class marked `@internal` is not consumer API.** PSR-4 makes all 229
-> package classes loadable and the container can build most of them, but 168 of
+> **A class marked `@internal` is not consumer API.** PSR-4 makes all 230
+> package classes loadable and the container can build most of them, but 169 of
 > them carry a class-level `@internal` annotation and may be renamed, recomposed
 > or deleted in any release, including a patch. That includes the `Default*`
 > manager and resolver implementations behind the contracts — inject
@@ -228,10 +241,10 @@ Depend on the contracts, value types, events and exceptions listed in
 These are designed or planned, and are **not** available today. Do not build
 against them:
 
-- the Laravel `Gate::before` hook and GateTrail-supplied policies;
+- GateTrail-supplied resource policies;
 - subject convenience methods such as `hasRole()` or `hasPermissionTo()`;
 - route middleware and middleware aliases;
-- Blade directives;
+- custom GateTrail Blade directives—use Laravel's native `@can` / `@cannot`;
 - GateTrail console commands, including `gatetrail:doctor` and
   `gatetrail:cache-clear`;
 - the `InvalidMiddlewareParameter` and `UnauthorizedMutation` exception types;
