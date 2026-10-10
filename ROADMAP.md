@@ -46,7 +46,8 @@ Phase 4 — Complete
 Phase 5 — Complete
 Phase 6 — Complete
 Phase 7 — Complete
-Phase 8 onward — Not started
+Phase 8 — In progress
+Phase 9 onward — Not started
 ```
 
 The package specification is accepted for implementation. Repository tooling
@@ -105,7 +106,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 5 | Effective permission resolver | 100% | Complete |
 | 6 | Laravel integration | 8 of 8, 100% | Complete |
 | 7 | Audit trail | 9 of 9, 100% | Complete |
-| 8 | Cache and performance | 0% | Not started |
+| 8 | Cache and performance | 0% | In progress |
 | 9 | Security hardening | 0% | Not started |
 | 10 | Developer experience and documentation | 0% | Not started |
 | 11 | Internal pilot | 0% | Not started |
@@ -1834,6 +1835,9 @@ Status: **Complete**
 ### Objective
 
 Optimize a correct, measured resolver without changing authorization behavior.
+
+The cache-decision threshold was registered before the first benchmark run in
+[the resolver benchmark protocol](docs/performance/resolver-benchmark.md).
 
 ### Sequence
 
