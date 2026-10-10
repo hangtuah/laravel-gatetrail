@@ -45,7 +45,8 @@ Phase 3 — In progress
 Phase 4 — Complete
 Phase 5 — Complete
 Phase 6 — Complete
-Phase 7 onward — Not started
+Phase 7 — Complete
+Phase 8 onward — Not started
 ```
 
 The package specification is accepted for implementation. Repository tooling
@@ -58,8 +59,8 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | approximately 49% | Equal-phase progress across Phases 0–13 |
-| Deliverable tracker | 16 of 32, 50% | Completed concrete package deliverables |
+| Overall roadmap by primary phases | approximately 57% | Equal-phase progress across Phases 0–13 |
+| Deliverable tracker | 17 of 32, approximately 53% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
 
@@ -103,7 +104,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 4 | Mutation services | 100% | Complete |
 | 5 | Effective permission resolver | 100% | Complete |
 | 6 | Laravel integration | 8 of 8, 100% | Complete |
-| 7 | Audit trail | 0% | Not started |
+| 7 | Audit trail | 9 of 9, 100% | Complete |
 | 8 | Cache and performance | 0% | Not started |
 | 9 | Security hardening | 0% | Not started |
 | 10 | Developer experience and documentation | 0% | Not started |
@@ -1786,22 +1787,47 @@ mutations.
 
 ### Deliverables
 
-- [ ] Human actor persistence.
-- [ ] System actor persistence.
-- [ ] Reason enforcement.
-- [ ] Before and after snapshots.
-- [ ] Safe contextual metadata.
-- [ ] Sensitive-field filtering.
-- [ ] Append-only enforcement.
-- [ ] Strict audit mode.
-- [ ] Audit transaction tests.
+- [x] Human actor persistence.
+- [x] System actor persistence.
+- [x] Reason enforcement.
+- [x] Before and after snapshots.
+- [x] Safe contextual metadata.
+- [x] Sensitive-field filtering.
+- [x] Append-only enforcement.
+- [x] Strict audit mode.
+- [x] Audit transaction tests.
 
 ### Exit criteria
 
 Every managed mutation is attributable and reconstructable without exposing
 configured sensitive values.
 
-Status: **Not started**
+### Acceptance evidence
+
+The shared `ExercisesEveryMutation` matrix executes all fourteen managed
+events. `NonStrictAuditModeTest` proves strict and non-strict modes persist the
+same canonical records, while `DisabledAuditModeTest` proves the disabled mode
+does not touch audit storage. Handler tests cover both human and system actors,
+reason validation, full before/after snapshots, safe context and redaction.
+`AuditedMutationTransactionTest` and `StrictMutationTransactionTest` prove
+commit, rollback, caller-owned transaction and failure behavior.
+
+Persisted `AccessAudit` instances reject Eloquent update, delete, increment,
+decrement and quiet-operation variants. `AccessAuditAppendOnlyTest` pins that
+model boundary; direct database administration remains governed by consumer
+database privileges and explicit retention policy.
+
+```text
+Completed: 9
+Total:     9
+Progress:  100%
+```
+
+This completes the global `Audit trail` deliverable. The global tracker is now
+**17 of 32 = 53.125%, approximately 53%**. With Phase 7 complete, overall
+equal-phase progress is **approximately 57%**.
+
+Status: **Complete**
 
 ## 15. Phase 8 — Cache and performance
 
@@ -2139,10 +2165,10 @@ Progress: **8 of 8**
 - [x] Effective permission resolver
 - [x] Gate integration
 - [x] Middleware
-- [ ] Audit trail
+- [x] Audit trail
 - [ ] Cache invalidation
 
-Progress: **7 of 10**
+Progress: **8 of 10**
 
 ### Quality
 
@@ -2171,9 +2197,9 @@ Progress: **0 of 8**
 ### Total
 
 ```text
-Completed: 13
+Completed: 17
 Total:     32
-Progress:  40.625%, reported as approximately 41%
+Progress:  53.125%, reported as approximately 53%
 ```
 
 ## 25. Progress update rules

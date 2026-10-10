@@ -1785,8 +1785,10 @@ permission.revoked_from_role
 ### 13.2 Append-only behavior
 
 - Audit records are append-only through the public package API.
-- The audit model does not expose update or delete operations as normal package
-  behavior.
+- Persisted audit models reject Eloquent instance update, delete, increment,
+  decrement, and quiet-operation variants. Direct database administration and
+  query-builder writes remain outside the package API and must be controlled by
+  consumer database privileges and retention policy.
 - Audit pruning is not enabled by default.
 - Consumer retention policies must be explicit.
 

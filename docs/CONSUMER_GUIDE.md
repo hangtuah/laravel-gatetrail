@@ -867,6 +867,13 @@ GateTrail writes an append-only audit record for every mutation. Two
 configuration flags choose the mode, and the choice is an explicit operational
 trade-off:
 
+Persisted `AccessAudit` model instances reject Eloquent update, delete,
+increment, decrement and quiet-operation variants. This protects the package
+model API; it cannot prevent a privileged DBA or a direct query-builder write.
+Control those paths through database privileges and an explicit retention
+policy rather than treating application-level immutability as a database
+security boundary.
+
 ```php
 // config/gatetrail.php
 return [

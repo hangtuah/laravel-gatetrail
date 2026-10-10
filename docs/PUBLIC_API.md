@@ -456,13 +456,15 @@ a breaking change for consumer models.
 | <code>Models\RoleAssignment</code> | <code>subject(): MorphTo</code>, <code>role(): BelongsTo</code> | Fillable: subject_type, subject_id, role_id, assigned_at, assigned_by_type, assigned_by_id, assignment_reason, starts_at, expires_at, revoked_at, revoked_by_type, revoked_by_id, revocation_reason. Immutable datetime casts: assigned_at, starts_at, expires_at, revoked_at, created_at, updated_at |
 | <code>Models\PermissionAssignment</code> | <code>subject(): MorphTo</code>, <code>permission(): BelongsTo</code> | Fillable: subject_type, subject_id, permission_id, assigned_at, assigned_by_type, assigned_by_id, assignment_reason, starts_at, expires_at, revoked_at, revoked_by_type, revoked_by_id, revocation_reason. Immutable datetime casts: assigned_at, starts_at, expires_at, revoked_at, created_at, updated_at |
 | <code>Models\RolePermission</code> | <code>role(): BelongsTo</code>, <code>permission(): BelongsTo</code> | Fillable: role_id, permission_id, assigned_at, assigned_by_type, assigned_by_id, assignment_reason, starts_at, expires_at, revoked_at, revoked_by_type, revoked_by_id, revocation_reason. Immutable datetime casts: assigned_at, starts_at, expires_at, revoked_at, created_at, updated_at |
-| <code>Models\AccessAudit</code> | <code>subject(): MorphTo</code>; <code>UPDATED_AT = null</code> | Fillable: event, actor_type, actor_id, subject_type, subject_id, target_type, target_id, before, after, reason, context, ip_address, user_agent, request_id. Array casts: before, after, context. Immutable datetime cast: created_at |
+| <code>Models\AccessAudit</code> | <code>subject(): MorphTo</code>; <code>UPDATED_AT = null</code> | Fillable: event, actor_type, actor_id, subject_type, subject_id, target_type, target_id, before, after, reason, context, ip_address, user_agent, request_id. Array casts: before, after, context. Immutable datetime cast: created_at. Persisted instances reject Eloquent update, delete, increment, decrement and quiet-operation variants |
 
 Custom Role and Permission models may independently extend Eloquent
 <code>Model</code> when they implement the corresponding marker and use
 <code>SoftDeletes</code>. Custom assignment models must extend the matching
 GateTrail assignment base. A custom access-audit model must extend
-<code>Models\AccessAudit</code>.
+<code>Models\AccessAudit</code> and inherits its append-only instance behavior.
+Direct database administration and query-builder writes are outside this model
+boundary and remain the consumer's operational responsibility.
 
 All six supported models inherit the configured GateTrail connection and table
 resolution. The seven valid table keys are roles, permissions,
