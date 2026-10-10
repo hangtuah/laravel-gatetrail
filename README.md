@@ -279,6 +279,18 @@ against them:
 - an administration UI;
 - wildcard permissions, role hierarchy, and tenant- or team-scoped roles.
 
+## Security
+
+GateTrail records the supplied mutation `actor` for attribution; it does not
+authorize that actor. Consumer controllers, jobs and services must authorize
+the operation with Laravel policies or Gates before calling a GateTrail
+manager.
+
+The security model and its tested boundaries are documented in
+[`docs/security/threat-model.md`](docs/security/threat-model.md). Report a
+suspected vulnerability privately by following [`SECURITY.md`](SECURITY.md),
+not through a public issue.
+
 ## Documentation
 
 - [`docs/CONSUMER_GUIDE.md`](docs/CONSUMER_GUIDE.md) — installation,

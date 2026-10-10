@@ -1,6 +1,6 @@
 # GateTrail Roadmap and Implementation Guide
 
-Last updated: 2026-10-10
+Last updated: 2026-10-11
 
 ## 1. Purpose
 
@@ -47,7 +47,8 @@ Phase 5 — Complete
 Phase 6 — Complete
 Phase 7 — Complete
 Phase 8 — Complete
-Phase 9 onward — Not started
+Phase 9 — Complete
+Phase 10 onward — Not started
 ```
 
 The package specification is accepted for implementation. Repository tooling
@@ -60,8 +61,8 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | approximately 64% | Equal-phase progress across Phases 0–13 |
-| Deliverable tracker | 18 of 32, approximately 56% | Completed concrete package deliverables |
+| Overall roadmap by primary phases | approximately 71% | Equal-phase progress across Phases 0–13 |
+| Deliverable tracker | 20 of 32, 62.5% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
 
@@ -107,7 +108,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 6 | Laravel integration | 8 of 8, 100% | Complete |
 | 7 | Audit trail | 9 of 9, 100% | Complete |
 | 8 | Cache and performance | 1 of 1 applicable, 100% | Complete |
-| 9 | Security hardening | 0% | Not started |
+| 9 | Security hardening | 10 of 10, 100% | Complete |
 | 10 | Developer experience and documentation | 0% | Not started |
 | 11 | Internal pilot | 0% | Not started |
 | 12 | Existing-application integration | 0% | Not started |
@@ -1908,23 +1909,53 @@ Review abuse paths and prove that secure defaults fail closed.
 
 ### Deliverables
 
-- [ ] Threat model.
-- [ ] Mutation authorization guidance or hook.
-- [ ] SQL injection regression tests.
-- [ ] Cross-subject and cross-guard tests.
-- [ ] Concurrency and retry tests.
-- [ ] Audit tampering review.
-- [ ] Sensitive audit filtering tests.
-- [ ] Alias-collision diagnostics.
-- [ ] Security reporting policy.
-- [ ] Static-analysis baseline with no unexplained high-risk findings.
+- [x] Threat model.
+- [x] Mutation authorization guidance or hook.
+- [x] SQL injection regression tests.
+- [x] Cross-subject and cross-guard tests.
+- [x] Concurrency and retry tests.
+- [x] Audit tampering review.
+- [x] Sensitive audit filtering tests.
+- [x] Alias-collision diagnostics.
+- [x] Security reporting policy.
+- [x] Static-analysis baseline with no unexplained high-risk findings.
 
 ### Exit criteria
 
 No known critical or high-severity issue remains and every security default is
 documented and tested.
 
-Status: **Not started**
+Acceptance evidence:
+
+- `docs/security/threat-model.md` records assets, trust boundaries, threats,
+  mitigations, evidence and residual risks. It makes explicit that mutation
+  actors provide attribution while the consumer remains responsible for
+  authorizing the operation before calling a manager.
+- `tests/Security/MutationInputBindingTest.php` proves that a SQL-shaped
+  permission name is bound and stored literally without entering generated SQL
+  or damaging the permissions table.
+- Existing resolver, mutation, concurrency, audit, middleware and integration
+  suites cover default deny, cross-subject and cross-guard isolation, bounded
+  retries, append-only audit persistence, sensitive-value redaction and visible
+  alias collisions.
+- The supported local dependency set was updated until `composer audit`
+  reported no known advisories. CI now rejects known dependency advisories on
+  every push, and PHPStan continues to pass at level max without an unexplained
+  high-risk finding.
+- `SECURITY.md` defines the private reporting channel and supported-version
+  policy for the pre-release package.
+
+```text
+Applicable deliverables completed: 10
+Applicable deliverables total:     10
+Progress:                           100%
+```
+
+This completes the global `Security tests` and `Security review` deliverables.
+The global tracker is now **20 of 32 = 62.5%**. With Phase 9 complete, overall
+equal-phase progress is **approximately 71%**.
+
+Status: **Complete**
 
 ## 17. Phase 10 — Developer experience and documentation
 
@@ -2199,12 +2230,12 @@ Progress: **8 of 10**
 
 - [ ] Unit tests
 - [ ] Integration tests
-- [ ] Security tests
+- [x] Security tests
 - [x] Concurrency tests
 - [ ] Verified compatibility matrix
 - [x] Performance benchmark
 
-Progress: **2 of 6**
+Progress: **3 of 6**
 
 ### Delivery
 
@@ -2214,17 +2245,17 @@ Progress: **2 of 6**
 - [ ] Internal pilot
 - [ ] Pilot retrospective
 - [ ] Existing-application parity study
-- [ ] Security review
+- [x] Security review
 - [ ] `v1.0.0`
 
-Progress: **0 of 8**
+Progress: **1 of 8**
 
 ### Total
 
 ```text
-Completed: 18
+Completed: 20
 Total:     32
-Progress:  56.25%, reported as approximately 56%
+Progress:  62.5%
 ```
 
 ## 25. Progress update rules

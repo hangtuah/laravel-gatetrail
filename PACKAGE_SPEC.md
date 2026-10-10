@@ -2358,7 +2358,12 @@ GateTrail must:
 - keep diagnostics read-only and avoid requiring elevated runtime schema
   privileges;
 - document all bypass or extension points;
-- provide a security reporting process before public release.
+- provide a security reporting process through [`SECURITY.md`](SECURITY.md).
+
+The maintained threat model is
+[`docs/security/threat-model.md`](docs/security/threat-model.md). A mutation
+actor is audit attribution, not proof of authorization: consumers must
+authorize the requested operation before invoking a manager.
 
 ## 20. Testing requirements
 
@@ -2447,6 +2452,8 @@ GateTrail must:
 ### 20.3 Security regression tests
 
 - default deny;
+- SQL-shaped role and permission names remaining bound data rather than
+  executable query text;
 - revoked assignments;
 - expired assignments;
 - future assignments;

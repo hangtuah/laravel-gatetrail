@@ -6,6 +6,12 @@ All notable changes to GateTrail will be documented in this file.
 
 ### Added
 
+- A documented security baseline for the internal alpha: a maintained threat
+  model, private vulnerability-reporting policy, explicit consumer-side
+  mutation authorization guidance, SQL-binding regression coverage and a CI
+  dependency-advisory gate. Existing default-deny, guard isolation,
+  concurrency, append-only audit, redaction and alias-collision evidence is now
+  indexed from the threat model rather than left implicit across the suite.
 - A reproducible, isolated live-MySQL resolver benchmark with pre-registered
   cache-decision thresholds. The accepted MySQL 8.0.45 run passed at 6.069 ms
   cold p95 and 0.009 ms warm p95 for the representative workload, with three
