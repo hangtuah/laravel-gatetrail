@@ -1,6 +1,6 @@
 # Effective-access resolver benchmark
 
-Status: threshold registered; benchmark not yet run
+Status: complete; cross-request cache not required
 
 ## Purpose
 
@@ -55,3 +55,41 @@ must observe zero statements across the whole warm window.
 SQLite may be used to validate the harness. It cannot decide the cache question.
 Targeted Oracle evidence may be added later, but the pre-alpha cache decision
 uses the disposable live MySQL environment already maintained by the project.
+
+## Reproduction
+
+```bash
+docker compose -f compose.mysql.yml up -d mysql
+composer benchmark:mysql
+```
+
+The isolated harness prints one JSON record per workload and fails when the
+representative workload exceeds a registered threshold or a warm run executes
+a statement. Fixture creation and inserts remain outside the timed samples.
+
+## Accepted result — 2026-10-10
+
+```text
+MySQL       8.0.45, disposable Docker service
+PHP         8.3.31
+Laravel     13.23.0
+Kernel      Linux 6.18.40.1-microsoft-standard-WSL2
+CPU         13th Gen Intel Core i7-13700H, 20 logical CPUs
+Docker      29.7.2
+```
+
+| Workload | Cold p50 | Cold p95 | Warm p50 | Warm p95 | Cold selects | Warm statements |
+|---|---:|---:|---:|---:|---:|---:|
+| Representative | 5.495 ms | 6.069 ms | 0.008 ms | 0.009 ms | 3 | 0 |
+| Heavy | 12.606 ms | 16.082 ms | 0.010 ms | 0.012 ms | 3 | 0 |
+
+The representative result passes both pre-registered thresholds. GateTrail
+therefore retains request-local memoization as its only cache-like behaviour and
+does not design or implement a cross-request cache for the internal alpha.
+Cache-store selection, TTL, stampede control, fan-out and after-commit
+cross-request invalidation are closed as not required, not claimed as
+implemented.
+
+A full quality-gate rerun independently reproduced the decision: representative
+cold/warm p95 measured 6.914/0.010 ms and the heavy workload measured 12.884 ms
+cold p95, again with three cold selects and zero warm statements.

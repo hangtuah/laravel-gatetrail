@@ -7,10 +7,12 @@
 - **What was accepted: a sequencing and deferral decision, not a cache
   feature.** This ADR decides *when* cross-request caching is decided and
   *under what constraints*. It accepts no cache design
-- Cross-request cache implementation status: **not implemented**
-- Cross-request invalidation implementation status: **not implemented**
-- Owner: **Phase 8** owns the decision on whether cross-request caching is
-  retained at all, and any implementation that follows
+- Cross-request cache implementation status: **not required and not
+  implemented** — Phase 8 benchmark disposition, 2026-10-10
+- Cross-request invalidation implementation status: **not required and not
+  implemented**
+- Owner: **resolved by Phase 8** — request-local memoization remains the only
+  cache-like behavior
 - Implementation status of this ADR: **no code.** It adds no cache class, no
   container binding, no configuration key and no public API
 - Supersedes: nothing
@@ -722,6 +724,22 @@ Strictly separated by owner and by phase.
 
 9. `Consumer documentation and pre-v1 API freeze`, now the only remaining Phase 4
    item. It is unrelated to caching and is not blocked by this ADR.
+
+## Phase 8 disposition — 2026-10-10
+
+The ordered follow-up above is complete. The threshold was committed before
+measurement, then the isolated live MySQL 8.0.45 benchmark passed at 6.069 ms
+cold p95 and 0.009 ms warm p95 for the representative 10-role,
+100-permission workload, with three cold selects and zero warm statements.
+
+Phase 8 therefore selected the legitimate **no cross-request cache** outcome
+anticipated by this ADR. No cache-strategy ADR, cache store, shared key, TTL,
+fan-out, stampede control or after-commit cross-request invalidator is required
+for the internal alpha. The reserved ADR 0010 ordering slot remains empty.
+Earlier wording in this ADR that says Phase 8 was not started records the state
+when the decision was accepted; it is superseded operationally by this
+disposition and the reproducible evidence in
+`docs/performance/resolver-benchmark.md`.
 
 ## References
 

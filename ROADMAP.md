@@ -46,7 +46,7 @@ Phase 4 — Complete
 Phase 5 — Complete
 Phase 6 — Complete
 Phase 7 — Complete
-Phase 8 — In progress
+Phase 8 — Complete
 Phase 9 onward — Not started
 ```
 
@@ -60,8 +60,8 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | approximately 57% | Equal-phase progress across Phases 0–13 |
-| Deliverable tracker | 17 of 32, approximately 53% | Completed concrete package deliverables |
+| Overall roadmap by primary phases | approximately 64% | Equal-phase progress across Phases 0–13 |
+| Deliverable tracker | 18 of 32, approximately 56% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
 
@@ -106,7 +106,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 5 | Effective permission resolver | 100% | Complete |
 | 6 | Laravel integration | 8 of 8, 100% | Complete |
 | 7 | Audit trail | 9 of 9, 100% | Complete |
-| 8 | Cache and performance | 0% | In progress |
+| 8 | Cache and performance | 1 of 1 applicable, 100% | Complete |
 | 9 | Security hardening | 0% | Not started |
 | 10 | Developer experience and documentation | 0% | Not started |
 | 11 | Internal pilot | 0% | Not started |
@@ -1851,21 +1851,17 @@ The cache-decision threshold was registered before the first benchmark run in
 
 ### Deliverables
 
-- [ ] Reproducible benchmark.
-- [ ] Cache ADR, if cross-request caching is retained.
-- [ ] Guard-aware subject cache keys.
-- [ ] Invalidation matrix.
-- [ ] Expiry-safe TTL.
-- [ ] Stampede and stale-access tests where applicable.
-- [ ] After-commit cross-request cache invalidation, if cross-request caching is
-      retained. **Moved here from Phase 4** by
-      [ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md),
-      accepted 2026-08-19. This is the **runtime behaviour** — the code that runs
-      in ADR 0010's reserved ordering slot after the outermost commit — and it is
-      distinct from `Invalidation matrix` above, which is the design artifact
-      describing which mutation invalidates what. Neither exists, and both are
-      conditional on step 3 of the sequence deciding that a cross-request cache
-      is wanted at all.
+- [x] Reproducible benchmark.
+- **Closed as not required:** cache ADR.
+- **Closed as not required:** cross-request guard-aware subject cache keys.
+- **Closed as not required:** invalidation matrix.
+- **Closed as not required:** expiry-safe TTL.
+- **Closed as not required:** stampede and stale-access tests.
+- **Closed as not required:** after-commit cross-request cache invalidation.
+  This item moved here from Phase 4 through
+  [ADR 0013](docs/decisions/0013-after-commit-cache-invalidation.md), accepted
+  2026-08-19, and remains unimplemented because the benchmark did not retain a
+  cross-request cache.
 
 ### Exit criteria
 
@@ -1877,7 +1873,32 @@ cache-conditional deliverable above — all of them except the benchmark itself 
 is closed as **not required** rather than implemented, and GateTrail ships with
 request-local memoization as its only cache-like behaviour.
 
-Status: **Not started**
+### Acceptance evidence
+
+The threshold was committed before measurement in the
+[resolver benchmark protocol](docs/performance/resolver-benchmark.md). The
+isolated live MySQL 8.0.45 run measured 30 cold samples and 3,000 warm
+operations per workload through the existing connection-level statement probe.
+The representative workload passed at 6.069 ms cold p95 and 0.009 ms warm p95,
+with three cold selects and zero warm statements. The heavier 50-role,
+500-permission workload remained informational and measured 16.082 ms cold p95.
+
+Request-local memo parity, lifecycle-boundary rebuilding, transaction bypass
+and same-process mutation clearing remain covered by Phase 5. No cross-request
+cache exists, so it cannot grant stale access.
+
+```text
+Applicable deliverables completed: 1
+Applicable deliverables total:     1
+Conditional deliverables closed:   6, not required
+Progress:                           100%
+```
+
+This completes the global `Performance benchmark` deliverable. The global
+tracker is now **18 of 32 = 56.25%, approximately 56%**. With Phase 8 complete,
+overall equal-phase progress is **approximately 64%**.
+
+Status: **Complete**
 
 ## 16. Phase 9 — Security hardening
 
@@ -2181,9 +2202,9 @@ Progress: **8 of 10**
 - [ ] Security tests
 - [x] Concurrency tests
 - [ ] Verified compatibility matrix
-- [ ] Performance benchmark
+- [x] Performance benchmark
 
-Progress: **1 of 6**
+Progress: **2 of 6**
 
 ### Delivery
 
@@ -2201,9 +2222,9 @@ Progress: **0 of 8**
 ### Total
 
 ```text
-Completed: 17
+Completed: 18
 Total:     32
-Progress:  53.125%, reported as approximately 53%
+Progress:  56.25%, reported as approximately 56%
 ```
 
 ## 25. Progress update rules

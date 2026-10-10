@@ -6,6 +6,12 @@ All notable changes to GateTrail will be documented in this file.
 
 ### Added
 
+- A reproducible, isolated live-MySQL resolver benchmark with pre-registered
+  cache-decision thresholds. The accepted MySQL 8.0.45 run passed at 6.069 ms
+  cold p95 and 0.009 ms warm p95 for the representative workload, with three
+  cold selects and zero warm statements. Cross-request caching is therefore
+  not required for the internal alpha; request-local memoization remains the
+  only cache-like behavior.
 - Central Laravel authorization integration for argument-free GateTrail
   permission abilities, including `$user->can()`, `Gate::forUser()`,
   `Gate::authorize()` and native Blade `@can` / `@cannot`. Six stable route

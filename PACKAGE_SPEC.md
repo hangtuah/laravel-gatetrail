@@ -1499,8 +1499,8 @@ only so the verification method is on the record:
   request memo, the exposure is bounded by the whole-second key and the scope
   lifetime;
 - **no cross-request cache, TTL, tags, fan-out, or shared-cache implementation
-  exists yet.** Section 14 items 2 and 3 remain undesigned and are governed by
-  a future cache ADR.
+  exists.** Phase 8's benchmark decided none is required for the internal alpha;
+  a future proposal would require new evidence and a dedicated ADR.
 
 Authorization reads are read-only. They take no lock and open no package-owned
 transaction, so a check can never block a writer. GateTrail does **not** claim
@@ -1913,15 +1913,16 @@ SQLite, live MySQL and live Oracle with no cache in existence.
 
 **Request-local memoization is the only implemented cache-like behavior.**
 **Cross-request caching and real cross-request invalidation are not
-implemented.**
+implemented.** Phase 8's pre-registered live MySQL benchmark decided they are
+not required for the internal alpha.
 
 | Behaviour | Status |
 |---|---|
 | Request-local memo | **Implemented.** Section 11.11, ADR 0012 |
 | Request-local memo clearing on a same-process `MutationCommitted` | **Implemented.** Same process, current scope only — not distributed invalidation |
 | ADR 0010's after-commit ordering slot | **Implemented and tested as an ordering contract, and empty.** It does not count as invalidation |
-| Cross-request cache | **Not implemented, not designed** |
-| Cross-request invalidation | **Not implemented, not designed** |
+| Cross-request cache | **Not required.** The Phase 8 benchmark passed; no implementation or design is retained |
+| Cross-request invalidation | **Not required.** There is no cross-request cache to invalidate |
 
 The memo is a scoped, bounded, request-local store keyed on subject type,
 subject identifier, resolved guard and the evaluation instant truncated to a
@@ -1939,9 +1940,10 @@ scope. **It makes no cross-process or cross-request claim.**
 3. **if retained, a dedicated cache-strategy ADR is accepted before any
    implementation.**
 
-ADR 0013 accepted that sequencing and the constraints in 14.3 to 14.7. It
-accepted **no cache store, TTL, tag strategy, key format, generation scheme,
-fan-out strategy or public configuration key**, and it added no code.
+The Phase 8 benchmark followed that sequence and passed its threshold, so the
+decision is now no cross-request cache. ADR 0013 accepted **no cache store, TTL,
+tag strategy, key format, generation scheme, fan-out strategy or public
+configuration key**, and none is introduced after the benchmark.
 
 **Cross-request caching, if it is ever retained, is optional, ships disabled by
 default, and is never enabled automatically by GateTrail.**
@@ -2668,9 +2670,12 @@ The initial release does not include:
 The following decisions must be recorded before their implementation is
 finalized:
 
-1. cache store, TTL, and role-change fan-out strategy;
-2. whether UUID/ULID subject migration variants are required before `1.0.0`;
-3. whether role convenience directives belong in the core package.
+1. whether UUID/ULID subject migration variants are required before `1.0.0`;
+2. whether role convenience directives belong in the core package.
+
+The cache store, TTL and role-change fan-out question is closed for the internal
+alpha: the Phase 8 benchmark retained no cross-request cache. Reopening it
+requires new benchmark evidence and a dedicated cache ADR.
 
 Persisted actor representation is accepted in
 [ADR 0005](docs/decisions/0005-actor-identity-representation.md).
