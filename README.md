@@ -299,6 +299,10 @@ not through a public issue.
 
 - [`docs/CONSUMER_GUIDE.md`](docs/CONSUMER_GUIDE.md) — installation,
   provisioning, mutations, checks, auditing, events and error handling.
+- [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) — every supported key,
+  default, validation rule and deployment consideration.
+- [`docs/UPGRADING.md`](docs/UPGRADING.md) — safe package-managed and
+  DBA-managed upgrades, configuration reconciliation and rollback planning.
 - [`docs/PUBLIC_API.md`](docs/PUBLIC_API.md) — the authoritative supported
   symbol manifest and exact signatures.
 - [`PACKAGE_SPEC.md`](PACKAGE_SPEC.md) — the full package specification.

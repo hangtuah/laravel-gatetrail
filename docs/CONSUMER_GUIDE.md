@@ -1226,6 +1226,11 @@ Additional limitations of what *is* implemented:
 
 ## 21. Where to go next
 
+- [`UPGRADING.md`](UPGRADING.md) — the pre-v1 upgrade workflow for
+  package-managed and DBA-managed schemas, including configuration, rollback
+  and post-upgrade verification.
+- [`CONFIGURATION.md`](CONFIGURATION.md) — every supported configuration key,
+  default, validation boundary and deployment consideration.
 - [`docs/PUBLIC_API.md`](PUBLIC_API.md) — the authoritative Tier 1 and Tier 2
   manifest with exact signatures, readable fields, enum values and model
   requirements. Read this before depending on any symbol.

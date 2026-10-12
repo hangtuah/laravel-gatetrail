@@ -6,6 +6,10 @@ All notable changes to GateTrail will be documented in this file.
 
 ### Added
 
+- A pre-v1 upgrade and migration guide covering package-managed and DBA-managed
+  deployments, published-config reconciliation, Oracle generated-key strategy,
+  rollback boundaries, post-upgrade verification and the evidence required of
+  future schema releases.
 - An exhaustive consumer configuration reference covering every supported key,
   default, accepted value, validation boundary, failure mode and deployment
   consideration.

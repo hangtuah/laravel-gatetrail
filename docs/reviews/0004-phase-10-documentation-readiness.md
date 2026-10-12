@@ -2,7 +2,7 @@
 
 - Review date: 2026-10-12
 - Scope: accepted consumer-facing documentation baseline
-- Result: eight of thirteen Phase 10 deliverables accepted
+- Result: nine of thirteen Phase 10 deliverables accepted
 
 ## Accepted deliverables
 
@@ -16,12 +16,12 @@
 | Lifecycle and audit guide | `docs/CONSUMER_GUIDE.md` sections 13–18 | Covers half-open assignment periods, revoke versus deactivate, actor types, audit modes, results, events and public exceptions |
 | DBA-managed guides for every Tier 1 database | `database/ddl/{mysql,oracle,postgresql,sqlserver}/README.md` | Every Tier 1 engine has release-0001 installation, verification and rollback guidance beside reproducible artifacts |
 | SQL Server setup guide | `database/ddl/sqlserver/README.md` | Records supported artifact shape, schema/prefix generation, execution, verification, rollback and current evidence boundary |
+| Upgrade and migration guides | `docs/UPGRADING.md` | Separates first install from upgrade, covers both provisioning modes, configuration reconciliation, rollback boundaries and future schema-release evidence |
 
 ## Open deliverables
 
 | Deliverable | Gap that remains |
 |---|---|
-| Upgrade and migration guides | Release `0001` installation is documented, but there is no consumer upgrade policy or worked release-to-release procedure yet |
 | `gatetrail:install` | Designed but not implemented |
 | `gatetrail:doctor` | Designed but not implemented |
 | `gatetrail:matrix` | Designed but not implemented |
@@ -33,6 +33,5 @@ This review accepts documentation that describes the implemented package; it
 does not treat a proposed command as available, convert schema-only database
 evidence into runtime support, or claim that the internal pilot has begun.
 
-The next fast-track increment should define upgrade and migration guidance for
-the pre-v1 release line. That establishes the safe change boundary before the
-installation and diagnostics commands automate any part of it.
+The next fast-track increment should implement `gatetrail:install` without
+automating destructive upgrades or bypassing the provisioning-mode boundary.
