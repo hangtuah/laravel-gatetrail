@@ -1,6 +1,6 @@
 # GateTrail Roadmap and Implementation Guide
 
-Last updated: 2026-10-11
+Last updated: 2026-10-12
 
 ## 1. Purpose
 
@@ -48,7 +48,8 @@ Phase 6 — Complete
 Phase 7 — Complete
 Phase 8 — Complete
 Phase 9 — Complete
-Phase 10 onward — Not started
+Phase 10 — In progress
+Phase 11 onward — Not started
 ```
 
 The package specification is accepted for implementation. Repository tooling
@@ -61,8 +62,8 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | approximately 71% | Equal-phase progress across Phases 0–13 |
-| Deliverable tracker | 20 of 32, 62.5% | Completed concrete package deliverables |
+| Overall roadmap by primary phases | approximately 75% | Equal-phase progress across Phases 0–13 |
+| Deliverable tracker | 21 of 32, approximately 66% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
 
@@ -109,7 +110,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 7 | Audit trail | 9 of 9, 100% | Complete |
 | 8 | Cache and performance | 1 of 1 applicable, 100% | Complete |
 | 9 | Security hardening | 10 of 10, 100% | Complete |
-| 10 | Developer experience and documentation | 0% | Not started |
+| 10 | Developer experience and documentation | 7 of 13, approximately 54% | In progress |
 | 11 | Internal pilot | 0% | Not started |
 | 12 | Existing-application integration | 0% | Not started |
 | 13 | Stable release | 0% | Not started |
@@ -1966,14 +1967,14 @@ understandable without reading package internals.
 
 ### Deliverables
 
-- [ ] Complete README.
-- [ ] Installation guide.
+- [x] Complete README.
+- [x] Installation guide.
 - [ ] Configuration reference.
-- [ ] Public manager API guide.
-- [ ] Role and permission naming guide.
-- [ ] Lifecycle and audit guide.
-- [ ] DBA-managed installation guides for every Tier 1 database.
-- [ ] SQL Server setup guide.
+- [x] Public manager API guide.
+- [x] Role and permission naming guide.
+- [x] Lifecycle and audit guide.
+- [x] DBA-managed installation guides for every Tier 1 database.
+- [x] SQL Server setup guide.
 - [ ] Upgrade and migration guides.
 - [ ] `gatetrail:install`.
 - [ ] `gatetrail:doctor`.
@@ -1986,7 +1987,22 @@ A developer unfamiliar with the package can install it in a fresh Laravel
 application, run diagnostics, assign access, authorize a route, and understand
 the resulting audit records.
 
-Status: **Not started**
+Readiness evidence is recorded in
+`docs/reviews/0004-phase-10-documentation-readiness.md`. The accepted baseline
+covers installation through first use and the implemented public surface. The
+remaining work is an exhaustive configuration reference, upgrade guidance,
+three operational commands and a retained minimal consumer application.
+
+```text
+Applicable deliverables completed: 7
+Applicable deliverables total:     13
+Progress:                           53.85%, reported as approximately 54%
+```
+
+With Phase 10 at approximately 54%, overall equal-phase progress is
+**approximately 75%**.
+
+Status: **In progress**
 
 ## 18. Phase 11 — Internal pilot
 
@@ -2239,7 +2255,7 @@ Progress: **3 of 6**
 
 ### Delivery
 
-- [ ] Complete README
+- [x] Complete README
 - [ ] Full user documentation
 - [ ] Artisan diagnostics
 - [ ] Internal pilot
@@ -2248,14 +2264,14 @@ Progress: **3 of 6**
 - [x] Security review
 - [ ] `v1.0.0`
 
-Progress: **1 of 8**
+Progress: **2 of 8**
 
 ### Total
 
 ```text
-Completed: 20
+Completed: 21
 Total:     32
-Progress:  62.5%
+Progress:  65.625%, reported as approximately 66%
 ```
 
 ## 25. Progress update rules
