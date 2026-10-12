@@ -63,7 +63,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | approximately 80% | Equal-phase progress across Phases 0–13 |
+| Overall roadmap by primary phases | approximately 82% | Equal-phase progress across Phases 0–13 |
 | Deliverable tracker | 23 of 32, approximately 72% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
@@ -112,7 +112,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 8 | Cache and performance | 1 of 1 applicable, 100% | Complete |
 | 9 | Security hardening | 10 of 10, 100% | Complete |
 | 10 | Developer experience and documentation | 13 of 13, 100% | Complete |
-| 11 | Internal pilot | 2 of 7, approximately 29% | In progress |
+| 11 | Internal pilot | 4 of 7, approximately 57% | In progress |
 | 12 | Existing-application integration | 0% | Not started |
 | 13 | Stable release | 0% | Not started |
 | 14 | Post-v1 optional features | — | Optional |
@@ -2030,8 +2030,8 @@ release claim.
 
 - [x] Pre-release package tag.
 - [x] Private Composer installation path.
-- [ ] Pilot test plan.
-- [ ] Pilot defect log.
+- [x] Pilot test plan.
+- [x] Pilot defect log.
 - [ ] Performance observations.
 - [ ] Developer feedback.
 - [ ] Pilot retrospective.
@@ -2046,16 +2046,20 @@ Current evidence:
 - annotated tag `v0.1.0-alpha.1` points to commit `830b8d5` and is available on
   the private Git remote;
 - `docs/PRIVATE_COMPOSER_INSTALLATION.md` defines exact-tag installation,
-  credential boundaries and fresh-versus-existing-application activation.
+  credential boundaries and fresh-versus-existing-application activation;
+- `docs/pilot/TEST_PLAN.md` defines the staged, coexistence-first pilot sequence
+  and its entry, pass and exit criteria;
+- `docs/pilot/DEFECT_LOG.md` defines finding severity, release-blocker rules,
+  status vocabulary and the evidence-safe entry format.
 
 ```text
-Applicable deliverables completed: 2
+Applicable deliverables completed: 4
 Applicable deliverables total:     7
-Progress:                           approximately 29%
+Progress:                           approximately 57%
 ```
 
-With Phase 11 at approximately 29%, overall equal-phase progress is
-**approximately 80%**.
+With Phase 11 at approximately 57%, overall equal-phase progress is
+**approximately 82%**.
 
 Status: **In progress**
 
