@@ -31,6 +31,7 @@ rationale and a documentation reference.
 | ID | Date | Severity | Environment | Area | Summary | Workaround | Owner | Status | Evidence / disposition |
 |---|---|---|---|---|---|---|---|---|---|
 | GT-PILOT-001 | 2026-10-12 | S3 | Laravel 12 consumer fixture / Oracle DBA provisioning | Installation | No public consumer command generates reviewed DBA artifacts from configured custom table/object names | None after `v0.1.0-alpha.2` | Maintainer | Verified | A consumer fixture installed `v0.1.0-alpha.2`, generated an exact custom pair without a database connection, and completed an install/catalog/trigger/rollback cycle on disposable Oracle Free 23.26.3; rollback left zero `GT_*` objects |
+| GT-PILOT-002 | 2026-10-12 | S4 | Fresh Laravel 13 consumer / private Composer installation | Documentation | Current installation instructions still pinned consumers to `v0.1.0-alpha.1` after alpha.2 became the active pilot tag | Require alpha.2 explicitly during the pilot | Maintainer | Verified | README, private-installation guide, pilot plan and roadmap now identify `v0.1.0-alpha.2`; the fresh consumer lock resolves exactly that tag and its vertical slice passes |
 
 ## GT-PILOT-001 — Custom DBA artifact generation workflow
 
@@ -98,4 +99,4 @@ Disposition and maintainer rationale:
 |---|---:|
 | Open release blockers (S1/S2) | 0 |
 | Other open findings | 0 |
-| Closed findings | 1 |
+| Closed findings | 2 |

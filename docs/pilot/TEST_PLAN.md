@@ -7,7 +7,7 @@ application before a stable or public release claim. The pilot supplements the
 package test suite; it does not replace it or silently redefine supported
 database evidence.
 
-Pilot version: `v0.1.0-alpha.1`
+Pilot version: `v0.1.0-alpha.2`
 
 ## Safety boundaries
 
@@ -50,8 +50,8 @@ the pilot evidence. Do not infer them from the package compatibility matrix.
 ### P-01 — Exact private installation
 
 1. Register the private VCS repository.
-2. Require `hangtuah/laravel-gatetrail:0.1.0-alpha.1 --prefer-source`.
-3. Confirm `composer.lock` resolves exactly `v0.1.0-alpha.1`.
+2. Require `hangtuah/laravel-gatetrail:0.1.0-alpha.2 --prefer-source`.
+3. Confirm `composer.lock` resolves exactly `v0.1.0-alpha.2`.
 4. Run the pre-existing application tests.
 
 Pass: the exact tag is locked and the baseline remains green.

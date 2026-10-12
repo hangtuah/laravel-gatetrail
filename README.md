@@ -11,7 +11,7 @@ an actor and a reason, rather than through direct relationship writes.
 
 **Internal alpha, pre-`1.0.0`. The documented pre-v1 public API is frozen.**
 
-`v0.1.0-alpha.1` is tagged for a controlled private pilot. It is not a stable
+`v0.1.0-alpha.2` is tagged for a controlled private pilot. It is not a stable
 release or a public compatibility claim. Stable-release validation remains in
 progress.
 
@@ -54,7 +54,7 @@ to Packagist. Register the VCS repository and require the exact tag:
 ```bash
 composer config repositories.gatetrail vcs \
     git@github.com:hangtuah/laravel-gatetrail.git
-composer require hangtuah/laravel-gatetrail:0.1.0-alpha.1 --prefer-source
+composer require hangtuah/laravel-gatetrail:0.1.0-alpha.2 --prefer-source
 ```
 
 See [`docs/PRIVATE_COMPOSER_INSTALLATION.md`](docs/PRIVATE_COMPOSER_INSTALLATION.md)

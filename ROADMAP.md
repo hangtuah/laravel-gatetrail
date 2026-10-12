@@ -2046,7 +2046,7 @@ package, and all release-blocking findings are resolved.
 
 Current evidence:
 
-- annotated tag `v0.1.0-alpha.1` points to commit `830b8d5` and is available on
+- annotated tag `v0.1.0-alpha.2` points to commit `e3cc302` and is available on
   the private Git remote;
 - `docs/PRIVATE_COMPOSER_INSTALLATION.md` defines exact-tag installation,
   credential boundaries and fresh-versus-existing-application activation;
