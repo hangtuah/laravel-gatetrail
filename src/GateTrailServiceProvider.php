@@ -34,6 +34,7 @@ use HangTuah\GateTrail\Concurrency\CoordinationRaceClassifier;
 use HangTuah\GateTrail\Concurrency\RetryOrchestrator;
 use HangTuah\GateTrail\Concurrency\RetryPolicy;
 use HangTuah\GateTrail\Concurrency\TransientFailureClassifier;
+use HangTuah\GateTrail\Console\DdlCommand;
 use HangTuah\GateTrail\Console\DoctorCommand;
 use HangTuah\GateTrail\Console\InstallCommand;
 use HangTuah\GateTrail\Console\MatrixCommand;
@@ -362,6 +363,7 @@ final class GateTrailServiceProvider extends ServiceProvider
         ], 'gatetrail-config');
 
         $this->commands([
+            DdlCommand::class,
             DoctorCommand::class,
             InstallCommand::class,
             MatrixCommand::class,

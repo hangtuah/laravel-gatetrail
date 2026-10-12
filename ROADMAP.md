@@ -1978,6 +1978,7 @@ understandable without reading package internals.
 - [x] SQL Server setup guide.
 - [x] Upgrade and migration guides.
 - [x] `gatetrail:install`.
+- [x] `gatetrail:ddl`.
 - [x] `gatetrail:doctor`.
 - [x] `gatetrail:matrix`.
 - [x] Minimal example application.
@@ -1996,13 +1997,15 @@ and provisions only package-managed schemas. `gatetrail:doctor` now exposes
 read-only schema and data diagnostics with human and JSON output.
 `gatetrail:matrix` now reports local runtime and configured-driver readiness
 alongside the exact recorded evidence boundary without connecting to a
-database. `examples/minimal-app` is a separately installed Laravel 13 consumer
+database. `gatetrail:ddl` now generates non-destructive, reviewable DBA install
+and rollback artifacts from a consumer application's resolved configuration
+without connecting to a database. `examples/minimal-app` is a separately installed Laravel 13 consumer
 whose CI vertical slice proves package discovery, migration, public mutations,
 Gate and route authorization, revocation, retained history and audit evidence.
 
 ```text
-Applicable deliverables completed: 13
-Applicable deliverables total:     13
+Applicable deliverables completed: 14
+Applicable deliverables total:     14
 Progress:                           100%
 ```
 

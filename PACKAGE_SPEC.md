@@ -2291,6 +2291,7 @@ Commands planned across pre-`1.0.0` releases:
 
 ```text
 gatetrail:install
+gatetrail:ddl
 gatetrail:create-role
 gatetrail:create-permission
 gatetrail:matrix
@@ -2304,6 +2305,14 @@ GateTrail migration path; `--no-migrate` suppresses that step and `--force`
 permits it in production. In DBA-managed mode it never runs DDL and instead
 directs the operator to the versioned database artifacts. The command is a
 fresh-install helper and must not infer or execute a release-to-release upgrade.
+
+`gatetrail:ddl` is implemented as a filesystem-only DBA artifact generator. It
+uses the application's resolved GateTrail schema, prefix, table and Oracle
+generated-key configuration, writes `install.sql` and `rollback.sql` to a
+mandatory explicit output directory, and refuses overwrite unless `--force` is
+provided. The optional `--driver` accepts Laravel's `mysql`, `oracle`, `pgsql`
+and `sqlsrv` names; otherwise the configured connection driver is read without
+opening a connection. The command never executes SQL or applies its output.
 
 `gatetrail:doctor` is implemented as a read-only operational command. It
 supports human-readable output and stable `--json` output, returns an

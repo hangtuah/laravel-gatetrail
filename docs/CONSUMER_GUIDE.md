@@ -1202,6 +1202,29 @@ replaced.
 
 ## 20. Read-only diagnostics
 
+### DBA artifact generation
+
+Applications using DBA-managed provisioning can generate reviewed install and
+rollback files from their resolved GateTrail configuration:
+
+```bash
+php artisan gatetrail:ddl \
+    --driver=oracle \
+    --output=database/gatetrail/oracle/0001/sequence-trigger
+```
+
+`--driver` accepts the Laravel driver names `mysql`, `oracle`, `pgsql` and
+`sqlsrv`. When omitted, GateTrail reads the configured connection's driver
+without opening that connection. `--output` is mandatory; relative paths are
+resolved from the application root. The command writes exactly `install.sql`
+and `rollback.sql` and refuses to replace either file unless `--force` is
+provided.
+
+Generation validates the configured schema, prefix, table names and Oracle
+generated-key objects. It executes no SQL and never applies the files. A
+database owner must review the pair and follow the engine-specific installation
+and rollback guide.
+
 `gatetrail:doctor` is the supported operational entry point for schema and data
 consistency checks:
 
@@ -1257,7 +1280,7 @@ specification section describes it.
 |---|---|
 | GateTrail-supplied resource policies | Applications continue to own resource and state rules |
 | Custom GateTrail Blade directives | Not planned; native `@can` / `@cannot` use the implemented Gate integration |
-| Other console commands, including `gatetrail:cache-clear` | Planned across pre-`1.0.0` releases. `gatetrail:install`, `gatetrail:doctor` and `gatetrail:matrix` are currently available |
+| Other console commands, including `gatetrail:cache-clear` | Planned across pre-`1.0.0` releases. `gatetrail:install`, `gatetrail:ddl`, `gatetrail:doctor` and `gatetrail:matrix` are currently available |
 | `UnauthorizedMutation` | Named in the specification for later Laravel-integration work; the class does not exist |
 | Cross-request cache and cross-request invalidation APIs | Deferred to Phase 8 by ADR 0013. The post-commit ordering slot is reserved and empty; there is no cache store, TTL, binding or configuration key |
 | Administration UI | Out of scope for `1.0.0` |

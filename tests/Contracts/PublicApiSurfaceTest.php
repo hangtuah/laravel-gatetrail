@@ -191,14 +191,14 @@ final class PublicApiSurfaceTest extends TestCase
         $supported = [...self::TIER_ONE, ...self::TIER_TWO];
         $nonInternal = [...$supported, ...self::FRAMEWORK, ...self::OPERATIONAL];
 
-        $this->assertCount(252, $source);
+        $this->assertCount(253, $source);
         $this->assertCount(46, self::TIER_ONE);
         $this->assertCount(13, self::TIER_TWO);
         $this->assertCount(68, $nonInternal);
         $this->assertSame($nonInternal, array_values(array_unique($nonInternal)));
 
         $unclassified = array_values(array_diff($source, $nonInternal));
-        $this->assertCount(184, $unclassified);
+        $this->assertCount(185, $unclassified);
 
         foreach ($source as $symbol) {
             $documentation = (string) (new ReflectionClass($symbol))->getDocComment();

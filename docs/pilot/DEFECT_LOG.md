@@ -30,7 +30,7 @@ rationale and a documentation reference.
 
 | ID | Date | Severity | Environment | Area | Summary | Workaround | Owner | Status | Evidence / disposition |
 |---|---|---|---|---|---|---|---|---|---|
-| GT-PILOT-001 | 2026-10-12 | S3 | Existing Laravel 12 application / Oracle DBA provisioning | Installation | No public consumer command generates reviewed DBA artifacts from configured custom table/object names | None accepted; keep activation disabled | Maintainer | Open | Only `gatetrail:install`, `gatetrail:doctor` and `gatetrail:matrix` are public commands; committed Oracle artifacts use canonical names |
+| GT-PILOT-001 | 2026-10-12 | S3 | Existing Laravel 12 application / Oracle DBA provisioning | Installation | No public consumer command generates reviewed DBA artifacts from configured custom table/object names | Keep activation disabled until consumer verification | Maintainer | Fixed awaiting verification | `gatetrail:ddl` implementation and package tests generate both artifacts from resolved custom configuration without SQL |
 
 ## GT-PILOT-001 — Custom DBA artifact generation workflow
 
@@ -48,10 +48,11 @@ Oracle DBA-managed pilot cannot provision the configured `gt_*` objects without
 an undocumented internal workflow or manually edited generated SQL. Either
 choice violates the pilot rules.
 
-Disposition required: provide and test a public, read-only artifact-generation
-workflow that consumes the application's resolved GateTrail configuration and
-writes to an explicit output directory without connecting to or mutating a
-database.
+Correction: `gatetrail:ddl` now consumes the application's resolved GateTrail
+configuration and writes both artifacts to an explicit output directory without
+connecting to or mutating a database. The finding remains open until a tagged
+alpha is installed by the pilot application and its exact custom Oracle pair is
+verified.
 
 ## Entry template
 

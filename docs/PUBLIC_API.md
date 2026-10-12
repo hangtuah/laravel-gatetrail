@@ -558,15 +558,26 @@ This throw behavior is compatibility surface even though
 
 ## 11. Operational command surface
 
-`php artisan gatetrail:install` is the only available GateTrail console command.
-It publishes configuration without overwriting an existing file and runs only
-GateTrail migrations in package-managed mode. `--no-migrate` suppresses schema
-changes, while `--force` permits the migration step in production. DBA-managed
-mode never runs package migrations.
+Four GateTrail console commands are available operational surface:
 
-The command name, its two options and those safety rules are operational
-surface. The PHP command class is marked <code>@internal</code>; consumers must
-invoke the Artisan name rather than resolve, extend or instantiate that class.
+- <code>gatetrail:install</code> publishes configuration without overwriting an
+  existing file and runs only GateTrail migrations in package-managed mode.
+  <code>--no-migrate</code> suppresses schema changes, while <code>--force</code>
+  permits the migration step in production. DBA-managed mode never runs package
+  migrations.
+- <code>gatetrail:ddl</code> writes <code>install.sql</code> and
+  <code>rollback.sql</code> from resolved configuration. It requires
+  <code>--output</code>, optionally accepts <code>--driver</code>, refuses
+  overwrite without <code>--force</code>, and never connects to a database.
+- <code>gatetrail:doctor</code> performs the documented read-only consistency
+  diagnostics in human or <code>--json</code> form.
+- <code>gatetrail:matrix</code> reports runtime, driver readiness and evidence
+  boundaries in human or <code>--json</code> form without connecting to a
+  database.
+
+These command names, options and safety rules are operational surface. Their PHP
+command classes are marked <code>@internal</code>; consumers invoke the Artisan
+names rather than resolve, extend or instantiate those classes.
 
 ## 12. Excluded and unavailable surface
 

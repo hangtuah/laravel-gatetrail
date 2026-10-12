@@ -73,10 +73,12 @@ Then use this sequence:
 2. publish or prepare `config/gatetrail.php` without migrating the database;
 3. assign non-conflicting pilot table names and the intended connection,
    schema, guard and provisioning mode;
-4. provision and verify the isolated pilot schema;
-5. register `HangTuah\GateTrail\GateTrailServiceProvider` explicitly;
-6. run `php artisan gatetrail:doctor` and `php artisan gatetrail:matrix`;
-7. enable one controlled authorization slice through the documented public
+4. for DBA-managed provisioning, generate reviewed install and rollback files
+   with `php artisan gatetrail:ddl --driver=<driver> --output=<directory>`;
+5. provision and verify the isolated pilot schema;
+6. register `HangTuah\GateTrail\GateTrailServiceProvider` explicitly;
+7. run `php artisan gatetrail:doctor` and `php artisan gatetrail:matrix`;
+8. enable one controlled authorization slice through the documented public
    API.
 
 Do not remove the existing authorization implementation during the pilot.

@@ -46,6 +46,20 @@ name, or trigger name must generate and review matching DDL from the same
 canonical manifest. Do not edit a committed canonical artifact in place and
 continue describing it as reproducible.
 
+From a configured Laravel consumer application, generate a matching artifact
+pair without connecting to Oracle:
+
+```bash
+php artisan gatetrail:ddl \
+    --driver=oracle \
+    --output=database/gatetrail/oracle/0001/sequence-trigger
+```
+
+The output directory receives `install.sql` and `rollback.sql`. Existing files
+are preserved unless `--force` is supplied. The generated-key strategy and all
+object names come from the resolved `gatetrail` configuration; the directory
+name itself does not select or override the strategy.
+
 ## Installation procedure
 
 1. Confirm the target Oracle database, schema owner, and supported version.

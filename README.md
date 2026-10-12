@@ -82,6 +82,20 @@ For DBA-managed provisioning, run `gatetrail:install --no-migrate`, set
 versioned artifact. Running the command after `dba` is configured never runs
 package migrations.
 
+When the configured schema, prefix, table names or Oracle generated-key objects
+differ from the committed canonical artifacts, generate an application-specific
+pair for DBA review without connecting to the database:
+
+```bash
+php artisan gatetrail:ddl \
+    --driver=oracle \
+    --output=database/gatetrail/oracle/0001/sequence-trigger
+```
+
+The command writes `install.sql` and `rollback.sql`, refuses to overwrite them
+unless `--force` is supplied, and uses the application's resolved GateTrail
+configuration.
+
 ## Configuration
 
 Publishing the configuration manually is optional; the package merges its own
