@@ -30,7 +30,7 @@ rationale and a documentation reference.
 
 | ID | Date | Severity | Environment | Area | Summary | Workaround | Owner | Status | Evidence / disposition |
 |---|---|---|---|---|---|---|---|---|---|
-| GT-PILOT-001 | 2026-10-12 | S3 | Existing Laravel 12 application / Oracle DBA provisioning | Installation | No public consumer command generates reviewed DBA artifacts from configured custom table/object names | None after `v0.1.0-alpha.2` | Maintainer | Verified | PayHub installed `v0.1.0-alpha.2`, generated its exact custom pair without a database connection, and completed an install/catalog/trigger/rollback cycle on disposable Oracle Free 23.26.3; rollback left zero `GT_*` objects |
+| GT-PILOT-001 | 2026-10-12 | S3 | Laravel 12 consumer fixture / Oracle DBA provisioning | Installation | No public consumer command generates reviewed DBA artifacts from configured custom table/object names | None after `v0.1.0-alpha.2` | Maintainer | Verified | A consumer fixture installed `v0.1.0-alpha.2`, generated an exact custom pair without a database connection, and completed an install/catalog/trigger/rollback cycle on disposable Oracle Free 23.26.3; rollback left zero `GT_*` objects |
 
 ## GT-PILOT-001 — Custom DBA artifact generation workflow
 
