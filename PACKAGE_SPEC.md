@@ -2634,7 +2634,7 @@ No performance claim may be published without a reproducible benchmark.
 
 The accepted and frozen pre-v1 boundary in
 [ADR 0014](docs/decisions/0014-pre-v1-public-api-boundary.md) was established
-from its 218-symbol evidence base. The current 247 source symbols classify as:
+from its 218-symbol evidence base. The current 249 source symbols classify as:
 
 - Tier 1 contains 46 supported public symbols that consumers call, receive,
   catch or listen to;
@@ -2644,7 +2644,7 @@ from its 218-symbol evidence base. The current 247 source symbols classify as:
   than class APIs, are the supported surface;
 - the operational tier contains the 5 exception types in section 15.2, while
   its primary promises remain artifacts and provisioning behavior; and
-- Tier 4 contains 179 implementation symbols with no compatibility promise,
+- Tier 4 contains 181 implementation symbols with no compatibility promise,
   all marked with class-level `@internal` annotations.
 
 The exact current Tier 1 and Tier 2 names, signatures and readable surface are
