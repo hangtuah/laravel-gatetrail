@@ -28,11 +28,30 @@ rationale and a documentation reference.
 
 ## Findings
 
-No defects have been recorded yet.
-
 | ID | Date | Severity | Environment | Area | Summary | Workaround | Owner | Status | Evidence / disposition |
 |---|---|---|---|---|---|---|---|---|---|
-| — | — | — | — | — | No pilot execution yet | — | — | — | — |
+| GT-PILOT-001 | 2026-10-12 | S3 | Existing Laravel 12 application / Oracle DBA provisioning | Installation | No public consumer command generates reviewed DBA artifacts from configured custom table/object names | None accepted; keep activation disabled | Maintainer | Open | Only `gatetrail:install`, `gatetrail:doctor` and `gatetrail:matrix` are public commands; committed Oracle artifacts use canonical names |
+
+## GT-PILOT-001 — Custom DBA artifact generation workflow
+
+Expected: an existing application with colliding authorization table names can
+configure isolated GateTrail names and produce reproducible Oracle DBA install
+and rollback artifacts through a documented public command.
+
+Observed: package documentation correctly requires custom artifacts to be
+generated from the canonical manifest, but the consumer-facing command set has
+no DDL generation command. The repository-only generator reads the package's
+own configuration and is not a supported consumer API.
+
+Impact: staged installation succeeds and remains safely disabled, but an
+Oracle DBA-managed pilot cannot provision the configured `gt_*` objects without
+an undocumented internal workflow or manually edited generated SQL. Either
+choice violates the pilot rules.
+
+Disposition required: provide and test a public, read-only artifact-generation
+workflow that consumes the application's resolved GateTrail configuration and
+writes to an explicit output directory without connecting to or mutating a
+database.
 
 ## Entry template
 
@@ -64,5 +83,5 @@ Disposition and maintainer rationale:
 | State | Count |
 |---|---:|
 | Open release blockers (S1/S2) | 0 |
-| Other open findings | 0 |
+| Other open findings | 1 |
 | Closed findings | 0 |
