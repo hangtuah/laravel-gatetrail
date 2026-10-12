@@ -275,8 +275,8 @@ $user->roles();
 Depend on the contracts, value types, events and exceptions listed in
 [`docs/PUBLIC_API.md`](docs/PUBLIC_API.md), and nothing else.
 
-> **A class marked `@internal` is not consumer API.** PSR-4 makes all 244
-> package classes loadable and the container can build most of them, but 176 of
+> **A class marked `@internal` is not consumer API.** PSR-4 makes all 247
+> package classes loadable and the container can build most of them, but 179 of
 > them carry a class-level `@internal` annotation and may be renamed, recomposed
 > or deleted in any release, including a patch. That includes the `Default*`
 > manager and resolver implementations behind the contracts — inject

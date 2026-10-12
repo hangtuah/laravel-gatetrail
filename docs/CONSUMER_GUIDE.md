@@ -21,7 +21,7 @@ What that does and does not mean:
 | Will it change silently? | No |
 | What ships with a deliberate breaking change? | An ADR, a `CHANGELOG.md` entry, and migration guidance when consumer code or configuration must change |
 | What happens to accidental drift? | It is a defect. `PublicApiSurfaceTest` rejects it in CI |
-| What may change in any release, including a patch? | Anything marked `@internal` — currently 176 of the package's 244 classes |
+| What may change in any release, including a patch? | Anything marked `@internal` — currently 179 of the package's 247 classes |
 
 The boundary itself is decided in
 [ADR 0014](decisions/0014-pre-v1-public-api-boundary.md), which classifies

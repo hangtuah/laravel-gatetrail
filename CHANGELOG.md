@@ -6,6 +6,11 @@ All notable changes to GateTrail will be documented in this file.
 
 ### Added
 
+- Internal, immutable diagnostic finding and report primitives for the planned
+  read-only `gatetrail:doctor` command. They pin stable severity, privacy-safe
+  references, deterministic output ordering, coverage reporting and the rule
+  that an incomplete diagnostic run can never report a clean or successful
+  result. No command or database scan is exposed by this foundation increment.
 - A safe `gatetrail:install` command. It publishes configuration without
   overwriting an existing file, runs only GateTrail migrations in
   package-managed mode, supports a no-migration setup path, preserves Laravel's

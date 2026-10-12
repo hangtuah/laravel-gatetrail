@@ -195,7 +195,7 @@ final class ConsumerGuideTest extends TestCase
 
     public function test_internal_example_guard_covers_every_tier_four_symbol(): void
     {
-        $this->assertCount(176, $this->internalShortNames());
+        $this->assertCount(179, $this->internalShortNames());
     }
 
     #[DataProvider('documents')]
