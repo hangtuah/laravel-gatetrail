@@ -9,11 +9,11 @@ an actor and a reason, rather than through direct relationship writes.
 
 ## Status
 
-**Pre-alpha, pre-`1.0.0`. The documented pre-v1 public API is frozen.**
+**Internal alpha, pre-`1.0.0`. The documented pre-v1 public API is frozen.**
 
-No release has been tagged. Implementation is still in progress: mutation
-services and the effective-access resolvers are complete, and Laravel
-integration, caching, hardening and release validation are not.
+`v0.1.0-alpha.1` is tagged for a controlled private pilot. It is not a stable
+release or a public compatibility claim. Stable-release validation remains in
+progress.
 
 The supported surface is defined by
 [ADR 0014](docs/decisions/0014-pre-v1-public-api-boundary.md) and listed in
@@ -48,8 +48,22 @@ run there either. PostgreSQL and SQL Server are **not** verified runtimes yet.
 
 ## Installation
 
+The internal alpha is hosted in a private Git repository and is not published
+to Packagist. Register the VCS repository and require the exact tag:
+
 ```bash
-composer require hangtuah/laravel-gatetrail
+composer config repositories.gatetrail vcs \
+    git@github.com:hangtuah/laravel-gatetrail.git
+composer require hangtuah/laravel-gatetrail:0.1.0-alpha.1 --prefer-source
+```
+
+See [`docs/PRIVATE_COMPOSER_INSTALLATION.md`](docs/PRIVATE_COMPOSER_INSTALLATION.md)
+for SSH/deploy access and the staged activation path required by applications
+that already have authorization tables or behavior.
+
+After Composer installation, the normal fresh-application setup is:
+
+```bash
 php artisan gatetrail:install
 ```
 

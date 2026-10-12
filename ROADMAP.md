@@ -49,7 +49,8 @@ Phase 7 — Complete
 Phase 8 — Complete
 Phase 9 — Complete
 Phase 10 — Complete
-Phase 11 onward — Not started
+Phase 11 — In progress
+Phase 12 onward — Not started
 ```
 
 The package specification is accepted for implementation. Repository tooling
@@ -62,7 +63,7 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | approximately 78% | Equal-phase progress across Phases 0–13 |
+| Overall roadmap by primary phases | approximately 80% | Equal-phase progress across Phases 0–13 |
 | Deliverable tracker | 23 of 32, approximately 72% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
@@ -111,7 +112,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 8 | Cache and performance | 1 of 1 applicable, 100% | Complete |
 | 9 | Security hardening | 10 of 10, 100% | Complete |
 | 10 | Developer experience and documentation | 13 of 13, 100% | Complete |
-| 11 | Internal pilot | 0% | Not started |
+| 11 | Internal pilot | 2 of 7, approximately 29% | In progress |
 | 12 | Existing-application integration | 0% | Not started |
 | 13 | Stable release | 0% | Not started |
 | 14 | Post-v1 optional features | — | Optional |
@@ -2027,8 +2028,8 @@ release claim.
 
 ### Deliverables
 
-- [ ] Pre-release package tag.
-- [ ] Private Composer installation path.
+- [x] Pre-release package tag.
+- [x] Private Composer installation path.
 - [ ] Pilot test plan.
 - [ ] Pilot defect log.
 - [ ] Performance observations.
@@ -2040,7 +2041,23 @@ release claim.
 The pilot uses GateTrail without application-specific changes inside the
 package, and all release-blocking findings are resolved.
 
-Status: **Not started**
+Current evidence:
+
+- annotated tag `v0.1.0-alpha.1` points to commit `830b8d5` and is available on
+  the private Git remote;
+- `docs/PRIVATE_COMPOSER_INSTALLATION.md` defines exact-tag installation,
+  credential boundaries and fresh-versus-existing-application activation.
+
+```text
+Applicable deliverables completed: 2
+Applicable deliverables total:     7
+Progress:                           approximately 29%
+```
+
+With Phase 11 at approximately 29%, overall equal-phase progress is
+**approximately 80%**.
+
+Status: **In progress**
 
 ## 19. Phase 12 — Existing-application integration
 
