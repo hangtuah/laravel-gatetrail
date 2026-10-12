@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace HangTuah\GateTrail\Tests\Integration\Oracle;
 
+use HangTuah\GateTrail\Diagnostics\GateTrailDoctor;
+
 final class PackageManagedSequenceTriggerTest extends OracleIntegrationTestCase
 {
     public function test_migrations_install_inspect_and_rollback(): void
@@ -29,6 +31,12 @@ final class PackageManagedSequenceTriggerTest extends OracleIntegrationTestCase
         );
         $this->assertInspectionPasses($this->inspectSchema());
         $this->assertRoleGeneratedKeysWork();
+
+        $doctor = $this->app->make(GateTrailDoctor::class)->run();
+
+        $this->assertTrue($doctor->isComplete());
+        $this->assertTrue($doctor->isClean());
+        $this->assertSame(0, $doctor->exitCode());
 
         $this->artisan('migrate:rollback', [
             '--database' => self::CONNECTION,

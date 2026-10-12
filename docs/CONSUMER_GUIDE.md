@@ -21,7 +21,7 @@ What that does and does not mean:
 | Will it change silently? | No |
 | What ships with a deliberate breaking change? | An ADR, a `CHANGELOG.md` entry, and migration guidance when consumer code or configuration must change |
 | What happens to accidental drift? | It is a defect. `PublicApiSurfaceTest` rejects it in CI |
-| What may change in any release, including a patch? | Anything marked `@internal` — currently 181 of the package's 249 classes |
+| What may change in any release, including a patch? | Anything marked `@internal` — currently 183 of the package's 251 classes |
 
 The boundary itself is decided in
 [ADR 0014](decisions/0014-pre-v1-public-api-boundary.md), which classifies
@@ -1151,13 +1151,13 @@ stability clock rather than Tier 1's.
 
 ## 19. Public versus internal API
 
-The package contains 219 classes. **158 of them carry a class-level
+The package contains 251 classes. **183 of them carry a class-level
 `@internal` annotation and are not consumer API**, whatever PHP visibility or
 the container allows.
 
 | Reachable how? | Supported? |
 |---|---|
-| PSR-4 can autoload it | No — true of all 219 |
+| PSR-4 can autoload it | No — true of all 251 |
 | The container can build it | No — 73 of the 80 bindings target internal classes |
 | Listed in `docs/PUBLIC_API.md` | **Yes** — this is the only level that carries a promise |
 
@@ -1200,7 +1200,37 @@ resolver, which makes scheduled and expiring assignments straightforward to
 test. The concrete clock class behind the binding is internal and may be
 replaced.
 
-## 20. Current limitations and unimplemented features
+## 20. Read-only diagnostics
+
+`gatetrail:doctor` is the supported operational entry point for schema and data
+consistency checks:
+
+```bash
+php artisan gatetrail:doctor
+php artisan gatetrail:doctor --json
+```
+
+The human form groups coverage and findings by severity. `--json` emits one
+stable object containing `status`, `complete`, `exit_code`, `coverage`,
+severity `counts`, ordered `findings`, and the diagnostic limitation. Finding
+references are SHA-256 digests; subject, role and permission identifiers are
+not printed.
+
+The command exits unsuccessfully when it observes an invariant error or cannot
+complete every check. Warnings and informational lifecycle context do not by
+themselves fail a complete run. Current physical-schema inspectors cover
+MySQL, Oracle and PostgreSQL. SQLite and SQL Server still receive all data
+checks, but their schema coverage is explicitly incomplete and therefore the
+overall command exits unsuccessfully.
+
+Doctor is strictly read-only. It does not migrate or repair schema, create
+coordination rows, rewrite assignments, backfill audits, lock data, or clear a
+cache. Deactivated definitions are valid history and informational; scheduled,
+expired and normally revoked rows are valid lifecycle states. Even a complete
+result cannot prove the absence of direct database writes or missing audit
+history.
+
+## 21. Current limitations and unimplemented features
 
 Everything in this list is designed, planned or deferred. Do not build against
 an item in this table, and do not assume a symbol is available because a
@@ -1210,7 +1240,7 @@ specification section describes it.
 |---|---|
 | GateTrail-supplied resource policies | Applications continue to own resource and state rules |
 | Custom GateTrail Blade directives | Not planned; native `@can` / `@cannot` use the implemented Gate integration |
-| Other console commands, including `gatetrail:doctor`, `gatetrail:matrix` and `gatetrail:cache-clear` | Planned across pre-`1.0.0` releases; not started. `gatetrail:install` is the only command currently available |
+| Other console commands, including `gatetrail:matrix` and `gatetrail:cache-clear` | Planned across pre-`1.0.0` releases. `gatetrail:install` and `gatetrail:doctor` are currently available |
 | `UnauthorizedMutation` | Named in the specification for later Laravel-integration work; the class does not exist |
 | Cross-request cache and cross-request invalidation APIs | Deferred to Phase 8 by ADR 0013. The post-commit ordering slot is reserved and empty; there is no cache store, TTL, binding or configuration key |
 | Administration UI | Out of scope for `1.0.0` |
@@ -1229,9 +1259,8 @@ Additional limitations of what *is* implemented:
   behavioural suite either.
 - **Oracle's declared 12c Release 2 minimum has not been exercised live.**
   Current evidence comes from Oracle Free 23.26.1.
-- **Schema inspection has no supported entry point.** The read-only inspectors
-  exist and the package's own integration suite uses them, but they are
-  internal classes and no supported command exposes them yet.
+- **SQLite and SQL Server have no physical-schema inspector.** Doctor reports
+  that coverage as incomplete instead of claiming a clean schema result.
 - **No explicit deny and no super administrator.** Authorization is default
   deny plus positive grants only.
 - **Assignment periods are immutable once persisted.** Changing one means
@@ -1241,7 +1270,7 @@ Additional limitations of what *is* implemented:
 - **Role and permission names and guards are immutable.** Only descriptions can
   be updated.
 
-## 21. Where to go next
+## 22. Where to go next
 
 - [`UPGRADING.md`](UPGRADING.md) — the pre-v1 upgrade workflow for
   package-managed and DBA-managed schemas, including configuration, rollback

@@ -2,7 +2,7 @@
 
 - Review date: 2026-10-12
 - Scope: accepted consumer-facing documentation baseline
-- Result: ten of thirteen Phase 10 deliverables accepted
+- Result: eleven of thirteen Phase 10 deliverables accepted
 
 ## Accepted deliverables
 
@@ -18,20 +18,20 @@
 | SQL Server setup guide | `database/ddl/sqlserver/README.md` | Records supported artifact shape, schema/prefix generation, execution, verification, rollback and current evidence boundary |
 | Upgrade and migration guides | `docs/UPGRADING.md` | Separates first install from upgrade, covers both provisioning modes, configuration reconciliation, rollback boundaries and future schema-release evidence |
 | `gatetrail:install` | `src/Console/InstallCommand.php` and `tests/Console/InstallCommandTest.php` | Publishes config without overwrite, migrates only the package path, supports no-migration setup, fails on invalid schema config and never runs DDL in DBA mode |
+| `gatetrail:doctor` | `src/Console/DoctorCommand.php`, `src/Diagnostics/GateTrailDoctor.php` and diagnostic tests | Exposes read-only human and JSON diagnostics, distinguishes complete/error/incomplete results, preserves privacy-safe references and proves every executed statement is read-only |
 
 ## Open deliverables
 
 | Deliverable | Gap that remains |
 |---|---|
-| `gatetrail:doctor` | Designed but not implemented |
 | `gatetrail:matrix` | Designed but not implemented |
 | Minimal example application | Examples exist in documentation and tests, but no fresh consumer application has been retained as a reproducible example |
 
 ## Review boundary
 
 This review accepts documentation that describes the implemented package; it
-does not treat a proposed command as available, convert schema-only database
-evidence into runtime support, or claim that the internal pilot has begun.
+does not convert schema-only database evidence into runtime support or claim
+that the internal pilot has begun.
 
-The next fast-track increment should implement the read-only
-`gatetrail:doctor` diagnostics without adding repair behavior.
+The remaining Phase 10 work is the compatibility-matrix command and a retained
+minimal consumer application.

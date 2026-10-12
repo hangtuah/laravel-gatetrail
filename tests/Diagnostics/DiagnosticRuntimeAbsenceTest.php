@@ -81,11 +81,11 @@ final class DiagnosticRuntimeAbsenceTest extends TestCase
 
     /**
      * The strongest form of the claim: nothing outside `src/Diagnostics`
-     * names the namespace or either class, so no production path can reach it.
+     * names either instrumentation class, so no production path can reach it.
      *
-     * Matched on the qualified namespace and the two class names rather than
-     * the bare word, because `Concurrency\\DriverDiagnostics` is an unrelated
-     * component that has carried that word since ADR 0011.
+     * Diagnostic commands may legitimately reach other classes in that
+     * namespace. This boundary is specifically about the statement probe,
+     * which ADR 0012 forbids from entering authorization runtime paths.
      */
     public function test_no_production_class_outside_diagnostics_references_it(): void
     {
@@ -99,7 +99,6 @@ final class DiagnosticRuntimeAbsenceTest extends TestCase
             $source = (string) file_get_contents($path);
 
             foreach ([
-                'HangTuah\\GateTrail\\Diagnostics',
                 'GateTrailStatementProbe',
                 'StatementMeasurement',
             ] as $needle) {

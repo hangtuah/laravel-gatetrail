@@ -55,7 +55,6 @@ final class ConsumerGuideTest extends TestCase
      */
     private const UNAVAILABLE_TOKENS = [
         'UnauthorizedMutation',
-        'gatetrail:doctor',
         'gatetrail:cache-clear',
         'wildcard',
         'Wildcard',
@@ -70,7 +69,7 @@ final class ConsumerGuideTest extends TestCase
     /** @var array<string, string> */
     private const UNAVAILABLE_SECTION = [
         self::README => '## Not yet implemented',
-        self::GUIDE => '## 20. Current limitations and unimplemented features',
+        self::GUIDE => '## 21. Current limitations and unimplemented features',
     ];
 
     /** @var list<class-string> */
@@ -195,7 +194,7 @@ final class ConsumerGuideTest extends TestCase
 
     public function test_internal_example_guard_covers_every_tier_four_symbol(): void
     {
-        $this->assertCount(181, $this->internalShortNames());
+        $this->assertCount(183, $this->internalShortNames());
     }
 
     #[DataProvider('documents')]

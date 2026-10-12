@@ -173,7 +173,7 @@ Package-managed Oracle uses Laravel-OCI8 support for Oracle-specific objects.
 DBA-managed Oracle permits organization-owned tables, indexes, constraints,
 sequences, and triggers that conform to the GateTrail schema manifest.
 
-Configured sequence and trigger names must be supported. A future
+Configured sequence and trigger names must be supported. The implemented
 `gatetrail:doctor` command validates expected objects and identifier
 configuration without modifying the schema.
 
@@ -2047,10 +2047,9 @@ instant, so an unmanaged change becomes visible within one second and one scope.
 **If cross-request caching is ever retained, that exposure widens to the TTL**,
 and the retaining design must document the bound honestly.
 
-Known direct intervention would require an explicit GateTrail cache clear. Any
-future `gatetrail:doctor` must never clear caches implicitly. **That command is
-not implemented**, so this is a constraint on its future design rather than a
-description of existing behaviour.
+Known direct intervention requires an explicit GateTrail cache clear.
+`gatetrail:doctor` never clears caches implicitly; its implementation has no
+cache dependency and its read-only query contract is regression tested.
 
 ## 15. Exceptions
 
@@ -2306,12 +2305,20 @@ permits it in production. In DBA-managed mode it never runs DDL and instead
 directs the operator to the versioned database artifacts. The command is a
 fresh-install helper and must not infer or execute a release-to-release upgrade.
 
-The other five commands remain planned and unavailable.
+`gatetrail:doctor` is implemented as a read-only operational command. It
+supports human-readable output and stable `--json` output, returns an
+unsuccessful exit code for observed errors or incomplete coverage, and always
+states that a clean result cannot prove the absence of direct writes or missing
+audit history. MySQL, Oracle and PostgreSQL use their strict physical-schema
+inspectors. SQLite and SQL Server run the data checks but report physical-schema
+coverage as incomplete.
+
+The other four commands remain planned and unavailable.
 
 Mutation commands require an explicit actor or system context and a reason when
 the equivalent service operation requires one.
 
-`gatetrail:doctor` must validate the assignment coordination table and report
+`gatetrail:doctor` validates the assignment coordination table and reports
 missing or malformed coordination rows and overlapping equivalent assignments
 without modifying them.
 
@@ -2331,8 +2338,8 @@ Doctor may report it as informational but must not classify it as an error.
 Expired, scheduled, and normally revoked assignments are also valid lifecycle
 states.
 
-Doctor must not migrate, repair, revoke, rewrite, backfill, or delete data. It
-must not clear caches implicitly. A clean result must state that best-effort
+Doctor does not migrate, repair, revoke, rewrite, backfill, or delete data. It
+does not clear caches implicitly. A clean result states that best-effort
 diagnostics cannot prove the absence of direct writes or missing audit history.
 Partial inspection must identify its coverage and cannot report an unqualified
 clean result.
@@ -2634,7 +2641,7 @@ No performance claim may be published without a reproducible benchmark.
 
 The accepted and frozen pre-v1 boundary in
 [ADR 0014](docs/decisions/0014-pre-v1-public-api-boundary.md) was established
-from its 218-symbol evidence base. The current 249 source symbols classify as:
+from its 218-symbol evidence base. The current 251 source symbols classify as:
 
 - Tier 1 contains 46 supported public symbols that consumers call, receive,
   catch or listen to;
@@ -2644,7 +2651,7 @@ from its 218-symbol evidence base. The current 249 source symbols classify as:
   than class APIs, are the supported surface;
 - the operational tier contains the 5 exception types in section 15.2, while
   its primary promises remain artifacts and provisioning behavior; and
-- Tier 4 contains 181 implementation symbols with no compatibility promise,
+- Tier 4 contains 183 implementation symbols with no compatibility promise,
   all marked with class-level `@internal` annotations.
 
 The exact current Tier 1 and Tier 2 names, signatures and readable surface are

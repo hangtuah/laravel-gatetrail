@@ -101,9 +101,10 @@ Everything below was read from the repository at commit `1e8decf`, not assumed.
 TTL or tag key. `GateTrailServiceProvider` registers no cache binding. No class
 under `src/` reads or writes a cache store; every occurrence of the word is a
 docblock stating that something deliberately holds no cache store, or marking
-the reserved slot. `gatetrail:doctor` is **not implemented yet**, so PACKAGE_SPEC
-14.6's "never clears caches implicitly" is currently a constraint on future work
-rather than a property of existing code.
+the reserved slot. At this ADR's evidence commit, `gatetrail:doctor` was not yet
+implemented. It has since been delivered as a read-only command with no cache
+dependency, so PACKAGE_SPEC 14.6's "never clears caches implicitly" constraint
+is now executable and regression tested.
 
 **The after-commit boundary is one combined callback.** `announce()` registers a
 single closure through `$connection->afterCommit()` when a transaction is open,

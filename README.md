@@ -126,6 +126,27 @@ package behaviour does not depend on which one created it. See
 installation and rollback procedures, and the consumer guide for the full
 comparison.
 
+## Diagnostics
+
+Run the read-only consistency check after installation, an upgrade, or a known
+DBA intervention:
+
+```bash
+php artisan gatetrail:doctor
+php artisan gatetrail:doctor --json
+```
+
+Doctor inspects the configured physical schema where an inspector exists and
+checks assignment periods, revocation tuples, definition references, guards
+and persistent coordination rows. It never migrates, repairs, revokes, deletes,
+backfills, locks or clears caches. An error finding or incomplete coverage
+returns a non-zero exit code. SQLite and SQL Server currently receive complete
+data checks but incomplete physical-schema coverage because no inspector exists
+for those drivers.
+
+A clean result is only a best-effort consistency result. It cannot prove that
+no direct database write occurred or that no audit history is missing.
+
 ## Declaring a subject
 
 A GateTrail subject is a persisted Eloquent model that declares a guard:
@@ -275,8 +296,8 @@ $user->roles();
 Depend on the contracts, value types, events and exceptions listed in
 [`docs/PUBLIC_API.md`](docs/PUBLIC_API.md), and nothing else.
 
-> **A class marked `@internal` is not consumer API.** PSR-4 makes all 249
-> package classes loadable and the container can build most of them, but 181 of
+> **A class marked `@internal` is not consumer API.** PSR-4 makes all 251
+> package classes loadable and the container can build most of them, but 183 of
 > them carry a class-level `@internal` annotation and may be renamed, recomposed
 > or deleted in any release, including a patch. That includes the `Default*`
 > manager and resolver implementations behind the contracts — inject
@@ -289,7 +310,7 @@ against them:
 
 - GateTrail-supplied resource policies;
 - custom GateTrail Blade directives—use Laravel's native `@can` / `@cannot`;
-- other planned GateTrail console commands, including `gatetrail:doctor` and
+- other planned GateTrail console commands, including `gatetrail:matrix` and
   `gatetrail:cache-clear`;
 - the `UnauthorizedMutation` exception type;
 - cross-request cache and cross-request invalidation APIs;
