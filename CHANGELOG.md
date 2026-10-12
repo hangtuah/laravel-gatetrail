@@ -83,6 +83,11 @@ All notable changes to GateTrail will be documented in this file.
 
 ### Fixed
 
+- Laravel 12 can no longer route multi-column increment/decrement calls on an
+  access-audit model around GateTrail's append-only model hook and into an
+  Eloquent builder. Explicit compatibility shims now reject all four `*Each`
+  variants on both supported Laravel majors, with version-neutral regression
+  coverage for every increment/decrement and quiet-operation path.
 - Deferrable PostgreSQL constraints are now rejected for every canonical
   constraint type, not only foreign keys. The `NOT DEFERRABLE` requirement moved
   into the shared constraint-inspection path, so a `DEFERRABLE` primary-key,

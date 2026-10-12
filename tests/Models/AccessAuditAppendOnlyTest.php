@@ -49,11 +49,21 @@ final class AccessAuditAppendOnlyTest extends TestCase
 
         yield 'force delete' => [static fn (AccessAudit $audit): ?bool => $audit->forceDelete()];
 
-        yield 'increment' => [static fn (AccessAudit $audit): int => $audit->increment('id')];
+        yield 'increment' => [static fn (AccessAudit $audit): mixed => $audit->increment('id')];
 
-        yield 'increment quietly' => [static fn (AccessAudit $audit): int => $audit->incrementQuietly('id')];
+        yield 'increment quietly' => [static fn (AccessAudit $audit): mixed => $audit->incrementQuietly('id')];
 
-        yield 'increment each' => [static fn (AccessAudit $audit): int => $audit->incrementEach(['id' => 1])];
+        yield 'decrement' => [static fn (AccessAudit $audit): mixed => $audit->decrement('id')];
+
+        yield 'decrement quietly' => [static fn (AccessAudit $audit): mixed => $audit->decrementQuietly('id')];
+
+        yield 'increment each' => [static fn (AccessAudit $audit): mixed => $audit->incrementEach(['id' => 1])];
+
+        yield 'decrement each' => [static fn (AccessAudit $audit): mixed => $audit->decrementEach(['id' => 1])];
+
+        yield 'increment each quietly' => [static fn (AccessAudit $audit): mixed => $audit->incrementEachQuietly(['id' => 1])];
+
+        yield 'decrement each quietly' => [static fn (AccessAudit $audit): mixed => $audit->decrementEachQuietly(['id' => 1])];
     }
 
     #[DataProvider('modelMutationProvider')]

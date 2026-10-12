@@ -80,6 +80,54 @@ class AccessAudit extends GateTrailModel
         $this->rejectMutation();
     }
 
+    /**
+     * Laravel 12 does not route every multi-column increment through the
+     * model hook above. These public shims preserve the append-only contract
+     * before Laravel's dynamic call can reach an Eloquent builder instead.
+     *
+     * @param  array<string, float|int>  $columns
+     * @param  array<string, mixed>  $extra
+     *
+     * @internal
+     */
+    final public function incrementEach(array $columns, array $extra = []): never
+    {
+        $this->rejectMutation();
+    }
+
+    /**
+     * @param  array<string, float|int>  $columns
+     * @param  array<string, mixed>  $extra
+     *
+     * @internal
+     */
+    final public function decrementEach(array $columns, array $extra = []): never
+    {
+        $this->rejectMutation();
+    }
+
+    /**
+     * @param  array<string, float|int>  $columns
+     * @param  array<string, mixed>  $extra
+     *
+     * @internal
+     */
+    final public function incrementEachQuietly(array $columns, array $extra = []): never
+    {
+        $this->rejectMutation();
+    }
+
+    /**
+     * @param  array<string, float|int>  $columns
+     * @param  array<string, mixed>  $extra
+     *
+     * @internal
+     */
+    final public function decrementEachQuietly(array $columns, array $extra = []): never
+    {
+        $this->rejectMutation();
+    }
+
     protected function casts(): array
     {
         return [
