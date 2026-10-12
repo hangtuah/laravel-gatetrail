@@ -2785,3 +2785,10 @@ Create role
 
 The vertical slice is complete only when it is covered by automated integration
 tests.
+
+The repository also retains `examples/minimal-app`, a separate Laravel 13
+consumer project installed through a Composer path repository. Its CI smoke
+test repeats this flow through package discovery, the public manager contracts,
+Laravel Gate, route middleware, assignment history and persisted audit records.
+The example uses SQLite for fast consumer-level evidence and does not broaden
+the production database compatibility claims in section 3.

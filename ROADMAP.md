@@ -48,7 +48,7 @@ Phase 6 — Complete
 Phase 7 — Complete
 Phase 8 — Complete
 Phase 9 — Complete
-Phase 10 — In progress
+Phase 10 — Complete
 Phase 11 onward — Not started
 ```
 
@@ -62,8 +62,8 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | approximately 77% | Equal-phase progress across Phases 0–13 |
-| Deliverable tracker | 22 of 32, approximately 69% | Completed concrete package deliverables |
+| Overall roadmap by primary phases | approximately 78% | Equal-phase progress across Phases 0–13 |
+| Deliverable tracker | 23 of 32, approximately 72% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
 
@@ -110,7 +110,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 7 | Audit trail | 9 of 9, 100% | Complete |
 | 8 | Cache and performance | 1 of 1 applicable, 100% | Complete |
 | 9 | Security hardening | 10 of 10, 100% | Complete |
-| 10 | Developer experience and documentation | 12 of 13, approximately 92% | In progress |
+| 10 | Developer experience and documentation | 13 of 13, 100% | Complete |
 | 11 | Internal pilot | 0% | Not started |
 | 12 | Existing-application integration | 0% | Not started |
 | 13 | Stable release | 0% | Not started |
@@ -1979,7 +1979,7 @@ understandable without reading package internals.
 - [x] `gatetrail:install`.
 - [x] `gatetrail:doctor`.
 - [x] `gatetrail:matrix`.
-- [ ] Minimal example application.
+- [x] Minimal example application.
 
 ### Exit criteria
 
@@ -1995,18 +1995,19 @@ and provisions only package-managed schemas. `gatetrail:doctor` now exposes
 read-only schema and data diagnostics with human and JSON output.
 `gatetrail:matrix` now reports local runtime and configured-driver readiness
 alongside the exact recorded evidence boundary without connecting to a
-database. The remaining work is a retained minimal consumer application.
+database. `examples/minimal-app` is a separately installed Laravel 13 consumer
+whose CI vertical slice proves package discovery, migration, public mutations,
+Gate and route authorization, revocation, retained history and audit evidence.
 
 ```text
-Applicable deliverables completed: 12
+Applicable deliverables completed: 13
 Applicable deliverables total:     13
-Progress:                           92.31%, reported as approximately 92%
+Progress:                           100%
 ```
 
-With Phase 10 at approximately 92%, overall equal-phase progress remains
-**approximately 77%**.
+With Phase 10 complete, overall equal-phase progress is **approximately 78%**.
 
-Status: **In progress**
+Status: **Complete**
 
 ## 18. Phase 11 — Internal pilot
 
@@ -2260,7 +2261,7 @@ Progress: **3 of 6**
 ### Delivery
 
 - [x] Complete README
-- [ ] Full user documentation
+- [x] Full user documentation
 - [x] Artisan diagnostics
 - [ ] Internal pilot
 - [ ] Pilot retrospective
@@ -2275,7 +2276,7 @@ Progress: **3 of 8**
 ```text
 Completed: 22
 Total:     32
-Progress:  68.750%, reported as approximately 69%
+Progress:  71.875%, reported as approximately 72%
 ```
 
 ## 25. Progress update rules

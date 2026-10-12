@@ -2,7 +2,7 @@
 
 - Review date: 2026-10-12
 - Scope: accepted consumer-facing documentation baseline
-- Result: twelve of thirteen Phase 10 deliverables accepted
+- Result: all thirteen Phase 10 deliverables accepted
 
 ## Accepted deliverables
 
@@ -20,12 +20,7 @@
 | `gatetrail:install` | `src/Console/InstallCommand.php` and `tests/Console/InstallCommandTest.php` | Publishes config without overwrite, migrates only the package path, supports no-migration setup, fails on invalid schema config and never runs DDL in DBA mode |
 | `gatetrail:doctor` | `src/Console/DoctorCommand.php`, `src/Diagnostics/GateTrailDoctor.php` and diagnostic tests | Exposes read-only human and JSON diagnostics, distinguishes complete/error/incomplete results, preserves privacy-safe references and proves every executed statement is read-only |
 | `gatetrail:matrix` | `src/Console/MatrixCommand.php` and `tests/Console/MatrixCommandTest.php` | Reports runtime and configured-driver readiness plus the exact recorded database evidence boundary without connecting to a database or converting schema-only evidence into runtime support |
-
-## Open deliverables
-
-| Deliverable | Gap that remains |
-|---|---|
-| Minimal example application | Examples exist in documentation and tests, but no fresh consumer application has been retained as a reproducible example |
+| Minimal example application | `examples/minimal-app` and the `minimal-consumer` CI job | A separately installed Laravel 13 consumer uses package discovery and public API only to migrate, mutate, authorize a route, revoke, preserve history and inspect actor/reason audits |
 
 ## Review boundary
 
@@ -33,4 +28,5 @@ This review accepts documentation that describes the implemented package; it
 does not convert schema-only database evidence into runtime support or claim
 that the internal pilot has begun.
 
-The remaining Phase 10 work is a retained minimal consumer application.
+All Phase 10 deliverables and its developer-unfamiliar-with-the-package exit
+criterion now have retained, executable evidence.

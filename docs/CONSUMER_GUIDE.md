@@ -1289,6 +1289,8 @@ Additional limitations of what *is* implemented:
 
 ## 22. Where to go next
 
+- [`../examples/minimal-app`](../examples/minimal-app) — a retained Laravel 13
+  consumer that runs the complete first vertical slice using only public API.
 - [`UPGRADING.md`](UPGRADING.md) — the pre-v1 upgrade workflow for
   package-managed and DBA-managed schemas, including configuration, rollback
   and post-upgrade verification.

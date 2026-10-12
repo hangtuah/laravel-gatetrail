@@ -85,6 +85,31 @@ jobs:
       - name: Reject known dependency advisories
         run: composer audit --no-interaction
 
+  minimal-consumer:
+    name: Minimal Laravel consumer application
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite
+          coverage: none
+
+      - name: Install the retained consumer application
+        run: >
+          composer install
+          --working-dir=examples/minimal-app
+          --no-interaction
+          --no-progress
+
+      - name: Run the GateTrail vertical slice
+        run: composer test --working-dir=examples/minimal-app
+
   tests:
     name: SQLite / Laravel ${{ matrix.laravel-major }} / Testbench ${{ matrix.testbench-major }}
     runs-on: ubuntu-latest

@@ -163,6 +163,24 @@ PostgreSQL and SQL Server are not presented as verified application runtimes.
 Its configured-database readiness check covers the Laravel driver and required
 local PHP extensions only; it cannot verify the database server version.
 
+## Minimal consumer application
+
+[`examples/minimal-app`](examples/minimal-app) is a retained Laravel 13
+application that installs GateTrail through Composer package discovery and uses
+only the documented public API. Its automated SQLite vertical slice creates
+definitions, grants and assigns access, authorizes a real route, revokes the
+assignment, verifies denial, preserves history and inspects the resulting
+actor/reason audit records.
+
+```bash
+cd examples/minimal-app
+composer install
+composer test
+```
+
+This is executable consumer evidence and a learning aid, not a production
+starter kit or an expansion of the production database compatibility matrix.
+
 ## Declaring a subject
 
 A GateTrail subject is a persisted Eloquent model that declares a guard:

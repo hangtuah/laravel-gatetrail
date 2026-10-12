@@ -6,6 +6,11 @@ All notable changes to GateTrail will be documented in this file.
 
 ### Added
 
+- A retained Laravel 13 application under `examples/minimal-app`. Its isolated
+  Composer lock and CI job prove that a fresh consumer can discover GateTrail,
+  migrate SQLite, create and connect definitions, assign access, authorize
+  through Gate and route middleware, revoke access, retain assignment history
+  and inspect actor/reason audit records using only the documented public API.
 - A read-only `gatetrail:matrix` command with human and stable `--json`
   output. It reports the current PHP, Laravel and package versions, configured
   database driver readiness, required PHP extensions and the exact evidence
