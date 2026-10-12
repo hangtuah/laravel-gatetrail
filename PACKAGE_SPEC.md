@@ -2313,7 +2313,7 @@ audit history. MySQL, Oracle and PostgreSQL use their strict physical-schema
 inspectors. SQLite and SQL Server run the data checks but report physical-schema
 coverage as incomplete.
 
-The other four commands remain planned and unavailable.
+The other three commands remain planned and unavailable.
 
 Mutation commands require an explicit actor or system context and a reason when
 the equivalent service operation requires one.
@@ -2321,6 +2321,14 @@ the equivalent service operation requires one.
 `gatetrail:doctor` validates the assignment coordination table and reports
 missing or malformed coordination rows and overlapping equivalent assignments
 without modifying them.
+
+`gatetrail:matrix` is implemented as a read-only compatibility report with
+human-readable and stable `--json` output. It reports the running PHP, Laravel
+and GateTrail versions, the configured Laravel database driver, required local
+PHP extensions, declared database targets and the exact evidence level held by
+the project. It opens no database connection, executes no SQL and does not
+claim to verify a database server version. PostgreSQL and SQL Server remain
+labelled as schema-only evidence rather than verified application runtimes.
 
 Its read-only data checks include:
 

@@ -21,7 +21,7 @@ What that does and does not mean:
 | Will it change silently? | No |
 | What ships with a deliberate breaking change? | An ADR, a `CHANGELOG.md` entry, and migration guidance when consumer code or configuration must change |
 | What happens to accidental drift? | It is a defect. `PublicApiSurfaceTest` rejects it in CI |
-| What may change in any release, including a patch? | Anything marked `@internal` — currently 183 of the package's 251 classes |
+| What may change in any release, including a patch? | Anything marked `@internal` — currently 184 of the package's 252 classes |
 
 The boundary itself is decided in
 [ADR 0014](decisions/0014-pre-v1-public-api-boundary.md), which classifies
@@ -1151,13 +1151,13 @@ stability clock rather than Tier 1's.
 
 ## 19. Public versus internal API
 
-The package contains 251 classes. **183 of them carry a class-level
+The package contains 252 classes. **184 of them carry a class-level
 `@internal` annotation and are not consumer API**, whatever PHP visibility or
 the container allows.
 
 | Reachable how? | Supported? |
 |---|---|
-| PSR-4 can autoload it | No — true of all 251 |
+| PSR-4 can autoload it | No — true of all 252 |
 | The container can build it | No — 73 of the 80 bindings target internal classes |
 | Listed in `docs/PUBLIC_API.md` | **Yes** — this is the only level that carries a promise |
 
@@ -1230,6 +1230,23 @@ expired and normally revoked rows are valid lifecycle states. Even a complete
 result cannot prove the absence of direct database writes or missing audit
 history.
 
+`gatetrail:matrix` reports the compatibility declaration and evidence boundary
+without opening a database connection:
+
+```bash
+php artisan gatetrail:matrix
+php artisan gatetrail:matrix --json
+```
+
+It reports the running PHP, Laravel and package versions, the configured
+Laravel database driver, the PHP extensions that driver requires, and the
+recorded evidence for all five database engines. A successful result means the
+local PHP/Laravel versions and configured driver prerequisites fit the declared
+matrix. It does **not** prove that the configured server is reachable or that
+its version, schema or data is compatible; use `gatetrail:doctor` for the
+implemented read-only schema and data checks. PostgreSQL and SQL Server remain
+explicitly labelled as unverified application runtimes.
+
 ## 21. Current limitations and unimplemented features
 
 Everything in this list is designed, planned or deferred. Do not build against
@@ -1240,7 +1257,7 @@ specification section describes it.
 |---|---|
 | GateTrail-supplied resource policies | Applications continue to own resource and state rules |
 | Custom GateTrail Blade directives | Not planned; native `@can` / `@cannot` use the implemented Gate integration |
-| Other console commands, including `gatetrail:matrix` and `gatetrail:cache-clear` | Planned across pre-`1.0.0` releases. `gatetrail:install` and `gatetrail:doctor` are currently available |
+| Other console commands, including `gatetrail:cache-clear` | Planned across pre-`1.0.0` releases. `gatetrail:install`, `gatetrail:doctor` and `gatetrail:matrix` are currently available |
 | `UnauthorizedMutation` | Named in the specification for later Laravel-integration work; the class does not exist |
 | Cross-request cache and cross-request invalidation APIs | Deferred to Phase 8 by ADR 0013. The post-commit ordering slot is reserved and empty; there is no cache store, TTL, binding or configuration key |
 | Administration UI | Out of scope for `1.0.0` |

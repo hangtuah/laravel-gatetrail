@@ -6,6 +6,12 @@ All notable changes to GateTrail will be documented in this file.
 
 ### Added
 
+- A read-only `gatetrail:matrix` command with human and stable `--json`
+  output. It reports the current PHP, Laravel and package versions, configured
+  database driver readiness, required PHP extensions and the exact evidence
+  level recorded for SQLite, MySQL, Oracle, PostgreSQL and SQL Server without
+  connecting to a database. Schema-only PostgreSQL and SQL Server evidence is
+  never presented as verified application-runtime support.
 - The read-only `gatetrail:doctor` command with human and stable `--json`
   output. Immutable findings and reports pin stable
   severity, privacy-safe references, deterministic output ordering, coverage

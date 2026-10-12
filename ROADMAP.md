@@ -110,7 +110,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 7 | Audit trail | 9 of 9, 100% | Complete |
 | 8 | Cache and performance | 1 of 1 applicable, 100% | Complete |
 | 9 | Security hardening | 10 of 10, 100% | Complete |
-| 10 | Developer experience and documentation | 11 of 13, approximately 85% | In progress |
+| 10 | Developer experience and documentation | 12 of 13, approximately 92% | In progress |
 | 11 | Internal pilot | 0% | Not started |
 | 12 | Existing-application integration | 0% | Not started |
 | 13 | Stable release | 0% | Not started |
@@ -1978,7 +1978,7 @@ understandable without reading package internals.
 - [x] Upgrade and migration guides.
 - [x] `gatetrail:install`.
 - [x] `gatetrail:doctor`.
-- [ ] `gatetrail:matrix`.
+- [x] `gatetrail:matrix`.
 - [ ] Minimal example application.
 
 ### Exit criteria
@@ -1992,17 +1992,18 @@ Readiness evidence is recorded in
 covers installation through first use, upgrades in both provisioning modes and
 the implemented public surface. `gatetrail:install` now safely publishes config
 and provisions only package-managed schemas. `gatetrail:doctor` now exposes
-read-only schema and data diagnostics with human and JSON output. The remaining
-work is the compatibility-matrix command and a retained minimal consumer
-application.
+read-only schema and data diagnostics with human and JSON output.
+`gatetrail:matrix` now reports local runtime and configured-driver readiness
+alongside the exact recorded evidence boundary without connecting to a
+database. The remaining work is a retained minimal consumer application.
 
 ```text
-Applicable deliverables completed: 11
+Applicable deliverables completed: 12
 Applicable deliverables total:     13
-Progress:                           84.62%, reported as approximately 85%
+Progress:                           92.31%, reported as approximately 92%
 ```
 
-With Phase 10 at approximately 85%, overall equal-phase progress is
+With Phase 10 at approximately 92%, overall equal-phase progress remains
 **approximately 77%**.
 
 Status: **In progress**

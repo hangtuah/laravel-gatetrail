@@ -147,6 +147,22 @@ for those drivers.
 A clean result is only a best-effort consistency result. It cannot prove that
 no direct database write occurred or that no audit history is missing.
 
+## Compatibility matrix
+
+Inspect the current PHP, Laravel and configured database-driver readiness
+alongside GateTrail's declared targets and recorded project evidence:
+
+```bash
+php artisan gatetrail:matrix
+php artisan gatetrail:matrix --json
+```
+
+The command is read-only and makes no database connection. It distinguishes
+live behavioural evidence from test-only or schema-only evidence, so
+PostgreSQL and SQL Server are not presented as verified application runtimes.
+Its configured-database readiness check covers the Laravel driver and required
+local PHP extensions only; it cannot verify the database server version.
+
 ## Declaring a subject
 
 A GateTrail subject is a persisted Eloquent model that declares a guard:
@@ -296,8 +312,8 @@ $user->roles();
 Depend on the contracts, value types, events and exceptions listed in
 [`docs/PUBLIC_API.md`](docs/PUBLIC_API.md), and nothing else.
 
-> **A class marked `@internal` is not consumer API.** PSR-4 makes all 251
-> package classes loadable and the container can build most of them, but 183 of
+> **A class marked `@internal` is not consumer API.** PSR-4 makes all 252
+> package classes loadable and the container can build most of them, but 184 of
 > them carry a class-level `@internal` annotation and may be renamed, recomposed
 > or deleted in any release, including a patch. That includes the `Default*`
 > manager and resolver implementations behind the contracts — inject
@@ -310,8 +326,7 @@ against them:
 
 - GateTrail-supplied resource policies;
 - custom GateTrail Blade directives—use Laravel's native `@can` / `@cannot`;
-- other planned GateTrail console commands, including `gatetrail:matrix` and
-  `gatetrail:cache-clear`;
+- other planned GateTrail console commands, including `gatetrail:cache-clear`;
 - the `UnauthorizedMutation` exception type;
 - cross-request cache and cross-request invalidation APIs;
 - an administration UI;
