@@ -49,7 +49,7 @@ Phase 7 — Complete
 Phase 8 — Complete
 Phase 9 — Complete
 Phase 10 — Complete
-Phase 11 — In progress
+Phase 11 — Complete
 Phase 12 onward — Not started
 ```
 
@@ -63,8 +63,8 @@ example, ADR 0004 does not mean the project has reached Phase 4.
 
 | Measurement | Current value | Interpretation |
 |---|---:|---|
-| Overall roadmap by primary phases | approximately 82% | Equal-phase progress across Phases 0–13 |
-| Deliverable tracker | 23 of 32, approximately 72% | Completed concrete package deliverables |
+| Overall roadmap by primary phases | approximately 85% | Equal-phase progress across Phases 0–13 |
+| Deliverable tracker | 24 of 32, 75% | Completed concrete package deliverables |
 | Planning and specification | 100% | Specification baseline is accepted for implementation |
 | First sprint | 10 of 10, 100% | Repository-and-specification sprint tasks |
 
@@ -112,7 +112,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 8 | Cache and performance | 1 of 1 applicable, 100% | Complete |
 | 9 | Security hardening | 10 of 10, 100% | Complete |
 | 10 | Developer experience and documentation | 13 of 13, 100% | Complete |
-| 11 | Internal pilot | 4 of 7, approximately 57% | In progress |
+| 11 | Internal pilot | 7 of 7, 100% | Complete |
 | 12 | Existing-application integration | 0% | Not started |
 | 13 | Stable release | 0% | Not started |
 | 14 | Post-v1 optional features | — | Optional |
@@ -2035,9 +2035,9 @@ release claim.
 - [x] Private Composer installation path.
 - [x] Pilot test plan.
 - [x] Pilot defect log.
-- [ ] Performance observations.
-- [ ] Developer feedback.
-- [ ] Pilot retrospective.
+- [x] Performance observations.
+- [x] Developer feedback.
+- [x] Pilot retrospective.
 
 ### Exit criteria
 
@@ -2054,17 +2054,22 @@ Current evidence:
   and its entry, pass and exit criteria;
 - `docs/pilot/DEFECT_LOG.md` defines finding severity, release-blocker rules,
   status vocabulary and the evidence-safe entry format.
+- `docs/pilot/CONSUMER_SANDBOX_REPORT.md` records the independent Laravel 13
+  consumer environment, the guided `DENY → ALLOW → DENY` lifecycle, the
+  3/0/2 select observations, developer feedback and the accepted retrospective;
+- the consumer's final suite passes 12 tests and 87 assertions without copying
+  or invoking an internal GateTrail class;
+- both recorded pilot findings are verified and no S1 or S2 finding is open.
 
 ```text
-Applicable deliverables completed: 4
+Applicable deliverables completed: 7
 Applicable deliverables total:     7
-Progress:                           approximately 57%
+Progress:                           100%
 ```
 
-With Phase 11 at approximately 57%, overall equal-phase progress is
-**approximately 82%**.
+With Phase 11 complete, overall equal-phase progress is **approximately 85%**.
 
-Status: **In progress**
+Status: **Complete**
 
 ## 19. Phase 12 — Existing-application integration
 
@@ -2287,20 +2292,20 @@ Progress: **3 of 6**
 - [x] Complete README
 - [x] Full user documentation
 - [x] Artisan diagnostics
-- [ ] Internal pilot
-- [ ] Pilot retrospective
+- [x] Internal pilot
+- [x] Pilot retrospective
 - [ ] Existing-application parity study
 - [x] Security review
 - [ ] `v1.0.0`
 
-Progress: **3 of 8**
+Progress: **5 of 8**
 
 ### Total
 
 ```text
-Completed: 22
+Completed: 24
 Total:     32
-Progress:  71.875%, reported as approximately 72%
+Progress:  75%
 ```
 
 ## 25. Progress update rules

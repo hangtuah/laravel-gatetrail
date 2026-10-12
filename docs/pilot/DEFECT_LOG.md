@@ -95,6 +95,10 @@ Disposition and maintainer rationale:
 
 ## Summary
 
+The accepted fresh-consumer guided lifecycle and observation suite introduced
+no new finding. Its evidence is recorded in
+`docs/pilot/CONSUMER_SANDBOX_REPORT.md`.
+
 | State | Count |
 |---|---:|
 | Open release blockers (S1/S2) | 0 |

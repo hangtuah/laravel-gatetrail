@@ -161,3 +161,15 @@ The pilot may be accepted only when:
 - performance observations and developer feedback are attached;
 - the retrospective identifies whether the package may proceed, needs another
   alpha, or must stop.
+
+## Recorded result
+
+The fresh-consumer pilot was accepted on 2026-10-12. P-01 through P-09 have a
+recorded result in `docs/pilot/CONSUMER_SANDBOX_REPORT.md`; P-07 is explicitly
+not applicable to this independent sandbox and remains Phase 12 work. The
+guided browser cycle and consumer tests found no new defect, both earlier pilot
+findings are verified, and no S1 or S2 finding is open.
+
+The retrospective decision is to proceed to release review and publication
+planning without claiming existing-application parity or stable-release
+readiness.
