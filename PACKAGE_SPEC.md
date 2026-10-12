@@ -2299,6 +2299,15 @@ gatetrail:doctor
 gatetrail:cache-clear
 ```
 
+`gatetrail:install` is implemented. It publishes the package configuration
+without overwriting an existing file. In package-managed mode it runs only the
+GateTrail migration path; `--no-migrate` suppresses that step and `--force`
+permits it in production. In DBA-managed mode it never runs DDL and instead
+directs the operator to the versioned database artifacts. The command is a
+fresh-install helper and must not infer or execute a release-to-release upgrade.
+
+The other five commands remain planned and unavailable.
+
 Mutation commands require an explicit actor or system context and a reason when
 the equivalent service operation requires one.
 
@@ -2625,7 +2634,7 @@ No performance claim may be published without a reproducible benchmark.
 
 The accepted and frozen pre-v1 boundary in
 [ADR 0014](docs/decisions/0014-pre-v1-public-api-boundary.md) was established
-from its 218-symbol evidence base. The current 243 source symbols classify as:
+from its 218-symbol evidence base. The current 244 source symbols classify as:
 
 - Tier 1 contains 46 supported public symbols that consumers call, receive,
   catch or listen to;
@@ -2635,7 +2644,7 @@ from its 218-symbol evidence base. The current 243 source symbols classify as:
   than class APIs, are the supported surface;
 - the operational tier contains the 5 exception types in section 15.2, while
   its primary promises remain artifacts and provisioning behavior; and
-- Tier 4 contains 175 implementation symbols with no compatibility promise,
+- Tier 4 contains 176 implementation symbols with no compatibility promise,
   all marked with class-level `@internal` annotations.
 
 The exact current Tier 1 and Tier 2 names, signatures and readable surface are

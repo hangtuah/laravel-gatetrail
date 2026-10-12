@@ -34,6 +34,7 @@ use HangTuah\GateTrail\Concurrency\CoordinationRaceClassifier;
 use HangTuah\GateTrail\Concurrency\RetryOrchestrator;
 use HangTuah\GateTrail\Concurrency\RetryPolicy;
 use HangTuah\GateTrail\Concurrency\TransientFailureClassifier;
+use HangTuah\GateTrail\Console\InstallCommand;
 use HangTuah\GateTrail\Contracts\AssignmentManager;
 use HangTuah\GateTrail\Contracts\PermissionManager;
 use HangTuah\GateTrail\Contracts\PermissionResolver;
@@ -357,6 +358,10 @@ final class GateTrailServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__.'/../config/gatetrail.php' => config_path('gatetrail.php'),
         ], 'gatetrail-config');
+
+        $this->commands([
+            InstallCommand::class,
+        ]);
 
         if (config('gatetrail.database.provisioning') !== 'package') {
             return;

@@ -556,7 +556,19 @@ These six Tier 1 validation sites deliberately raise PHP's
 This throw behavior is compatibility surface even though
 <code>InvalidArgumentException</code> is not a GateTrail symbol.
 
-## 11. Excluded and unavailable surface
+## 11. Operational command surface
+
+`php artisan gatetrail:install` is the only available GateTrail console command.
+It publishes configuration without overwriting an existing file and runs only
+GateTrail migrations in package-managed mode. `--no-migrate` suppresses schema
+changes, while `--force` permits the migration step in production. DBA-managed
+mode never runs package migrations.
+
+The command name, its two options and those safety rules are operational
+surface. The PHP command class is marked <code>@internal</code>; consumers must
+invoke the Artisan name rather than resolve, extend or instantiate that class.
+
+## 12. Excluded and unavailable surface
 
 The following are not currently available consumer APIs:
 
@@ -565,13 +577,13 @@ The following are not currently available consumer APIs:
 - default manager and resolver concrete classes—depend on their contracts;
 - <code>UnauthorizedMutation</code>;
 - GateTrail-supplied policies and custom Blade directives;
-- all proposed GateTrail console commands;
+- the remaining proposed GateTrail console commands;
 - cross-request cache and invalidation APIs.
 
 Future phases may add these deliberately, but must classify the resulting
 consumer-facing symbols before claiming completion.
 
-## 12. Related decisions
+## 13. Related decisions
 
 - [ADR 0002](decisions/0002-public-mutation-api.md) — simple manager API over
   internal commands.

@@ -12,6 +12,8 @@ the exact migration and DBA artifacts to use.
 For a new installation, follow the
 [consumer guide](CONSUMER_GUIDE.md) and the engine-specific DBA guide instead.
 Do not apply `0001/install.sql` over an existing GateTrail schema.
+`gatetrail:install` is also a fresh-install helper: it does not discover,
+generate or execute a release-to-release upgrade path.
 
 ## 1. Compatibility policy before 1.0
 

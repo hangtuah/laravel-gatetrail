@@ -2,7 +2,7 @@
 
 - Review date: 2026-10-12
 - Scope: accepted consumer-facing documentation baseline
-- Result: nine of thirteen Phase 10 deliverables accepted
+- Result: ten of thirteen Phase 10 deliverables accepted
 
 ## Accepted deliverables
 
@@ -17,12 +17,12 @@
 | DBA-managed guides for every Tier 1 database | `database/ddl/{mysql,oracle,postgresql,sqlserver}/README.md` | Every Tier 1 engine has release-0001 installation, verification and rollback guidance beside reproducible artifacts |
 | SQL Server setup guide | `database/ddl/sqlserver/README.md` | Records supported artifact shape, schema/prefix generation, execution, verification, rollback and current evidence boundary |
 | Upgrade and migration guides | `docs/UPGRADING.md` | Separates first install from upgrade, covers both provisioning modes, configuration reconciliation, rollback boundaries and future schema-release evidence |
+| `gatetrail:install` | `src/Console/InstallCommand.php` and `tests/Console/InstallCommandTest.php` | Publishes config without overwrite, migrates only the package path, supports no-migration setup, fails on invalid schema config and never runs DDL in DBA mode |
 
 ## Open deliverables
 
 | Deliverable | Gap that remains |
 |---|---|
-| `gatetrail:install` | Designed but not implemented |
 | `gatetrail:doctor` | Designed but not implemented |
 | `gatetrail:matrix` | Designed but not implemented |
 | Minimal example application | Examples exist in documentation and tests, but no fresh consumer application has been retained as a reproducible example |
@@ -33,5 +33,5 @@ This review accepts documentation that describes the implemented package; it
 does not treat a proposed command as available, convert schema-only database
 evidence into runtime support, or claim that the internal pilot has begun.
 
-The next fast-track increment should implement `gatetrail:install` without
-automating destructive upgrades or bypassing the provisioning-mode boundary.
+The next fast-track increment should implement the read-only
+`gatetrail:doctor` diagnostics without adding repair behavior.

@@ -110,7 +110,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 7 | Audit trail | 9 of 9, 100% | Complete |
 | 8 | Cache and performance | 1 of 1 applicable, 100% | Complete |
 | 9 | Security hardening | 10 of 10, 100% | Complete |
-| 10 | Developer experience and documentation | 9 of 13, approximately 69% | In progress |
+| 10 | Developer experience and documentation | 10 of 13, approximately 77% | In progress |
 | 11 | Internal pilot | 0% | Not started |
 | 12 | Existing-application integration | 0% | Not started |
 | 13 | Stable release | 0% | Not started |
@@ -1976,7 +1976,7 @@ understandable without reading package internals.
 - [x] DBA-managed installation guides for every Tier 1 database.
 - [x] SQL Server setup guide.
 - [x] Upgrade and migration guides.
-- [ ] `gatetrail:install`.
+- [x] `gatetrail:install`.
 - [ ] `gatetrail:doctor`.
 - [ ] `gatetrail:matrix`.
 - [ ] Minimal example application.
@@ -1990,16 +1990,17 @@ the resulting audit records.
 Readiness evidence is recorded in
 `docs/reviews/0004-phase-10-documentation-readiness.md`. The accepted baseline
 covers installation through first use, upgrades in both provisioning modes and
-the implemented public surface. The remaining work is three operational
-commands and a retained minimal consumer application.
+the implemented public surface. `gatetrail:install` now safely publishes config
+and provisions only package-managed schemas. The remaining work is two
+diagnostic commands and a retained minimal consumer application.
 
 ```text
-Applicable deliverables completed: 9
+Applicable deliverables completed: 10
 Applicable deliverables total:     13
-Progress:                           69.23%, reported as approximately 69%
+Progress:                           76.92%, reported as approximately 77%
 ```
 
-With Phase 10 at approximately 69%, overall equal-phase progress is
+With Phase 10 at approximately 77%, overall equal-phase progress remains
 **approximately 76%**.
 
 Status: **In progress**

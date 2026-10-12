@@ -50,16 +50,29 @@ run there either. PostgreSQL and SQL Server are **not** verified runtimes yet.
 
 ```bash
 composer require hangtuah/laravel-gatetrail
+php artisan gatetrail:install
 ```
 
 `composer.json` declares `extra.laravel.providers`, so Laravel package
 auto-discovery registers `GateTrailServiceProvider` automatically. No manual
 provider or alias registration is needed.
 
+The install command publishes `config/gatetrail.php` if it does not already
+exist and, in the default package-managed mode, runs only GateTrail's seven
+migrations. It never overwrites an existing config file. Use `--force` to
+permit migrations in production, or `--no-migrate` to publish config without
+changing the database.
+
+For DBA-managed provisioning, run `gatetrail:install --no-migrate`, set
+`database.provisioning` to `dba`, and have the database owner apply the matching
+versioned artifact. Running the command after `dba` is configured never runs
+package migrations.
+
 ## Configuration
 
-Publishing the configuration file is optional; the package merges its own
-defaults. Publish it to change table names, models, guards, auditing or
+Publishing the configuration manually is optional; the package merges its own
+defaults, and `gatetrail:install` already publishes it safely. Without that
+command, publish it to change table names, models, guards, auditing or
 provisioning:
 
 ```bash
@@ -262,8 +275,8 @@ $user->roles();
 Depend on the contracts, value types, events and exceptions listed in
 [`docs/PUBLIC_API.md`](docs/PUBLIC_API.md), and nothing else.
 
-> **A class marked `@internal` is not consumer API.** PSR-4 makes all 243
-> package classes loadable and the container can build most of them, but 175 of
+> **A class marked `@internal` is not consumer API.** PSR-4 makes all 244
+> package classes loadable and the container can build most of them, but 176 of
 > them carry a class-level `@internal` annotation and may be renamed, recomposed
 > or deleted in any release, including a patch. That includes the `Default*`
 > manager and resolver implementations behind the contracts — inject
@@ -276,7 +289,7 @@ against them:
 
 - GateTrail-supplied resource policies;
 - custom GateTrail Blade directives—use Laravel's native `@can` / `@cannot`;
-- GateTrail console commands, including `gatetrail:doctor` and
+- other planned GateTrail console commands, including `gatetrail:doctor` and
   `gatetrail:cache-clear`;
 - the `UnauthorizedMutation` exception type;
 - cross-request cache and cross-request invalidation APIs;

@@ -6,6 +6,10 @@ All notable changes to GateTrail will be documented in this file.
 
 ### Added
 
+- A safe `gatetrail:install` command. It publishes configuration without
+  overwriting an existing file, runs only GateTrail migrations in
+  package-managed mode, supports a no-migration setup path, preserves Laravel's
+  production confirmation boundary, and never runs DDL in DBA-managed mode.
 - A pre-v1 upgrade and migration guide covering package-managed and DBA-managed
   deployments, published-config reconciliation, Oracle generated-key strategy,
   rollback boundaries, post-upgrade verification and the evidence required of

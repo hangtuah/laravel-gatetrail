@@ -21,7 +21,7 @@ What that does and does not mean:
 | Will it change silently? | No |
 | What ships with a deliberate breaking change? | An ADR, a `CHANGELOG.md` entry, and migration guidance when consumer code or configuration must change |
 | What happens to accidental drift? | It is a defect. `PublicApiSurfaceTest` rejects it in CI |
-| What may change in any release, including a patch? | Anything marked `@internal` — currently 175 of the package's 243 classes |
+| What may change in any release, including a patch? | Anything marked `@internal` — currently 176 of the package's 244 classes |
 
 The boundary itself is decided in
 [ADR 0014](decisions/0014-pre-v1-public-api-boundary.md), which classifies
@@ -60,6 +60,7 @@ Server as unverified runtimes until a live behavioural suite exists for them.
 
 ```bash
 composer require hangtuah/laravel-gatetrail
+php artisan gatetrail:install
 ```
 
 `composer.json` declares:
@@ -78,11 +79,27 @@ Laravel package auto-discovery therefore registers the provider for you. Do not
 add it to `config/app.php`, and do not register an alias — GateTrail publishes
 no facade.
 
+In the default package-managed mode, `gatetrail:install` publishes the config
+file if absent and runs only GateTrail's seven migrations. It never overwrites
+an existing config file. Its supported options are:
+
+| Option | Effect |
+|---|---|
+| `--no-migrate` | Publish configuration but make no schema change |
+| `--force` | Permit the package migrations to run when Laravel is in production |
+
+For DBA-managed provisioning, begin with
+`php artisan gatetrail:install --no-migrate`, change the published provisioning
+mode to `dba`, then follow section 4.2. Once `dba` is active, the command always
+leaves DDL to the database owner even when `--force` is supplied.
+
 ## 3. Configuration publishing
 
-Publishing is optional. The provider calls `mergeConfigFrom()`, so every
-default in the packaged `config/gatetrail.php` is active without publishing
-anything.
+Publishing is optional when the install command is not used. The provider
+calls `mergeConfigFrom()`, so every default in the packaged
+`config/gatetrail.php` is active without publishing anything. The install
+command publishes through the same `gatetrail-config` tag and does not
+overwrite an existing file.
 
 Publish when you need to change table names, models, guards, auditing,
 provisioning or Oracle object names:
@@ -1193,7 +1210,7 @@ specification section describes it.
 |---|---|
 | GateTrail-supplied resource policies | Applications continue to own resource and state rules |
 | Custom GateTrail Blade directives | Not planned; native `@can` / `@cannot` use the implemented Gate integration |
-| Console commands, including `gatetrail:doctor` and `gatetrail:cache-clear` | Planned across pre-`1.0.0` releases; not started. **Zero command classes exist** |
+| Other console commands, including `gatetrail:doctor`, `gatetrail:matrix` and `gatetrail:cache-clear` | Planned across pre-`1.0.0` releases; not started. `gatetrail:install` is the only command currently available |
 | `UnauthorizedMutation` | Named in the specification for later Laravel-integration work; the class does not exist |
 | Cross-request cache and cross-request invalidation APIs | Deferred to Phase 8 by ADR 0013. The post-commit ordering slot is reserved and empty; there is no cache store, TTL, binding or configuration key |
 | Administration UI | Out of scope for `1.0.0` |
