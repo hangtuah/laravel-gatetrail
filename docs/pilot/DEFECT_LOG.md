@@ -30,7 +30,7 @@ rationale and a documentation reference.
 
 | ID | Date | Severity | Environment | Area | Summary | Workaround | Owner | Status | Evidence / disposition |
 |---|---|---|---|---|---|---|---|---|---|
-| GT-PILOT-001 | 2026-10-12 | S3 | Existing Laravel 12 application / Oracle DBA provisioning | Installation | No public consumer command generates reviewed DBA artifacts from configured custom table/object names | None after `v0.1.0-alpha.2` | Maintainer | Verified | PayHub installed `v0.1.0-alpha.2` and generated the exact Oracle install/rollback pair for all seven configured `gt_*` tables, six sequences and six triggers without a database connection; every `gt_*` identifier is at most 30 characters and no canonical `acl_*` object is created |
+| GT-PILOT-001 | 2026-10-12 | S3 | Existing Laravel 12 application / Oracle DBA provisioning | Installation | No public consumer command generates reviewed DBA artifacts from configured custom table/object names | None after `v0.1.0-alpha.2` | Maintainer | Verified | PayHub installed `v0.1.0-alpha.2`, generated its exact custom pair without a database connection, and completed an install/catalog/trigger/rollback cycle on disposable Oracle Free 23.26.3; rollback left zero `GT_*` objects |
 
 ## GT-PILOT-001 — Custom DBA artifact generation workflow
 
@@ -59,6 +59,13 @@ all six configured sequences and all six configured triggers. Every generated
 `gt_*` identifier is within the 30-character Oracle limit, rollback covers the
 same objects, and no canonical `acl_*` object appears in a `CREATE` statement.
 No database connection was opened during generation.
+
+The exact generated pair then completed a live cycle against a fresh disposable
+Oracle Free 23.26.3 schema. Installation created seven tables, six sequences and
+six enabled triggers; all 68 constraints were enabled and validated; no object
+was invalid; and an insert verified sequence-trigger key generation. Rollback
+completed successfully and left zero `GT_*` objects. The disposable container
+was removed after verification.
 
 ## Entry template
 
