@@ -1,6 +1,6 @@
 # Internal pilot defect log
 
-Pilot version: `v0.1.0-alpha.1`
+Pilot version: `v0.1.0-alpha.2`
 
 Status: **Open for pilot entries**
 
@@ -30,7 +30,7 @@ rationale and a documentation reference.
 
 | ID | Date | Severity | Environment | Area | Summary | Workaround | Owner | Status | Evidence / disposition |
 |---|---|---|---|---|---|---|---|---|---|
-| GT-PILOT-001 | 2026-10-12 | S3 | Existing Laravel 12 application / Oracle DBA provisioning | Installation | No public consumer command generates reviewed DBA artifacts from configured custom table/object names | Keep activation disabled until consumer verification | Maintainer | Fixed awaiting verification | `gatetrail:ddl` implementation and package tests generate both artifacts from resolved custom configuration without SQL |
+| GT-PILOT-001 | 2026-10-12 | S3 | Existing Laravel 12 application / Oracle DBA provisioning | Installation | No public consumer command generates reviewed DBA artifacts from configured custom table/object names | None after `v0.1.0-alpha.2` | Maintainer | Verified | PayHub installed `v0.1.0-alpha.2` and generated the exact Oracle install/rollback pair for all seven configured `gt_*` tables, six sequences and six triggers without a database connection; every `gt_*` identifier is at most 30 characters and no canonical `acl_*` object is created |
 
 ## GT-PILOT-001 — Custom DBA artifact generation workflow
 
@@ -50,9 +50,15 @@ choice violates the pilot rules.
 
 Correction: `gatetrail:ddl` now consumes the application's resolved GateTrail
 configuration and writes both artifacts to an explicit output directory without
-connecting to or mutating a database. The finding remains open until a tagged
-alpha is installed by the pilot application and its exact custom Oracle pair is
-verified.
+connecting to or mutating a database.
+
+Verification: the pilot application installed `v0.1.0-alpha.2` and invoked the
+command through its disabled-by-default console provisioning switch. The
+resulting Oracle release 0001 pair contains all seven configured `gt_*` tables,
+all six configured sequences and all six configured triggers. Every generated
+`gt_*` identifier is within the 30-character Oracle limit, rollback covers the
+same objects, and no canonical `acl_*` object appears in a `CREATE` statement.
+No database connection was opened during generation.
 
 ## Entry template
 
@@ -84,5 +90,5 @@ Disposition and maintainer rationale:
 | State | Count |
 |---|---:|
 | Open release blockers (S1/S2) | 0 |
-| Other open findings | 1 |
-| Closed findings | 0 |
+| Other open findings | 0 |
+| Closed findings | 1 |
