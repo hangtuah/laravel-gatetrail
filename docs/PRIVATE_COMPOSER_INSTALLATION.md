@@ -1,8 +1,10 @@
-# Private Composer installation
+# Private VCS installation
 
-GateTrail `v0.1.0-alpha.2` is an internal pre-release hosted in a private Git
-repository. It is not published to Packagist. Consumer environments therefore
-need read access to the repository before Composer can install it.
+The public alpha is normally installed from Packagist. This guide is the
+alternative for an organization that mirrors GateTrail in a private Git
+repository or must install directly from a private fork. Those consumer
+environments need read access to that repository before Composer can install
+the package.
 
 ## Repository access
 
@@ -27,7 +29,7 @@ Run this in the consumer application:
 ```bash
 composer config repositories.gatetrail vcs \
     git@github.com:hangtuah/laravel-gatetrail.git
-composer require hangtuah/laravel-gatetrail:0.1.0-alpha.2 --prefer-source
+composer require hangtuah/laravel-gatetrail:0.1.0-alpha.3 --prefer-source
 ```
 
 Commit both `composer.json` and `composer.lock`. The exact alpha version is
@@ -90,7 +92,7 @@ been reviewed.
 Update only after choosing and reviewing a newer pre-release explicitly:
 
 ```bash
-composer require hangtuah/laravel-gatetrail:0.1.0-alpha.2 \
+composer require hangtuah/laravel-gatetrail:0.1.0-alpha.3 \
     --prefer-source --with-all-dependencies
 ```
 

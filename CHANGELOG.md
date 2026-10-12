@@ -4,6 +4,8 @@ All notable changes to GateTrail will be documented in this file.
 
 ## Unreleased
 
+## [0.1.0-alpha.3] - 2026-10-12
+
 ### Added
 
 - A retained Laravel 13 application under `examples/minimal-app`. Its isolated
@@ -39,7 +41,7 @@ All notable changes to GateTrail will be documented in this file.
 - An exhaustive consumer configuration reference covering every supported key,
   default, accepted value, validation boundary, failure mode and deployment
   consideration.
-- A documented security baseline for the internal alpha: a maintained threat
+- A documented security baseline for the alpha: a maintained threat
   model, private vulnerability-reporting policy, explicit consumer-side
   mutation authorization guidance, SQL-binding regression coverage and a CI
   dependency-advisory gate. Existing default-deny, guard isolation,
@@ -49,7 +51,7 @@ All notable changes to GateTrail will be documented in this file.
   cache-decision thresholds. The accepted MySQL 8.0.45 run passed at 6.069 ms
   cold p95 and 0.009 ms warm p95 for the representative workload, with three
   cold selects and zero warm statements. Cross-request caching is therefore
-  not required for the internal alpha; request-local memoization remains the
+  not required for the alpha; request-local memoization remains the
   only cache-like behavior.
 - Central Laravel authorization integration for argument-free GateTrail
   permission abilities, including `$user->can()`, `Gate::forUser()`,
@@ -189,7 +191,7 @@ All notable changes to GateTrail will be documented in this file.
   event and exception fields, the supported clock seam, and standard argument
   validation behavior. Automated tests require its 52-symbol manifest to match
   the reflected source boundary.
-- `README.md` now introduces the package, its pre-alpha and pre-v1 status,
+- `README.md` now introduces the package, its public-alpha and pre-v1 status,
   the supported runtimes and database evidence, installation and
   auto-discovery, the `gatetrail-config` publish tag, both provisioning modes,
   a first mutation, a first effective-permission check, and the warning that

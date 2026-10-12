@@ -10,8 +10,9 @@ verified against source by an automated reflection test.
 
 ## 1. Package status and compatibility promise
 
-GateTrail is **pre-alpha and pre-`1.0.0`**, and its documented **pre-v1 public
-API is frozen**. No release has been tagged.
+GateTrail is a **public alpha and pre-`1.0.0`**, and its documented **pre-v1 public
+API is frozen**. `v0.1.0-alpha.3` is intended for evaluation and controlled
+non-production use, not as a stable release.
 
 What that does and does not mean:
 
@@ -59,7 +60,7 @@ Server as unverified runtimes until a live behavioural suite exists for them.
 ## 2. Installation
 
 ```bash
-composer require hangtuah/laravel-gatetrail
+composer require hangtuah/laravel-gatetrail:0.1.0-alpha.3
 php artisan gatetrail:install
 ```
 

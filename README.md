@@ -9,11 +9,11 @@ an actor and a reason, rather than through direct relationship writes.
 
 ## Status
 
-**Internal alpha, pre-`1.0.0`. The documented pre-v1 public API is frozen.**
+**Public alpha, pre-`1.0.0`. The documented pre-v1 public API is frozen.**
 
-`v0.1.0-alpha.2` is tagged for a controlled private pilot. It is not a stable
-release or a public compatibility claim. Stable-release validation remains in
-progress.
+`v0.1.0-alpha.3` is the first public alpha. It is intended for evaluation and
+controlled non-production use; it is not a stable release. Stable-release
+validation remains in progress.
 
 The supported surface is defined by
 [ADR 0014](docs/decisions/0014-pre-v1-public-api-boundary.md) and listed in
@@ -48,18 +48,17 @@ run there either. PostgreSQL and SQL Server are **not** verified runtimes yet.
 
 ## Installation
 
-The internal alpha is hosted in a private Git repository and is not published
-to Packagist. Register the VCS repository and require the exact tag:
+Require the exact public alpha so that a pre-release update is always an
+explicit decision:
 
 ```bash
-composer config repositories.gatetrail vcs \
-    git@github.com:hangtuah/laravel-gatetrail.git
-composer require hangtuah/laravel-gatetrail:0.1.0-alpha.2 --prefer-source
+composer require hangtuah/laravel-gatetrail:0.1.0-alpha.3
 ```
 
 See [`docs/PRIVATE_COMPOSER_INSTALLATION.md`](docs/PRIVATE_COMPOSER_INSTALLATION.md)
-for SSH/deploy access and the staged activation path required by applications
-that already have authorization tables or behavior.
+only when installing from a private mirror. Applications that already have
+authorization tables or behavior should use the staged activation boundary
+described in that guide.
 
 After Composer installation, the normal fresh-application setup is:
 
