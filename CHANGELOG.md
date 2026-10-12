@@ -6,6 +6,9 @@ All notable changes to GateTrail will be documented in this file.
 
 ### Added
 
+- An exhaustive consumer configuration reference covering every supported key,
+  default, accepted value, validation boundary, failure mode and deployment
+  consideration.
 - A documented security baseline for the internal alpha: a maintained threat
   model, private vulnerability-reporting policy, explicit consumer-side
   mutation authorization guidance, SQL-binding regression coverage and a CI

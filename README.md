@@ -66,6 +66,10 @@ provisioning:
 php artisan vendor:publish --tag=gatetrail-config
 ```
 
+See the exhaustive [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) reference
+for every key, default, valid value, validation boundary and deployment
+consideration.
+
 That writes `config/gatetrail.php`. `gatetrail-config` is the only publish tag
 GateTrail registers.
 

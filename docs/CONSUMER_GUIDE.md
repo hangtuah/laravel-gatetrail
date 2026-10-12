@@ -111,6 +111,10 @@ The keys you are most likely to touch:
 | `audit.enabled` / `audit.strict` | `true` / `true` | Audit mode — see section 15 |
 | `sensitive_fields` | seven names | Attribute names redacted from audit snapshots |
 
+This table is intentionally the quick-start subset. The exhaustive
+[`CONFIGURATION.md`](CONFIGURATION.md) reference documents every supported key,
+type, default, valid value, failure mode and deployment consideration.
+
 ## 4. Database provisioning
 
 GateTrail owns seven tables. Two supported modes create them, and package

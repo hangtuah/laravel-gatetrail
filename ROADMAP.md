@@ -110,7 +110,7 @@ automated testing, security hardening, a pilot, and release validation.
 | 7 | Audit trail | 9 of 9, 100% | Complete |
 | 8 | Cache and performance | 1 of 1 applicable, 100% | Complete |
 | 9 | Security hardening | 10 of 10, 100% | Complete |
-| 10 | Developer experience and documentation | 7 of 13, approximately 54% | In progress |
+| 10 | Developer experience and documentation | 8 of 13, approximately 62% | In progress |
 | 11 | Internal pilot | 0% | Not started |
 | 12 | Existing-application integration | 0% | Not started |
 | 13 | Stable release | 0% | Not started |
@@ -1969,7 +1969,7 @@ understandable without reading package internals.
 
 - [x] Complete README.
 - [x] Installation guide.
-- [ ] Configuration reference.
+- [x] Configuration reference.
 - [x] Public manager API guide.
 - [x] Role and permission naming guide.
 - [x] Lifecycle and audit guide.
@@ -1990,16 +1990,16 @@ the resulting audit records.
 Readiness evidence is recorded in
 `docs/reviews/0004-phase-10-documentation-readiness.md`. The accepted baseline
 covers installation through first use and the implemented public surface. The
-remaining work is an exhaustive configuration reference, upgrade guidance,
-three operational commands and a retained minimal consumer application.
+remaining work is upgrade guidance, three operational commands and a retained
+minimal consumer application.
 
 ```text
-Applicable deliverables completed: 7
+Applicable deliverables completed: 8
 Applicable deliverables total:     13
-Progress:                           53.85%, reported as approximately 54%
+Progress:                           61.54%, reported as approximately 62%
 ```
 
-With Phase 10 at approximately 54%, overall equal-phase progress is
+With Phase 10 at approximately 62%, overall equal-phase progress remains
 **approximately 75%**.
 
 Status: **In progress**

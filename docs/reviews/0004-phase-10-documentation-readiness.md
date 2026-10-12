@@ -1,8 +1,8 @@
 # Phase 10 documentation readiness review
 
 - Review date: 2026-10-12
-- Scope: existing consumer-facing documentation only
-- Result: seven of thirteen Phase 10 deliverables accepted
+- Scope: accepted consumer-facing documentation baseline
+- Result: eight of thirteen Phase 10 deliverables accepted
 
 ## Accepted deliverables
 
@@ -10,6 +10,7 @@
 |---|---|---|
 | Complete README | `README.md` | States status, compatibility, installation, configuration, provisioning, subject setup, first mutation, first check, API boundary, limitations and security reporting |
 | Installation guide | `docs/CONSUMER_GUIDE.md` sections 2–5 | Covers Composer installation, auto-discovery, configuration publishing, both provisioning modes, migration order and model setup |
+| Configuration reference | `docs/CONFIGURATION.md` | Exhaustive key index with types, defaults, accepted values, validation timing, failure behavior and deployment checklist |
 | Public manager API guide | `docs/CONSUMER_GUIDE.md` sections 6–11 and `docs/PUBLIC_API.md` | Demonstrates all three manager contracts and keeps exact supported signatures in the reflection-verified manifest |
 | Role and permission naming guide | `docs/CONSUMER_GUIDE.md` sections 6–7 and `PACKAGE_SPEC.md` sections 5.7–5.8 | Explains guard-scoped uniqueness, exact comparison, immutability and recommended dotted permission names |
 | Lifecycle and audit guide | `docs/CONSUMER_GUIDE.md` sections 13–18 | Covers half-open assignment periods, revoke versus deactivate, actor types, audit modes, results, events and public exceptions |
@@ -20,7 +21,6 @@
 
 | Deliverable | Gap that remains |
 |---|---|
-| Configuration reference | The consumer guide lists common keys, but no exhaustive key-by-key reference with type, default, valid values and failure behavior exists |
 | Upgrade and migration guides | Release `0001` installation is documented, but there is no consumer upgrade policy or worked release-to-release procedure yet |
 | `gatetrail:install` | Designed but not implemented |
 | `gatetrail:doctor` | Designed but not implemented |
@@ -33,6 +33,6 @@ This review accepts documentation that describes the implemented package; it
 does not treat a proposed command as available, convert schema-only database
 evidence into runtime support, or claim that the internal pilot has begun.
 
-The next fast-track increment should create the exhaustive configuration
-reference. That gives consumers and the later diagnostics commands one stable
-description of every supported key before command UX is designed around it.
+The next fast-track increment should define upgrade and migration guidance for
+the pre-v1 release line. That establishes the safe change boundary before the
+installation and diagnostics commands automate any part of it.
